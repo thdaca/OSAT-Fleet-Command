@@ -183,7 +183,7 @@ class ExternalBenchmarkTests(unittest.TestCase):
         ]
         optional = (
             Path(__file__).resolve().parents[2]
-            / "post04_real_data_evaluation_assets"
+            / "post03_external_benchmark_assets"
             / "resources"
             / "requirements-benchmarks.txt"
         ).read_text(encoding="utf-8")

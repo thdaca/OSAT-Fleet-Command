@@ -4,6 +4,8 @@ import ast
 import importlib
 import pathlib
 import re
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -26,18 +28,12 @@ class SecurityPortabilityTests(unittest.TestCase):
             {"__init__.py", "pipeline.py"},
             {path.name for path in package_root.glob("*.py")},
         )
-        self.assertFalse(any((ROOT / "tests").glob("*.py")))
-        self.assertFalse(any((ROOT / "tools").glob("*.py")))
-        for generic in ("config", "examples", "knowledge"):
-            directory = ROOT / generic
+        self.assertTrue((ROOT / "STUDENT_GUIDE.md").is_file())
+        for obsolete_root in ("config", "docs", "examples", "knowledge", "tests", "tools"):
             self.assertFalse(
-                any(path.is_file() for path in directory.rglob("*") if "__pycache__" not in path.parts),
-                f"Stage-owned resources must not return to {generic}/",
+                (ROOT / obsolete_root).exists(),
+                f"The obsolete root {obsolete_root}/ must not be recreated",
             )
-        self.assertEqual(
-            {"STUDENT_GUIDE.md"},
-            {path.name for path in (ROOT / "docs").glob("*") if path.is_file()},
-        )
         old = {
             "artifacts.py", "baseline.py", "contracts.py", "data_quality.py",
             "evaluation.py", "features.py", "health.py", "historical.py",
@@ -92,6 +88,25 @@ class SecurityPortabilityTests(unittest.TestCase):
         for module in sorted(modules):
             with self.subTest(module=module):
                 importlib.import_module(module)
+
+    def test_cli_package_import_does_not_initialize_pyqt(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import sys; import osat_edge.ui.cli; "
+                "raise SystemExit(any(name.startswith('PyQt6') for name in sys.modules))",
+            ],
+            cwd=ROOT,
+            check=False,
+        )
+        self.assertEqual(0, result.returncode)
+
+        ui_init = ROOT / "osat_edge" / "ui" / "__init__.py"
+        tree = ast.parse(ui_init.read_text(encoding="utf-8"))
+        self.assertFalse(
+            any(isinstance(node, (ast.Import, ast.ImportFrom)) for node in ast.walk(tree))
+        )
 
     def test_bundled_resource_paths_are_absolute_and_cwd_independent(self) -> None:
         for path in (

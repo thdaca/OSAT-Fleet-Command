@@ -47,7 +47,7 @@ The optional local LLM integration is isolated beside Step 13 at
 Do not install it for the normal demo or tests.
 
 The optional external benchmark parser is declared in
-`osat_edge/roadmap/post_steps/post04_real_data_evaluation_assets/resources/requirements-benchmarks.txt`.
+`osat_edge/roadmap/post_steps/post03_external_benchmark_assets/resources/requirements-benchmarks.txt`.
 The core pinned dependency file is unchanged.
 
 ## Run
@@ -133,5 +133,5 @@ guidance. This is design guidance, not a claim of conformance or certification.
 .venv\Scripts\python -m compileall osat_edge
 ```
 
-Start with [docs/STUDENT_GUIDE.md](docs/STUDENT_GUIDE.md), then follow
+Start with [STUDENT_GUIDE.md](STUDENT_GUIDE.md), then follow
 [the roadmap](osat_edge/roadmap/README.md).

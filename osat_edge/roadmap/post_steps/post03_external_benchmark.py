@@ -185,7 +185,7 @@ def _load_records(source: str | io.BytesIO) -> np.ndarray:
         from scipy.io import loadmat
     except ImportError as exc:
         raise BenchmarkDependencyError(
-            "NASA benchmark requires the POST04 requirements-benchmarks.txt resource"
+            "NASA benchmark requires the POST03 requirements-benchmarks.txt resource"
         ) from exc
     try:
         value = loadmat(source, squeeze_me=True, struct_as_record=False)

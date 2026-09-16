@@ -20,7 +20,7 @@ the artifact under ignored `benchmarks/_external/` or another approved local
 directory.
 
 ```powershell
-.venv\Scripts\python -m pip install -r osat_edge\roadmap\post_steps\post04_real_data_evaluation_assets\resources\requirements-benchmarks.txt
+.venv\Scripts\python -m pip install -r osat_edge\roadmap\post_steps\post03_external_benchmark_assets\resources\requirements-benchmarks.txt
 .venv\Scripts\python -m osat_edge.ui.cli benchmark-nasa-milling --dataset benchmarks\_external\NASA_Milling.zip
 ```
 
