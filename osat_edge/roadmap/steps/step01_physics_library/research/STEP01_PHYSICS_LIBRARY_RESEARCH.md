@@ -8,6 +8,23 @@ Physical validation complete: **NO**
 Review type: structured engineering literature and model-credibility review;
 this is not represented as a formal systematic review.
 
+## Optional offline research tools
+
+Step01's optional unit, symbolic, and experiment-design audits are isolated
+from edge inference. Install them only when running Step01 research checks:
+
+```text
+python -m pip install -r osat_edge/roadmap/steps/step01_physics_library/resources/requirements-physics-research.txt
+```
+
+- Pint audits declared dimensions and repository unit spellings without
+  rewriting canonical telemetry units.
+- SymPy checks only explicitly coded symbolic identities; equation text is
+  never dynamically evaluated.
+- pydoe can translate explicitly supplied factor levels into deterministic
+  design matrices. A generated design is not physical evidence and does not
+  change any existing `ExperimentPlan` claim.
+
 ## A. Executive summary
 
 Step 01 is an auditable registry of engineering claims, not an equation
