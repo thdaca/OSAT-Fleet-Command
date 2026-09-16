@@ -2,8 +2,8 @@
   "schema_version": "1.0",
   "release_version": "0.2.4",
   "origin": "EXTERNAL_BENCHMARK",
-  "evaluator_sha256": "c56048c14b1eb9d75e2dd61dc23f5d93b506e7802f671f1b8c1869e7fc92c131",
-  "deterministic_comparison_report_sha256": "2678650e052d24b87423773169fd259ed2a5b7e8b9614b2be890c99797a8f196",
+  "evaluator_sha256": "f7e721359dae1abcc451b10d7601536b4ba005f82f20f858058f4bbd881f09cc",
+  "deterministic_comparison_report_sha256": "cea62fa455a1c9768b22015af66dcc4b0a0bdb0e6b46ed4a087db806c86646f9",
   "summary": {
     "attempted": 10,
     "executed": 2,
@@ -41,7 +41,15 @@
       "source_sha256": "3168a831e38c9388e73ba809661c282b560640ea269beba5d976340eb5e1ac16",
       "provenance": "pinned public Mendeley Data v2 dataset.zip SHA-256",
       "runs": 210,
-      "channel_coverage": {"mapped": 4, "total": 4, "fraction": 1.0},
+      "channel_coverage": {"mapped": 4, "total": 20, "fraction": 0.2},
+      "source_field_coverage": {
+        "exact_mapped_physical_signals": 4,
+        "physical_signal_fields": 20,
+        "inspected_source_fields": 33,
+        "metadata_or_label_fields_excluded": 4,
+        "controller_configuration_fields_excluded": 9,
+        "fraction": 0.2
+      },
       "mappings": [
         ["Film Tension #1 (kg)", "film_tension_1", "kg"],
         ["Film Tension #2 (kg)", "film_tension_2", "kg"],

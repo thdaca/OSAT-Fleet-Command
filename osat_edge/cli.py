@@ -55,6 +55,20 @@ def parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Write .artifacts/real_data/comparison.json explicitly",
     )
+    verify = commands.add_parser(
+        "verify-real-evidence",
+        help="Regenerate and verify committed evidence from local external data",
+    )
+    verify.add_argument(
+        "--root",
+        default="benchmarks/_external",
+        help="Ignored local root containing dataset-ID directories",
+    )
+    verify.add_argument(
+        "--committed-result",
+        default=None,
+        help="Optional committed evidence JSON path",
+    )
     commands.add_parser("ui", help="Launch the PyQt6 research dashboard")
     return value
 
@@ -122,6 +136,22 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"REAL-DATA EVALUATION ERROR: {exc}", file=sys.stderr)
             return 2
         print(json.dumps(real_data_summary(result), indent=2, sort_keys=True))
+        return 0
+    if args.command == "verify-real-evidence":
+        from .real_data import (
+            RealDataEvaluationError,
+            verify_committed_real_data_evidence,
+        )
+
+        try:
+            result = verify_committed_real_data_evidence(
+                args.root,
+                args.committed_result,
+            )
+        except RealDataEvaluationError as exc:
+            print(f"REAL-DATA EVIDENCE VERIFICATION ERROR: {exc}", file=sys.stderr)
+            return 2
+        print(json.dumps(result, indent=2, sort_keys=True))
         return 0
     if args.command == "ui":
         from .ui import main as ui_main

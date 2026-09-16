@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import csv
 import datetime as dt
+from dataclasses import dataclass
+from enum import Enum
 import hashlib
 import io
 import json
@@ -157,6 +159,111 @@ FORINFPRO_OFFICIAL_MD5 = {
     "cycle_001_pt.csv": "40d8511c11e8e0575dc3930ddd258c19",
     "cycle_001_us_rms.csv": "c767196cfd1b6dec0d09ed0a2dba2551",
 }
+
+R2R_METADATA_LABEL_FIELDS = frozenset({"Date", "Model", "Trigger", "Film kind"})
+R2R_CONTROLLER_CONFIGURATION_PREFIXES = (
+    "OutFeeder-Control:",
+    "ReWinder-Control:",
+)
+
+
+class RealOsatLabelType(str, Enum):
+    """Label semantics that a future de-identified OSAT replay may declare."""
+
+    UNLABELED = "UNLABELED"
+    MACHINE_ALARM = "MACHINE_ALARM"
+    PROCESS_QUALITY = "PROCESS_QUALITY"
+    MES_SCRAP = "MES_SCRAP"
+    MAINTENANCE_EVENT = "MAINTENANCE_EVENT"
+    ADJUDICATED_HEALTHY_INTERVAL = "ADJUDICATED_HEALTHY_INTERVAL"
+    ADJUDICATED_FAULT = "ADJUDICATED_FAULT"
+
+
+@dataclass(frozen=True)
+class RealOsatChannelMapping:
+    source_name: str
+    canonical_channel: str
+    unit: str
+    acquisition_semantics: str
+
+    def __post_init__(self) -> None:
+        if not all(
+            value.strip()
+            for value in (
+                self.source_name,
+                self.canonical_channel,
+                self.unit,
+                self.acquisition_semantics,
+            )
+        ):
+            raise ValueError("REAL_OSAT channel mappings require exact names, units, and semantics")
+
+
+@dataclass(frozen=True)
+class RealOsatProvenance:
+    """Strict evidence contract required before declaring retrospective REAL_OSAT bytes."""
+
+    dataset_citation: str
+    source_sha256: str
+    osat_provenance: str
+    machine_pseudonym: str
+    equipment: str
+    canonical_station_id: str | None
+    channel_mappings: tuple[RealOsatChannelMapping, ...]
+    boundary_semantics: str
+    provenance_statement: str
+    label_types: tuple[RealOsatLabelType, ...]
+    evidence_class: str
+
+    def __post_init__(self) -> None:
+        required = (
+            self.dataset_citation,
+            self.osat_provenance,
+            self.machine_pseudonym,
+            self.equipment,
+            self.boundary_semantics,
+            self.provenance_statement,
+        )
+        if not all(value.strip() for value in required):
+            raise ValueError("REAL_OSAT provenance fields must be explicit and nonempty")
+        if not re.fullmatch(r"[0-9a-f]{64}", self.source_sha256):
+            raise ValueError("REAL_OSAT source SHA-256 must be 64 lowercase hexadecimal characters")
+        if self.canonical_station_id is not None and not self.canonical_station_id.strip():
+            raise ValueError("REAL_OSAT canonical station ID must be nonempty when supplied")
+        if not self.channel_mappings or any(
+            not isinstance(item, RealOsatChannelMapping) for item in self.channel_mappings
+        ):
+            raise ValueError("REAL_OSAT provenance requires at least one exact channel mapping")
+        if len({item.source_name for item in self.channel_mappings}) != len(self.channel_mappings):
+            raise ValueError("REAL_OSAT source channel names must be unique")
+        if not self.label_types or any(
+            not isinstance(item, RealOsatLabelType) for item in self.label_types
+        ):
+            raise ValueError("REAL_OSAT label semantics must be declared, including UNLABELED")
+        if len(set(self.label_types)) != len(self.label_types):
+            raise ValueError("REAL_OSAT label semantics must be unique")
+        if self.evidence_class not in {"A", "B", "C", "D"}:
+            raise ValueError("REAL_OSAT evidence class must be A, B, C, or D")
+
+    @property
+    def origin(self) -> DataOrigin:
+        return DataOrigin.REAL_OSAT
+
+    @property
+    def supports_confirmed_fault(self) -> bool:
+        return RealOsatLabelType.ADJUDICATED_FAULT in self.label_types
+
+    @property
+    def supports_confirmed_healthy(self) -> bool:
+        return RealOsatLabelType.ADJUDICATED_HEALTHY_INTERVAL in self.label_types
+
+
+def declare_real_osat_origin(contract: RealOsatProvenance | None) -> DataOrigin:
+    """Fail closed unless verified OSAT bytes carry the complete research contract."""
+
+    if contract is None:
+        raise RealDataEvaluationError("REAL_OSAT cannot be asserted without a provenance contract")
+    return contract.origin
 
 
 class RealDataEvaluationError(ValueError):
@@ -905,6 +1012,65 @@ def _xlsx_first_row(content: bytes) -> tuple[str, ...]:
     return tuple(values)
 
 
+def _classify_r2r_source_fields(
+    fields: Sequence[str],
+) -> dict[str, tuple[str, ...]]:
+    """Classify the pinned v2 sensor schema without counting metadata as signals.
+
+    Date/model/trigger/material labels are metadata.  Named controller tuning
+    fields are configuration.  Every other field in the checksum-pinned sensor
+    schema is a physical-valued source field, whether or not Fleet Command has
+    an exact canonical mapping for it.
+    """
+
+    classified: dict[str, list[str]] = {
+        "physical_signal": [],
+        "metadata_or_label": [],
+        "controller_configuration": [],
+    }
+    for field in fields:
+        if field in R2R_METADATA_LABEL_FIELDS:
+            classified["metadata_or_label"].append(field)
+        elif field.startswith(R2R_CONTROLLER_CONFIGURATION_PREFIXES):
+            classified["controller_configuration"].append(field)
+        else:
+            classified["physical_signal"].append(field)
+    return {name: tuple(values) for name, values in classified.items()}
+
+
+def _r2r_source_field_coverage(
+    fields: Sequence[str], mapped_sources: set[str]
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    classified = _classify_r2r_source_fields(fields)
+    physical_fields = classified["physical_signal"]
+    if not mapped_sources.issubset(physical_fields):
+        raise RealDataEvaluationError("R2R mapped fields must classify as physical source signals")
+    mapped_count = len(mapped_sources)
+    physical_count = len(physical_fields)
+    if physical_count == 0:
+        raise RealDataEvaluationError("R2R source schema has no physical signal fields")
+    fraction = mapped_count / physical_count
+    return (
+        {"mapped": mapped_count, "total": physical_count, "fraction": fraction},
+        {
+            "exact_mapped_physical_signals": mapped_count,
+            "physical_signal_fields": physical_count,
+            "inspected_source_fields": len(fields),
+            "metadata_or_label_fields_excluded": len(classified["metadata_or_label"]),
+            "controller_configuration_fields_excluded": len(
+                classified["controller_configuration"]
+            ),
+            "fraction": fraction,
+            "classification_rule": (
+                "For the checksum-pinned v2 sensor schema, Date/Model/Trigger/Film kind "
+                "are metadata or labels; OutFeeder-Control:/ReWinder-Control: fields are "
+                "controller configuration; all remaining physical-valued fields form "
+                "the source-signal denominator."
+            ),
+        },
+    )
+
+
 def _evaluate_r2r(path: Path) -> dict[str, Any]:
     started = time.perf_counter()
     source_hash, _content_hash, members = _zip_members(path)
@@ -944,6 +1110,10 @@ def _evaluate_r2r(path: Path) -> dict[str, Any]:
         raise RealDataEvaluationError(
             f"R2R exact physical source fields are missing: {', '.join(missing)}"
         )
+    mapped_sources = {source for source, _target, _unit in mapped}
+    channel_coverage, source_field_coverage = _r2r_source_field_coverage(
+        sensor_header, mapped_sources
+    )
     report = _base_report(
         "r2r-web-tension",
         source_hash,
@@ -963,12 +1133,8 @@ def _evaluate_r2r(path: Path) -> dict[str, Any]:
                 }
                 for source, target, unit in mapped
             ],
-            "channel_coverage": {"mapped": 4, "total": 4, "fraction": 1.0},
-            "source_field_coverage": {
-                "mapped_physical_signals": 4,
-                "declared_named_fields": len(sensor_header),
-                "fraction": 4.0 / len(sensor_header),
-            },
+            "channel_coverage": channel_coverage,
+            "source_field_coverage": source_field_coverage,
             "full_station_representation": False,
             "runs": len(sensor_items),
             "samples": None,
@@ -979,6 +1145,7 @@ def _evaluate_r2r(path: Path) -> dict[str, Any]:
             "runtime": {"elapsed_seconds": time.perf_counter() - started},
             "limitations": [
                 "Evidence class C roll-to-roll mechanism analog; not semiconductor or OSAT validation.",
+                "Four of 20 classified physical-valued source fields have exact Fleet Command mappings; selected-field coverage is not reported as 100% channel coverage.",
                 "The four mapped fields have explicit physical semantics and units, but the dataset provides process-setting experiments rather than equipment-health labels.",
                 "No confirmed-healthy exact-machine history or preregistered health split exists, so no Step 07/09/10 result is produced.",
                 "The workbooks are schema-inspected only; controller settings, material geometry, and derived aggregate columns are not PHM channels.",
@@ -1220,6 +1387,7 @@ def real_data_summary(report: Mapping[str, Any]) -> dict[str, Any]:
                     "provenance_verified": item["provenance_verified"],
                     "source_sha256": item["source_sha256"],
                     "channel_coverage": item["channel_coverage"],
+                    "source_field_coverage": item.get("source_field_coverage"),
                     "limitations": item["limitations"],
                 }
                 for item in report["datasets"]
@@ -1242,6 +1410,7 @@ def real_data_summary(report: Mapping[str, Any]) -> dict[str, Any]:
         "provenance_method",
         "mapped_channels",
         "channel_coverage",
+        "source_field_coverage",
         "full_station_representation",
         "split",
         "samples",
@@ -1278,6 +1447,81 @@ def deterministic_scientific_report(value: Any) -> Any:
     return value
 
 
+def deterministic_scientific_bytes(report: Mapping[str, Any]) -> bytes:
+    """Serialize scientific results without machine-dependent runtime fields."""
+
+    return (
+        json.dumps(
+            deterministic_scientific_report(report),
+            indent=2,
+            sort_keys=True,
+            ensure_ascii=False,
+        )
+        + "\n"
+    ).encode("utf-8")
+
+
+def deterministic_scientific_sha256(report: Mapping[str, Any]) -> str:
+    return hashlib.sha256(deterministic_scientific_bytes(report)).hexdigest()
+
+
+def verify_committed_real_data_evidence(
+    external_root: str | Path,
+    committed_result: str | Path | None = None,
+) -> dict[str, Any]:
+    """Regenerate locally available evidence and fail clearly on scientific drift.
+
+    This path performs no download.  The caller must provide the ignored local
+    dataset root used for the committed evidence record.
+    """
+
+    expected_path = Path(committed_result) if committed_result else (
+        Path(__file__).resolve().parents[1]
+        / "benchmarks"
+        / "results"
+        / f"{VERSION}-real-data.json"
+    )
+    try:
+        expected = json.loads(expected_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RealDataEvaluationError(
+            f"Committed real-data evidence is unavailable or invalid: {expected_path.name}"
+        ) from exc
+    evaluator_hash = _sha256_file(Path(__file__).resolve())
+    regenerated = evaluate_all_real_data(external_root)
+    report_hash = deterministic_scientific_sha256(regenerated)
+    drift: list[str] = []
+    if expected.get("release_version") != VERSION:
+        drift.append("release version")
+    if expected.get("evaluator_sha256") != evaluator_hash:
+        drift.append("evaluator SHA-256")
+    if expected.get("deterministic_comparison_report_sha256") != report_hash:
+        drift.append("deterministic comparison report SHA-256")
+    if expected.get("summary") != regenerated.get("summary"):
+        drift.append("summary")
+    regenerated_by_id = {item["dataset"]: item for item in regenerated["datasets"]}
+    for item in expected.get("results", []):
+        current = regenerated_by_id.get(item.get("dataset"))
+        if current is None:
+            drift.append(f"missing dataset {item.get('dataset')}")
+            continue
+        for field in ("status", "source_sha256", "channel_coverage"):
+            if field in item and item[field] != current.get(field):
+                drift.append(f"{item['dataset']} {field}")
+    if drift:
+        raise RealDataEvaluationError(
+            "COMMITTED REAL-DATA EVIDENCE DRIFT: " + ", ".join(drift)
+        )
+    return {
+        "status": "PASS",
+        "release_version": VERSION,
+        "evaluator_sha256": evaluator_hash,
+        "deterministic_comparison_report_sha256": report_hash,
+        "datasets_checked": len(expected.get("results", [])),
+        "operational_tickets": regenerated["summary"]["operational_tickets"],
+    }
+
+
 def write_real_data_report(
     report: Mapping[str, Any],
     output_directory: str | Path = Path(".artifacts") / "real_data",
@@ -1287,14 +1531,5 @@ def write_real_data_report(
     root = Path(output_directory)
     root.mkdir(parents=True, exist_ok=True)
     path = root / "comparison.json"
-    path.write_text(
-        json.dumps(
-            deterministic_scientific_report(report),
-            indent=2,
-            sort_keys=True,
-            ensure_ascii=False,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
+    path.write_bytes(deterministic_scientific_bytes(report))
     return path

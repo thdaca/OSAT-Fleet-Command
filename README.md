@@ -84,6 +84,9 @@ printed by the CLI but omitted from the deterministic report written under
 `.artifacts/real_data/` only with `--report`. See
 [docs/REAL_DATA_CATALOG.md](docs/REAL_DATA_CATALOG.md) for source provenance,
 exact mappings, attempted datasets, supported metrics, and limitations.
+When the official datasets are already present locally, `verify-real-evidence`
+re-runs them without network access and checks the deterministic comparison and
+evaluator hashes against `benchmarks/results/0.2.4-real-data.json`.
 
 ## HMI screens
 
