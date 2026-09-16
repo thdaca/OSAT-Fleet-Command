@@ -38,13 +38,11 @@ def build_fault_evidence(assessment: HealthAssessment) -> FaultEvidence | None:
         key=lambda item: (kind_priority.get(item.kind, 2), -item.score),
     )
     for deviation in ranked[:6]:
-            if deviation.score <= 0:
-                continue
-            direction = "above" if deviation.z_score >= 0 else "below"
-            descriptions.append(
-                f"{deviation.feature} in {deviation.subsystem} deviates "
-                f"{deviation.z_score:+.2f} robust scales {direction} confirmed healthy behavior"
-            )
+        direction = "above" if deviation.z_score >= 0 else "below"
+        descriptions.append(
+            f"{deviation.feature} in {deviation.subsystem} deviates "
+            f"{deviation.z_score:+.2f} robust scales {direction} confirmed healthy behavior"
+        )
     family_note = None
     if assessment.family_risk_score is not None and not assessment.suspected_subsystems:
         family_note = (

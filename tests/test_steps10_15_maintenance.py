@@ -7,6 +7,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from osat_edge.common import EquipmentState, HealthState, RuntimeMode
+from osat_edge.roadmap.step07_machine_model import FeatureDeviation
 from osat_edge.roadmap.step09_health_risk import HealthAssessment, SubsystemHealth
 from osat_edge.roadmap.step10_fault_evidence import FaultEvidence, build_fault_evidence
 from osat_edge.roadmap.step11a_maintenance_db import MaintenanceRepository
@@ -44,6 +45,29 @@ class MaintenanceTests(unittest.TestCase):
         self.assertEqual(("spindle",), evidence.suspected_subsystems)
         self.assertIn("confirmed healthy", evidence.evidence_descriptions[0])
 
+    def test_fault_evidence_is_localized_bounded_and_signed(self) -> None:
+        deviations = (
+            FeatureDeviation("spindle_current.median", "spindle", "location", 9.0, 5.0, 4.0, 0.9),
+            FeatureDeviation("spindle.residual", "spindle", "physics", -0.2, 0.0, -3.0, 0.8),
+            FeatureDeviation("coolant_pressure.median", "cooling", "location", 99.0, 1.0, 20.0, 0.99),
+        )
+        assessment = HealthAssessment(
+            identity(), NOW, RuntimeMode.SIMULATION, EquipmentState.PROCESSING,
+            HealthState.CRITICAL, True, True,
+            (
+                SubsystemHealth("spindle", HealthState.CRITICAL, 0.9, deviations[:2]),
+                SubsystemHealth("cooling", HealthState.NORMAL, 0.1, deviations[2:]),
+            ),
+            None, None, True,
+        )
+        evidence = build_fault_evidence(assessment)
+        self.assertIsNotNone(evidence)
+        descriptions = evidence.evidence_descriptions
+        self.assertLessEqual(len(descriptions), 6)
+        self.assertTrue(all("spindle" in item for item in descriptions))
+        self.assertTrue(any("+" in item and "above" in item for item in descriptions))
+        self.assertTrue(any("-" in item and "below" in item for item in descriptions))
+
     def test_bundled_manuals_are_research_guidance(self) -> None:
         path = Path(__file__).resolve().parents[1] / "knowledge" / "maintenance_playbooks.json"
         chunks = load_oem_manuals(path)
@@ -57,6 +81,12 @@ class MaintenanceTests(unittest.TestCase):
         self.assertIn("wafer-saw-spindle", ids)
         self.assertIn("fleet-observe-only", ids)
         self.assertNotIn("wire-bond-head", ids)
+
+    def test_rag_zero_limit_and_empty_vocabulary_are_boring(self) -> None:
+        evidence = critical_evidence()
+        self.assertEqual((), retrieve_rag_context(evidence, ("prior" ,), (), limit=0))
+        result = retrieve_rag_context(evidence, ("!!!", "..."), (), limit=1)
+        self.assertEqual((RetrievedPassage("maintenance:0", "!!!"),), result)
 
     def test_absent_llm_uses_deterministic_fallback(self) -> None:
         evidence = critical_evidence()
@@ -72,6 +102,41 @@ class MaintenanceTests(unittest.TestCase):
         self.assertEqual("deterministic-fallback", bad.backend)
         self.assertEqual("local-llm", good.backend)
 
+    def test_control_only_and_bidi_control_prose_fall_back(self) -> None:
+        evidence = critical_evidence()
+        for attack in ("\u0001\u0002", "\u202e\u2066\u2069"):
+            raw = json.dumps(
+                {
+                    "summary": attack,
+                    "likely_issue": "Issue",
+                    "recommended_checks": ["Check"],
+                }
+            )
+            with self.subTest(attack=repr(attack)):
+                self.assertEqual(
+                    "deterministic-fallback",
+                    validate_llm_json(raw, evidence, ()).backend,
+                )
+
+    def test_international_unicode_and_joiners_survive_sanitization(self) -> None:
+        evidence = critical_evidence()
+        summary = "ملخص فحص المحور"
+        issue = "می‌پیوندد"  # Contains U+200C ZERO WIDTH NON-JOINER.
+        check = "Inspect family 👩‍🔧 assembly"  # Emoji sequence contains U+200D.
+        raw = json.dumps(
+            {
+                "summary": summary,
+                "likely_issue": issue,
+                "recommended_checks": [check],
+            },
+            ensure_ascii=False,
+        )
+        result = validate_llm_json(raw, evidence, ())
+        self.assertEqual("local-llm", result.backend)
+        self.assertEqual(summary, result.summary)
+        self.assertIn("\u200c", result.likely_issue)
+        self.assertIn("\u200d", result.recommended_checks[0])
+
     def test_ticket_is_deduplicated_and_escalated(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             repository = MaintenanceRepository(Path(directory) / "tickets.sqlite")
@@ -82,6 +147,25 @@ class MaintenanceTests(unittest.TestCase):
             self.assertEqual(first.ticket_id, second.ticket_id)
             self.assertEqual("URGENT", second.priority)
             self.assertEqual(1, len(list_tickets(repository)))
+
+    def test_unresolved_ticket_never_automatically_downgrades(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repository = MaintenanceRepository(Path(directory) / "tickets.sqlite")
+            critical = critical_evidence()
+            first = create_or_update_ticket(
+                repository, critical, deterministic_fallback(critical, ())
+            )
+            degraded = replace(
+                critical,
+                timestamp=NOW.replace(second=10),
+                health_state=HealthState.DEGRADED,
+            )
+            second = create_or_update_ticket(
+                repository, degraded, deterministic_fallback(degraded, ())
+            )
+            self.assertEqual(first.ticket_id, second.ticket_id)
+            self.assertEqual("CRITICAL", second.health_state)
+            self.assertEqual("URGENT", second.priority)
 
     def test_live_or_replay_evidence_never_creates_actionable_ticket(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

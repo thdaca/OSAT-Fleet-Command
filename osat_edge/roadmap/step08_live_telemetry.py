@@ -327,7 +327,10 @@ def assess_telemetry(
         else:
             issues.append(f"{spec.name}: {problem}")
             required_failure = required_failure or spec.required
-    context = store.latest_context(current)
+    # Inspect the newest received context, including a future-dated one. Using
+    # latest_context(current) here would silently relabel a future record as
+    # merely missing (or fall back to an older record).
+    context = store.latest_context()
     context_observable = context is not None
     if context is None:
         issues.append("operating context: missing")

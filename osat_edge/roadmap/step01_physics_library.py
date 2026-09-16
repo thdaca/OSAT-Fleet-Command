@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Mapping
+from typing import Callable, Mapping, Sequence
 
 import numpy as np
 from sklearn.linear_model import HuberRegressor
@@ -236,6 +236,19 @@ class ValidationEvidence:
     independently_verified: bool
     description: str
 
+    def __post_init__(self) -> None:
+        maturity = _MATURITY_ORDER[self.maturity]
+        machines = {machine_id.strip() for machine_id in self.machine_ids if machine_id.strip()}
+        if maturity >= _MATURITY_ORDER[EvidenceMaturity.SINGLE_MACHINE_VALIDATED] and not machines:
+            raise ValueError("SINGLE_MACHINE_VALIDATED evidence requires at least one machine ID")
+        if maturity >= _MATURITY_ORDER[EvidenceMaturity.MULTI_MACHINE_VALIDATED] and len(machines) < 2:
+            raise ValueError("MULTI_MACHINE_VALIDATED evidence requires at least two distinct machine IDs")
+        if maturity >= _MATURITY_ORDER[EvidenceMaturity.BENCH_VALIDATED]:
+            if not self.artifact_reference.strip():
+                raise ValueError("Physical-validation evidence requires an artifact/reference identifier")
+            if not self.independently_verified:
+                raise ValueError("Physical-validation evidence requires independent verification")
+
 
 @dataclass(frozen=True)
 class ApplicabilityEnvelope:
@@ -354,6 +367,15 @@ class PhysicsRelation:
     def __post_init__(self) -> None:
         if self.status is not RelationStatus.RUNTIME_RESEARCH:
             raise ValueError("PhysicsRelation must have RUNTIME_RESEARCH status")
+        if _MATURITY_ORDER[self.evidence_maturity] >= _MATURITY_ORDER[EvidenceMaturity.MEASUREMENT_SEMANTICS_VERIFIED]:
+            if any(
+                requirement.current_schema_status
+                is not MeasurementStatus.AVAILABLE_AND_SEMANTICALLY_SUPPORTED
+                for requirement in self.measurement_requirements
+            ):
+                raise ValueError(
+                    "MEASUREMENT_SEMANTICS_VERIFIED requires semantically supported required measurements"
+                )
         if _MATURITY_ORDER[self.evidence_maturity] >= _MATURITY_ORDER[EvidenceMaturity.BENCH_VALIDATED]:
             matching = [
                 evidence for evidence in self.validation_evidence
@@ -641,14 +663,18 @@ def _raw_spindle_residuals(
             (np.ones_like(expected), np.abs(expected), np.full_like(expected, parameters[RESIDUAL_SCALE]))
         )
     finite = np.isfinite(residual) & (np.abs(residual) <= numerical_limit)
-    return residual[finite], speed[inside][finite], ~inside
+    # Retain one diagnostic slot for every in-domain candidate. Runtime callers
+    # filter these sentinels, while offline diagnostics can report rejection.
+    diagnostic_residual = np.where(finite, residual, np.nan)
+    return diagnostic_residual, speed[inside], ~inside
 
 
 def _current_speed_residual(signals: AlignedSignals, parameters: Mapping[str, float]) -> Mapping[str, float]:
     residual, _, _ = _raw_spindle_residuals(signals, parameters)
-    if len(residual) < MINIMUM_RUNTIME_SAMPLES:
+    finite = residual[np.isfinite(residual)]
+    if len(finite) < MINIMUM_RUNTIME_SAMPLES:
         return {}
-    return {"spindle.electromechanical_load_residual_a.median": float(np.median(residual))}
+    return {"spindle.electromechanical_load_residual_a.median": float(np.median(finite))}
 
 
 def contact_resistance_mohm_for_research(voltage_drop_mv: float, current_a: float) -> float:
@@ -1167,26 +1193,55 @@ def validate_relation_calibration(
     relation_id: str,
     calibration_signals: AlignedSignals,
     validation_signals: AlignedSignals,
+    *,
+    calibration_run_ids: Sequence[str] | None = None,
+    validation_run_ids: Sequence[str] | None = None,
 ) -> ValidationDiagnostics:
-    """Fit calibration data and report diagnostics on separately supplied data."""
+    """Fit calibration data and assess declared held-out run provenance."""
 
     report = calibrate_relation(relation_id, calibration_signals)
     parameters = dict(report.parameters)
     relation = next(item for item in PHYSICS_RELATIONS if item.relation_id == relation_id)
     shared = calibration_signals is validation_signals
+    identical = True
     for channel in relation.required_channels:
         if channel in calibration_signals and channel in validation_signals:
-            shared = shared or bool(np.shares_memory(np.asarray(calibration_signals[channel]), np.asarray(validation_signals[channel])))
+            calibration_values = np.asarray(calibration_signals[channel])
+            validation_values = np.asarray(validation_signals[channel])
+            shared = shared or bool(np.shares_memory(calibration_values, validation_values))
+            identical = identical and bool(
+                np.array_equal(calibration_values, validation_values, equal_nan=True)
+            )
+        else:
+            identical = False
+    calibration_runs = {
+        run_id.strip() for run_id in calibration_run_ids or () if run_id.strip()
+    }
+    validation_runs = {
+        run_id.strip() for run_id in validation_run_ids or () if run_id.strip()
+    }
+    provenance_supplied = bool(calibration_runs) and bool(validation_runs)
+    disjoint_runs = provenance_supplied and calibration_runs.isdisjoint(validation_runs)
+    independent = not shared and not identical and disjoint_runs
     residual, speed, outside = _raw_spindle_residuals(validation_signals, parameters)
     diagnostics = residual_diagnostics(residual, speed, outside)
     blockers = list(report.blockers)
     if shared:
         blockers.append("Validation data share identity or memory with calibration data.")
+    elif identical:
+        blockers.append("Validation data exactly copy the calibration observations.")
+    if not provenance_supplied:
+        blockers.append("Independent validation run provenance was not supplied.")
+    elif not disjoint_runs:
+        blockers.append("Calibration and validation run IDs must be disjoint.")
     if diagnostics.sample_count < MINIMUM_RUNTIME_SAMPLES:
         blockers.append("Too few held-out observations fall inside the applicability envelope.")
+    if independent:
+        note = "Distinct observations with explicit nonempty disjoint run IDs were supplied."
+    else:
+        note = "Independent experimental validation was not established."
     return ValidationDiagnostics(
-        relation_id, report, diagnostics, not shared,
-        "Separate objects with non-shared array memory were supplied." if not shared else "Shared or non-independent data were detected; this is not independent validation.",
+        relation_id, report, diagnostics, independent, note,
         tuple(blockers),
     )
 
@@ -1219,7 +1274,13 @@ def physics_readiness_report() -> tuple[PhysicsReadinessEntry, ...]:
             relation.status, relation.evidence_maturity,
             tuple((item.channel, item.status) for item in relation.measurement_requirements),
             "Exact-machine offline fit available" if relation.fit is not None else "No calibration fit",
-            bool(relation.validation_evidence), relation.major_blocker, relation.next_experiment,
+            any(
+                _MATURITY_ORDER[evidence.maturity] >= _MATURITY_ORDER[EvidenceMaturity.BENCH_VALIDATED]
+                and evidence.independently_verified
+                and bool(evidence.artifact_reference.strip())
+                for evidence in relation.validation_evidence
+            ),
+            relation.major_blocker, relation.next_experiment,
         ))
     for candidate in RESEARCH_CANDIDATES:
         entries.append(PhysicsReadinessEntry(

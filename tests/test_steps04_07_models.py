@@ -4,15 +4,73 @@ import datetime as dt
 import unittest
 from dataclasses import replace
 
-from osat_edge.common import DataOrigin, RuntimeMode
+import numpy as np
+
+from osat_edge.common import DataOrigin, EquipmentState, RuntimeMode
 from osat_edge.roadmap.step04_family_data import FamilyDataset, FamilySample
-from osat_edge.roadmap.step05_family_model import fit_family_model, score_family_model
+from osat_edge.roadmap.step05_family_model import FamilyModel, fit_family_model, score_family_model
 from osat_edge.roadmap.step06_machine_history import HealthyInterval, MachineHistory
-from osat_edge.roadmap.step07_machine_model import evaluate_machine_model, fit_machine_model
+from osat_edge.roadmap.step07_machine_model import ContextModel, evaluate_machine_model, fit_machine_model
 from support import NOW, family_dataset, feature_set, identity
 
 
 class ModelTests(unittest.TestCase):
+    @staticmethod
+    def family_model(**changes) -> FamilyModel:
+        values = {
+            "family": "wafer_saw",
+            "origin": DataOrigin.REAL_OSAT,
+            "feature_names": ("current", "vibration"),
+            "scaler_center": np.asarray([0.0, 0.0]),
+            "scaler_scale": np.asarray([1.0, 1.0]),
+            "coefficients": np.asarray([0.5, -0.25]),
+            "intercept": 0.0,
+        }
+        values.update(changes)
+        return FamilyModel(**values)
+
+    @staticmethod
+    def context_model(**changes) -> ContextModel:
+        values = {
+            "equipment_state": EquipmentState.PROCESSING,
+            "feature_names": ("current",),
+            "subsystems": ("spindle",),
+            "kinds": ("location",),
+            "center": np.asarray([1.0]),
+            "scale": np.asarray([1.0]),
+        }
+        values.update(changes)
+        return ContextModel(**values)
+
+    def test_family_sample_identifiers_must_be_nonempty(self) -> None:
+        data = family_dataset()
+        for changes in (
+            {"sample_id": ""},
+            {"machine_id": ""},
+            {"future_event_id": ""},
+        ):
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                replace(data.samples[0], **changes)
+
+    def test_family_dataset_rejects_duplicate_sample_and_event_keys(self) -> None:
+        data = family_dataset()
+        duplicate_sample = replace(data.samples[1], sample_id=data.samples[0].sample_id)
+        with self.assertRaisesRegex(ValueError, "globally unique"):
+            replace(data, samples=(data.samples[0], duplicate_sample, *data.samples[2:]))
+        duplicate_event = replace(data.events[0])
+        with self.assertRaisesRegex(ValueError, "machine/event"):
+            replace(data, events=data.events + (duplicate_event,))
+
+    def test_family_schema_ignores_feature_dict_insertion_order(self) -> None:
+        data = family_dataset()
+        last = data.samples[-1]
+        reordered = replace(
+            last,
+            features={"vibration": last.features["vibration"], "current": last.features["current"]},
+        )
+        accepted = replace(data, samples=data.samples[:-1] + (reordered,))
+        self.assertEqual((len(data.samples), 2), accepted.training_arrays()[0].shape)
+
     def test_family_samples_require_one_schema(self) -> None:
         data = family_dataset()
         bad = replace(data.samples[-1], features={"different": 1.0})
@@ -93,6 +151,36 @@ class ModelTests(unittest.TestCase):
         for mode in (RuntimeMode.REAL_REPLAY, RuntimeMode.LIVE_EQUIPMENT):
             with self.subTest(mode=mode), self.assertRaisesRegex(ValueError, "synthetic"):
                 score_family_model(model, active_family="wafer_saw", features={"current": 1, "vibration": 1}, runtime_mode=mode)
+
+    def test_family_model_rejects_nonpositive_scale_and_nonfinite_coefficients(self) -> None:
+        for scale in (np.asarray([1.0, 0.0]), np.asarray([1.0, -1.0])):
+            with self.subTest(scale=scale), self.assertRaisesRegex(ValueError, "positive"):
+                self.family_model(scaler_scale=scale)
+        with self.assertRaisesRegex(ValueError, "finite"):
+            self.family_model(coefficients=np.asarray([np.nan, 1.0]))
+
+    def test_family_model_rejects_nonfinite_scoring_input(self) -> None:
+        with self.assertRaisesRegex(ValueError, "finite"):
+            score_family_model(
+                self.family_model(),
+                active_family="wafer_saw",
+                features={"current": np.inf, "vibration": 1.0},
+                runtime_mode=RuntimeMode.LIVE_EQUIPMENT,
+            )
+
+    def test_family_model_arrays_are_defensive_and_immutable(self) -> None:
+        coefficients = np.asarray([0.5, -0.25])
+        model = self.family_model(coefficients=coefficients)
+        coefficients[0] = 9.0
+        self.assertEqual(0.5, model.coefficients[0])
+        with self.assertRaises(ValueError):
+            model.coefficients[0] = 1.0
+
+    def test_context_model_rejects_zero_scale_and_nonfinite_center(self) -> None:
+        with self.assertRaisesRegex(ValueError, "positive"):
+            self.context_model(scale=np.asarray([0.0]))
+        with self.assertRaisesRegex(ValueError, "finite"):
+            self.context_model(center=np.asarray([np.inf]))
 
     def test_healthy_window_must_be_fully_contained(self) -> None:
         machine = identity()

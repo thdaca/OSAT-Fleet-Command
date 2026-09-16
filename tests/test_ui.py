@@ -4,12 +4,15 @@ import os
 import unittest
 from dataclasses import replace
 
+import numpy as np
+
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PyQt6.QtWidgets import QApplication
 
-from osat_edge.common import HealthState, VERSION
+from osat_edge.common import DataOrigin, HealthState, VERSION
 from osat_edge.machines import STATIONS
+from osat_edge.roadmap.step05_family_model import FamilyModel
 from osat_edge.ui import FleetCommandWindow, HEALTH_COLOR, PALETTE, TelemetryTrend
 
 
@@ -98,6 +101,13 @@ class UiTests(unittest.TestCase):
             self.assertEqual(spec.source_id, rows[spec.name][5])
             self.assertTrue(rows[spec.name][6])
             self.assertTrue(rows[spec.name][7])
+        headers = [
+            self.window.telemetry_table.horizontalHeaderItem(column).text()
+            for column in range(self.window.telemetry_table.columnCount())
+        ]
+        self.assertIn("CANONICAL SOURCE ID", headers)
+        self.assertIn("SAMPLE LAG", headers)
+        self.assertIn("SAMPLE LAG TO ASSESSMENT", self.window.cards["wafer_saw"].age.text())
 
     def test_model_boundary_is_transparent_without_internal_arrays(self) -> None:
         text = self.window.model_status.toPlainText()
@@ -122,6 +132,46 @@ class UiTests(unittest.TestCase):
         self.assertIn("MEASUREMENT UNCERTAINTY SOURCES", detail)
         self.assertIn("MODEL DISCREPANCY SOURCES", detail)
         self.assertIn("FALSIFICATION CRITERIA", detail)
+        self.assertIn("CALIBRATED SPEED RANGE", detail)
+        self.assertIn("HEALTHY RESIDUAL SCALE", detail)
+        self.assertRegex(
+            detail,
+            r"LATEST INPUT: (IN CALIBRATED RANGE|OUTSIDE CALIBRATED RANGE)",
+        )
+        self.assertIn("CURRENT PHYSICS OUTPUT", detail)
+
+    def test_physics_value_remains_visible_without_health_deviation(self) -> None:
+        self.window._select("wafer_saw")
+        machine = self.window.pipeline.machines["wafer_saw"]
+        original = machine.last_result
+        self.assertIsNotNone(original)
+        physics_names = {
+            feature.name for feature in original.feature_set.features
+            if feature.relation_id == "spindle.current_speed_residual"
+        }
+        self.assertTrue(physics_names)
+        subsystems = tuple(
+            replace(
+                subsystem,
+                deviations=tuple(
+                    deviation for deviation in subsystem.deviations
+                    if deviation.feature not in physics_names
+                ),
+            )
+            for subsystem in original.assessment.subsystem_health
+        )
+        machine.last_result = replace(
+            original,
+            assessment=replace(original.assessment, subsystem_health=subsystems),
+        )
+        try:
+            self.window._refresh_physics()
+            text = _table_text(self.window.physics_table)
+            self.assertNotIn("NO CURRENT EVIDENCE", text)
+            self.assertIn("HEALTH CONTRIBUTION: NOT SCORED / NOT AVAILABLE", self.window.physics_detail.toPlainText())
+        finally:
+            machine.last_result = original
+            self.window._refresh_physics()
 
     def test_family_without_runtime_physics_keeps_rejected_catalog_visible(self) -> None:
         self.window._select("wire_bond")
@@ -144,10 +194,42 @@ class UiTests(unittest.TestCase):
             self.assertEqual("UNKNOWN 9", self.window.summary_labels["UNKNOWN"].text())
             self.assertIn("LAST KNOWN ASSESSMENT", self.window.machine_status.text())
             self.assertIn("LAST KNOWN PHYSICS EVIDENCE", self.window.physics_status.text())
+            self.assertIn("LAST KNOWN EQUIPMENT-STATE CONTEXT", self.window.model_status.toPlainText())
+            self.assertIn("LAST KNOWN PHYSICS OUTPUT", self.window.physics_detail.toPlainText())
+            self.assertIn("LAST KNOWN", self.window.trend.channel)
         finally:
             self.window._toggle_link()
         self.assertIn("CONNECTED", self.window.connection_label.text())
         self.assertEqual("NORMAL 9", self.window.summary_labels["NORMAL"].text())
+
+    def test_disconnected_family_risk_is_labeled_last_known(self) -> None:
+        machine = self.window.pipeline.machines["wafer_saw"]
+        original_model = machine.family_model
+        original_result = machine.last_result
+        machine.family_model = FamilyModel(
+            family="wafer_saw",
+            origin=DataOrigin.SYNTHETIC,
+            feature_names=("spindle_current.median",),
+            scaler_center=np.asarray([0.0]),
+            scaler_scale=np.asarray([1.0]),
+            coefficients=np.asarray([1.0]),
+            intercept=0.0,
+        )
+        machine.last_result = replace(
+            original_result,
+            assessment=replace(original_result.assessment, family_risk_score=0.75),
+        )
+        self.window._toggle_link()
+        try:
+            self.assertIn(
+                "LAST KNOWN RISK SCORE: 0.750",
+                self.window.model_status.toPlainText(),
+            )
+        finally:
+            self.window._toggle_link()
+            machine.family_model = original_model
+            machine.last_result = original_result
+            self.window._paint()
 
     def test_monitor_control_isolates_only_one_card(self) -> None:
         card = self.window.cards["wire_bond"]
@@ -170,11 +252,39 @@ class UiTests(unittest.TestCase):
             "UNKNOWN SOURCE IDs ARE REJECTED",
             "RUNTIME NETWORK DEPENDENCY: NONE",
             "LLM HAS NO HEALTH-DECISION AUTHORITY",
-            "MODEL INTERNAL ALGORITHM / FITTED INTERNALS NOT DISPLAYED",
+            "MODEL ALGORITHM IMPLEMENTATION AND PRIVATE CLASSIFIER COEFFICIENT ARRAYS ARE NOT DISPLAYED",
+            "PHYSICS CALIBRATION DATA",
+            "DECLARED DATA ORIGIN: SYNTHETIC",
         ):
             self.assertIn(required, text)
         self.assertNotIn("AIR-GAPPED", text)
         self.assertNotIn("SAFETY CERTIFIED", text)
+
+    def test_header_uses_source_declared_origin(self) -> None:
+        machine = self.window.pipeline.machines["wafer_saw"]
+        original = machine.source.origin
+        machine.source.origin = DataOrigin.REAL_OSAT
+        try:
+            self.window._paint()
+            self.assertEqual(
+                "DECLARED DATA ORIGIN: REAL_OSAT",
+                self.window.origin_label.text(),
+            )
+        finally:
+            machine.source.origin = original
+            self.window._paint()
+
+    def test_machine_selection_clears_unrelated_ticket_detail(self) -> None:
+        self.window._inject()
+        for _ in range(75):
+            self.window.demo.tick()
+        self.window._select("wire_bond")
+        self.assertEqual(
+            "NO MAINTENANCE TICKETS FOR SELECTED MACHINE",
+            self.window.ticket_detail.toPlainText(),
+        )
+        self.window._select("wafer_saw")
+        self.assertIn("DETERMINISTIC EVIDENCE", self.window.ticket_detail.toPlainText())
 
     def test_accessible_names_cover_primary_monitoring_controls(self) -> None:
         widgets = (

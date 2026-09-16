@@ -12,6 +12,11 @@ from .step10_fault_evidence import FaultEvidence
 from .step12_rag import RetrievedPassage
 
 
+_BIDI_CONTROLS = frozenset(
+    "\u061c\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069"
+)
+
+
 @dataclass(frozen=True)
 class TicketEnrichment:
     summary: str
@@ -24,8 +29,10 @@ def _clean(value: Any, limit: int) -> str:
     text = "".join(
         character
         for character in str(value)
-        if unicodedata.category(character) not in {"Cc", "Cf"}
-        or character in "\t\n\r"
+        if (
+            (unicodedata.category(character) != "Cc" or character in "\t\n\r")
+            and character not in _BIDI_CONTROLS
+        )
     )
     text = re.sub(r"[\x00-\x08\x0b-\x1f\x7f]", " ", text)
     return re.sub(r"\s+", " ", text).strip()[:limit]

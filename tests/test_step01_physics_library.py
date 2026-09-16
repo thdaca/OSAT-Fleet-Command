@@ -77,20 +77,32 @@ class LibraryCredibilityTests(unittest.TestCase):
         self.assertEqual((), item.validation_evidence)
 
     def test_impossible_maturity_advancement_is_rejected(self) -> None:
-        with self.assertRaisesRegex(ValueError, "validation evidence"):
+        with self.assertRaisesRegex(ValueError, "semantically supported"):
             replace(relation(), evidence_maturity=EvidenceMaturity.BENCH_VALIDATED)
 
     def test_multi_machine_maturity_requires_more_than_one_machine(self) -> None:
-        evidence = ValidationEvidence(
-            "one-machine", EvidenceMaturity.MULTI_MACHINE_VALIDATED,
-            ("WS-REAL-01",), "controlled-study-artifact", True,
-            "Synthetic metadata used only to exercise consistency checks.",
-        )
-        with self.assertRaisesRegex(ValueError, "at least two machines"):
-            replace(
-                relation(),
-                evidence_maturity=EvidenceMaturity.MULTI_MACHINE_VALIDATED,
-                validation_evidence=(evidence,),
+        with self.assertRaisesRegex(ValueError, "at least two distinct machine IDs"):
+            ValidationEvidence(
+                "one-machine", EvidenceMaturity.MULTI_MACHINE_VALIDATED,
+                ("WS-REAL-01",), "controlled-study-artifact", True,
+                "Synthetic metadata used only to exercise consistency checks.",
+            )
+
+    def test_physical_validation_evidence_requires_artifact_and_independence(self) -> None:
+        with self.assertRaisesRegex(ValueError, "artifact"):
+            ValidationEvidence(
+                "bench", EvidenceMaturity.BENCH_VALIDATED, (), "", True, "test"
+            )
+        with self.assertRaisesRegex(ValueError, "independent"):
+            ValidationEvidence(
+                "bench", EvidenceMaturity.BENCH_VALIDATED, (), "artifact", False, "test"
+            )
+
+    def test_single_machine_maturity_requires_named_machine(self) -> None:
+        with self.assertRaisesRegex(ValueError, "machine ID"):
+            ValidationEvidence(
+                "single", EvidenceMaturity.SINGLE_MACHINE_VALIDATED,
+                (), "artifact", True, "test",
             )
 
     def test_every_family_has_a_research_catalog(self) -> None:
@@ -140,6 +152,8 @@ class LibraryCredibilityTests(unittest.TestCase):
         report = physics_readiness_report()
         self.assertEqual(len(PHYSICS_RELATIONS) + len(RESEARCH_CANDIDATES), len(report))
         self.assertTrue(all(item.major_blocker and item.next_experiment for item in report))
+        spindle = next(item for item in report if item.item_id == relation().relation_id)
+        self.assertFalse(spindle.validation_evidence_available)
 
     def test_candidates_have_detailed_experiment_and_failure_records(self) -> None:
         for item in RESEARCH_CANDIDATES:
@@ -317,11 +331,62 @@ class SpindleCalibrationTests(unittest.TestCase):
         self.assertFalse(report.parameter_stability.assessable)
         self.assertTrue(report.blockers)
 
-    def test_separate_validation_arrays_are_reported_as_independent_input(self) -> None:
+    def test_copied_validation_arrays_are_not_independent(self) -> None:
         calibration = healthy_signals()
         validation = {key: value.copy() for key, value in healthy_signals().items()}
         report = validate_relation_calibration(self.item.relation_id, calibration, validation)
+        self.assertFalse(report.independent_data)
+        self.assertTrue(any("copy" in blocker.lower() for blocker in report.blockers))
+        self.assertGreater(report.validation_diagnostics.sample_count, 0)
+
+    def test_different_arrays_without_run_provenance_are_not_independent(self) -> None:
+        calibration = healthy_signals()
+        validation = healthy_signals()
+        validation["spindle_current"] = validation["spindle_current"] + 0.01
+        report = validate_relation_calibration(self.item.relation_id, calibration, validation)
+        self.assertFalse(report.independent_data)
+        self.assertTrue(any("provenance" in blocker.lower() for blocker in report.blockers))
+
+    def test_disjoint_declared_runs_with_distinct_observations_are_independent(self) -> None:
+        calibration = healthy_signals()
+        validation = healthy_signals()
+        validation["spindle_current"] = validation["spindle_current"] + 0.01
+        report = validate_relation_calibration(
+            self.item.relation_id,
+            calibration,
+            validation,
+            calibration_run_ids=("calibration-run-1",),
+            validation_run_ids=("validation-run-1",),
+        )
         self.assertTrue(report.independent_data)
+
+    def test_overlapping_declared_runs_are_not_independent(self) -> None:
+        calibration = healthy_signals()
+        validation = healthy_signals()
+        validation["spindle_current"] = validation["spindle_current"] + 0.01
+        report = validate_relation_calibration(
+            self.item.relation_id,
+            calibration,
+            validation,
+            calibration_run_ids=("run-1",),
+            validation_run_ids=("run-1",),
+        )
+        self.assertFalse(report.independent_data)
+        self.assertTrue(any("disjoint" in blocker.lower() for blocker in report.blockers))
+
+    def test_rejected_candidate_output_reduces_finite_fraction(self) -> None:
+        calibration = healthy_signals()
+        validation = healthy_signals()
+        validation["spindle_current"] = validation["spindle_current"].copy()
+        validation["spindle_current"][len(validation["spindle_current"]) // 2] = 1e200
+        report = validate_relation_calibration(
+            self.item.relation_id,
+            calibration,
+            validation,
+            calibration_run_ids=("calibration-run",),
+            validation_run_ids=("validation-run",),
+        )
+        self.assertLess(report.validation_diagnostics.finite_output_fraction, 1.0)
         self.assertGreater(report.validation_diagnostics.sample_count, 0)
 
     def test_shared_calibration_validation_data_are_flagged(self) -> None:

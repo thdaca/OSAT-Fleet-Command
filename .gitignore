@@ -1,6 +1,7 @@
 __pycache__/
 *.py[cod]
 .venv/
+.artifacts/
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
@@ -9,4 +10,3 @@ __pycache__/
 htmlcov/
 build/
 dist/
-

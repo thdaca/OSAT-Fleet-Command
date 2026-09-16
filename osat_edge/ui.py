@@ -34,10 +34,14 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from .common import DataOrigin, HealthState, RELEASE_CLASS, RuntimeMode, VERSION
+from .common import HealthState, RELEASE_CLASS, RuntimeMode, VERSION
 from .demo import DemoFleet, create_demo_fleet
 from .machines import STATION_ORDER, STATIONS
 from .roadmap.step01_physics_library import (
+    RESIDUAL_SCALE,
+    SPEED_HIGH,
+    SPEED_LOW,
+    SPEED_SPAN,
     PhysicsRelation,
     ResearchCandidate,
     audit_physics_library,
@@ -275,7 +279,7 @@ class MachineCard(QFrame):
         self.health = QLabel("UNKNOWN")
         self.health.setObjectName("health")
         self.telemetry = QLabel("DATA QUALITY: NOT AVAILABLE · OBSERVABILITY: NOT AVAILABLE")
-        self.age = QLabel("ASSESSMENT AGE: N/A")
+        self.age = QLabel("SAMPLE LAG TO ASSESSMENT: N/A")
         self.age.setObjectName("instrument")
         layout.addWidget(self.machine_id)
         layout.addWidget(self.health)
@@ -321,7 +325,7 @@ class MachineCard(QFrame):
             coverage = "FULL" if observable else "INSUFFICIENT"
             self.telemetry.setText(f"DATA QUALITY: {quality} · OBSERVABILITY: {coverage}")
         self.health.setStyleSheet(f"color:{color};font:700 15px 'Cascadia Mono','Consolas';")
-        self.age.setText(f"ASSESSMENT AGE: {format_age(assessment_age)}")
+        self.age.setText(f"SAMPLE LAG TO ASSESSMENT: {format_age(assessment_age)}")
         self.setProperty("state", state)
         self.style().unpolish(self)
         self.style().polish(self)
@@ -406,7 +410,7 @@ class FleetCommandWindow(QMainWindow):
         status = QGridLayout()
         self.connection_label = QLabel("CONNECTION: CONNECTED")
         self.runtime_label = QLabel("RUNTIME: SIMULATION")
-        self.origin_label = QLabel("DATA ORIGIN: SYNTHETIC")
+        self.origin_label = QLabel("DECLARED DATA ORIGIN: SYNTHETIC")
         self.clock_label = QLabel("UTC: --:--:--")
         self.authority_label = QLabel("ACTION AUTHORITY: DEMO TICKETS ONLY")
         for label in (self.connection_label, self.runtime_label, self.origin_label, self.clock_label, self.authority_label):
@@ -508,7 +512,7 @@ class FleetCommandWindow(QMainWindow):
         telemetry_layout.setContentsMargins(0, 0, 4, 0)
         telemetry_layout.addWidget(self._section("LIVE TELEMETRY · APPROVED CANONICAL CHANNELS"))
         self.telemetry_table = _table(
-            ("CHANNEL", "SUBSYSTEM", "VALUE", "UNIT", "REQUIRED", "SOURCE ID", "SAMPLE AGE", "STATUS"),
+            ("CHANNEL", "SUBSYSTEM", "VALUE", "UNIT", "REQUIRED", "CANONICAL SOURCE ID", "SAMPLE LAG", "STATUS"),
             "Selected machine live telemetry table",
         )
         telemetry_layout.addWidget(self.telemetry_table)
@@ -617,11 +621,11 @@ class FleetCommandWindow(QMainWindow):
         self.clock_label.setText(f"UTC: {_utc_clock(now)}")
         machine = self._selected_machine()
         mode = machine.source.runtime_mode
-        origin = DataOrigin.SYNTHETIC if mode is RuntimeMode.SIMULATION else DataOrigin.REAL_OSAT
+        origin = machine.source.origin
         authority = "DEMO TICKETS ONLY" if mode is RuntimeMode.SIMULATION else "RESEARCH OBSERVE ONLY"
         self.connection_label.setText(f"CONNECTION: {self.pipeline.link_state}")
         self.runtime_label.setText(f"RUNTIME: {mode.value}")
-        self.origin_label.setText(f"DATA ORIGIN: {origin.value}")
+        self.origin_label.setText(f"DECLARED DATA ORIGIN: {origin.value}")
         self.authority_label.setText(f"ACTION AUTHORITY: {authority}")
         simulation = mode is RuntimeMode.SIMULATION
         self.demo_controls.setVisible(simulation)
@@ -787,14 +791,17 @@ class FleetCommandWindow(QMainWindow):
         channel_name = self.trend_selector.currentData()
         spec = next((item for item in machine.station.channels if item.name == channel_name), None)
         result = machine.last_result
+        display_channel = str(channel_name or "NOT SELECTED")
+        if not self.pipeline.connected:
+            display_channel = f"LAST KNOWN · {display_channel}"
         if spec is None or result is None:
-            self.trend.set_series(str(channel_name or "NOT SELECTED"), spec.unit if spec else "", (), ())
+            self.trend.set_series(display_channel, spec.unit if spec else "", (), ())
             return
         window = machine.store.window(channel_name, end=result.assessment.timestamp, duration=FEATURE_WINDOW)
         if window is None:
-            self.trend.set_series(channel_name, spec.unit, (), ())
+            self.trend.set_series(display_channel, spec.unit, (), ())
         else:
-            self.trend.set_series(channel_name, spec.unit, window.timestamps, window.values)
+            self.trend.set_series(display_channel, spec.unit, window.timestamps, window.values)
 
     def _refresh_models(self) -> None:
         machine = self._selected_machine()
@@ -806,20 +813,26 @@ class FleetCommandWindow(QMainWindow):
         else:
             context = assessment.equipment_state if assessment else None
             available = context in exact.contexts if context is not None else False
+            context_label = (
+                "EQUIPMENT-STATE CONTEXT"
+                if self.pipeline.connected
+                else "LAST KNOWN EQUIPMENT-STATE CONTEXT"
+            )
             exact_text = (
                 "EXACT-MACHINE MODEL\n"
                 f"STATUS: LOADED\nDATA ORIGIN: {exact.origin.value}\nMACHINE IDENTITY: {exact.machine.machine_id}\n"
-                f"EQUIPMENT-STATE CONTEXT: {_words(context) if context else 'NOT AVAILABLE'} · {'AVAILABLE' if available else 'UNAVAILABLE'}"
+                f"{context_label}: {_words(context) if context else 'NOT AVAILABLE'} · {'AVAILABLE' if available else 'UNAVAILABLE'}"
             )
         family = machine.family_model
         if family is None:
             family_text = "FAMILY MODEL\nSTATUS: UNAVAILABLE\nRISK SCORE: NOT AVAILABLE\nUNCALIBRATED — NOT A FAILURE PROBABILITY"
         else:
             risk = assessment.family_risk_score if assessment else None
+            risk_label = "RISK SCORE" if self.pipeline.connected else "LAST KNOWN RISK SCORE"
             family_text = (
                 "FAMILY MODEL\n"
                 f"STATUS: LOADED\nFAMILY: {family.family}\nDATA ORIGIN: {family.origin.value}\n"
-                f"RISK SCORE: {format_value(risk, score=True)}\nUNCALIBRATED — NOT A FAILURE PROBABILITY"
+                f"{risk_label}: {format_value(risk, score=True)}\nUNCALIBRATED — NOT A FAILURE PROBABILITY"
             )
         self.model_status.setPlainText(exact_text + "\n\n" + family_text)
 
@@ -879,6 +892,65 @@ class FleetCommandWindow(QMainWindow):
             if deviation.kind == "physics"
         }
 
+    def _physics_runtime_view(self, item: PhysicsRelation) -> tuple[str, str, str]:
+        machine = self._selected_machine()
+        result = machine.last_result
+        features = () if result is None else tuple(
+            feature
+            for feature in result.feature_set.features
+            if feature.relation_id == item.relation_id
+        )
+        feature = features[0] if features else None
+        deviation = None if feature is None else self._physics_deviations().get(feature.name)
+        current_value = format_value(feature.value) if feature is not None else "NOT AVAILABLE"
+        if deviation is None:
+            contribution = "HEALTH CONTRIBUTION: NOT SCORED / NOT AVAILABLE"
+        else:
+            contribution = (
+                f"HEALTH CONTRIBUTION: {deviation.score:.3f} · "
+                f"{deviation.z_score:+.2f} ROBUST SCALES"
+            )
+
+        parameters = (
+            machine.machine_model.physics_parameters.get(item.relation_id, {})
+            if machine.machine_model is not None
+            else {}
+        )
+        low = parameters.get(SPEED_LOW)
+        high = parameters.get(SPEED_HIGH)
+        span = parameters.get(SPEED_SPAN)
+        scale = parameters.get(RESIDUAL_SCALE)
+        calibrated = all(
+            value is not None and math.isfinite(value)
+            for value in (low, high, span, scale)
+        )
+        if calibrated:
+            latest_speed = machine.store.latest("spindle_speed")
+            if latest_speed is None:
+                domain = "LATEST INPUT: NOT AVAILABLE"
+            elif low <= latest_speed.value <= high:
+                domain = "LATEST INPUT: IN CALIBRATED RANGE"
+            else:
+                domain = "LATEST INPUT: OUTSIDE CALIBRATED RANGE"
+            calibration = (
+                f"CALIBRATED SPEED RANGE\n{low:,.0f} – {high:,.0f} RPM\n\n"
+                f"CALIBRATED SPEED SPAN\n{span:,.0f} RPM\n\n"
+                f"HEALTHY RESIDUAL SCALE\n{scale:.7g} A\n\n{domain}"
+            )
+        else:
+            domain = "CALIBRATION RANGE: NOT AVAILABLE"
+            calibration = domain
+        output_label = (
+            "CURRENT PHYSICS OUTPUT"
+            if self.pipeline.connected
+            else "LAST KNOWN PHYSICS OUTPUT"
+        )
+        runtime_detail = (
+            f"{output_label}\n{item.output_name}: {current_value} {item.output_unit}\n"
+            f"{contribution}\n\n{calibration}"
+        )
+        return current_value, domain, runtime_detail
+
     def _refresh_physics(self) -> None:
         machine = self._selected_machine()
         previous_id = None
@@ -887,18 +959,12 @@ class FleetCommandWindow(QMainWindow):
             previous_id = self._item_id(self._physics_items[row])
         self._physics_items = list(research_catalog_for_family(machine.identity.family))
         readiness = {entry.item_id: entry for entry in physics_readiness_report()}
-        deviations = self._physics_deviations()
-        feature_set = machine.last_result.feature_set if machine.last_result else None
-        feature_by_name = feature_set.by_name if feature_set else {}
         self.physics_table.setRowCount(len(self._physics_items))
         for row, item in enumerate(self._physics_items):
             item_id = self._item_id(item)
             entry = readiness.get(item_id)
             if isinstance(item, PhysicsRelation):
-                matching = [feature for feature in feature_by_name.values() if feature.relation_id == item.relation_id]
-                deviation = next((deviations.get(feature.name) for feature in matching if feature.name in deviations), None)
-                current = format_value(deviation.value) if deviation is not None else "N/A — NO CURRENT EVIDENCE"
-                domain = "UNKNOWN / NOT VERIFIED"
+                current, domain, _ = self._physics_runtime_view(item)
                 output, unit = item.output_name, item.output_unit
             else:
                 current, domain, output, unit = "N/A — NOT RUNTIME", "NOT RUNTIME", "N/A", "N/A"
@@ -974,6 +1040,11 @@ class FleetCommandWindow(QMainWindow):
         missing = getattr(item, "missing_variables", ())
         output = f"{item.output_name} [{item.output_unit}]" if isinstance(item, PhysicsRelation) else "NOT RUNTIME"
         decision = getattr(item, "decision_reason", "NOT AVAILABLE")
+        runtime_detail = (
+            self._physics_runtime_view(item)[2]
+            if isinstance(item, PhysicsRelation)
+            else "NOT RUNTIME"
+        )
         detail = f"""RELATION ID
 {item_id}
 
@@ -1012,7 +1083,7 @@ PARAMETER IDENTIFIABILITY
 {parameters}
 
 CALIBRATION / APPLICABILITY ENVELOPE
-NOT AVAILABLE IN CURRENT RUNTIME RESULT — UNKNOWN / NOT VERIFIED
+{runtime_detail}
 
 MEASUREMENT UNCERTAINTY SOURCES
 {_joined(f'- {value.name}: {value.category.value} · {value.description}' for value in uncertainty)}
@@ -1053,22 +1124,37 @@ SUPPORTING REFERENCES
         self.physics_detail.setPlainText(detail)
 
     def _refresh_tickets(self) -> None:
-        if self.pipeline.repository.revision != self._ticket_revision:
+        rebuilt = self.pipeline.repository.revision != self._ticket_revision
+        if rebuilt:
             self._ticket_revision = self.pipeline.repository.revision
             self._tickets = list_tickets(self.pipeline.repository)
+            self.ticket_table.blockSignals(True)
             self.ticket_table.setRowCount(len(self._tickets))
             for row, ticket in enumerate(self._tickets):
                 _set_row(self.ticket_table, row, (ticket.priority, ticket.status, ticket.machine_id, ticket.health_state, ticket.updated_utc, ticket.explanation_backend))
+            self.ticket_table.blockSignals(False)
         self.maintenance_context.setText(
             f"SELECTED MACHINE: {self._selected_machine().identity.station_id} · "
             f"ACTION AUTHORITY: {'DEMO TICKETS ONLY' if self._selected_machine().source.runtime_mode is RuntimeMode.SIMULATION else 'OBSERVE ONLY'} · "
             "LLM DOES NOT AUTHORIZE TICKET CREATION"
         )
-        if self._tickets and self.ticket_table.currentRow() < 0:
-            matching = next((index for index, ticket in enumerate(self._tickets) if ticket.machine_id == self._selected_machine().identity.machine_id), 0)
-            self.ticket_table.selectRow(matching)
-        elif not self._tickets:
-            self.ticket_detail.setPlainText("NO MAINTENANCE TICKETS")
+        selected_machine_id = self._selected_machine().identity.machine_id
+        matching = [
+            index for index, ticket in enumerate(self._tickets)
+            if ticket.machine_id == selected_machine_id
+        ]
+        current = self.ticket_table.currentRow()
+        current_matches = (
+            0 <= current < len(self._tickets)
+            and self._tickets[current].machine_id == selected_machine_id
+        )
+        if matching:
+            if rebuilt or not current_matches:
+                self.ticket_table.selectRow(matching[0])
+        else:
+            self.ticket_table.clearSelection()
+            self.ticket_table.setCurrentCell(-1, -1)
+            self.ticket_detail.setPlainText("NO MAINTENANCE TICKETS FOR SELECTED MACHINE")
 
     def _show_ticket(self) -> None:
         row = self.ticket_table.currentRow()
@@ -1110,6 +1196,7 @@ RUNTIME
 CONNECTION STATE: {self.pipeline.link_state}
 SOURCE TYPE: {type(machine.source).__name__}
 RUNTIME MODE: {mode.value}
+DECLARED DATA ORIGIN: {machine.source.origin.value}
 SELECTED MACHINE: {machine.identity.station_id} / {machine.identity.machine_id}
 ASSESSMENT TIMESTAMP: {timestamp}
 CURRENTNESS: {'CURRENT' if self.pipeline.connected else 'LAST KNOWN — NOT CURRENT'}
@@ -1141,8 +1228,9 @@ NETWORK
 RUNTIME NETWORK DEPENDENCY: NONE
 
 PROPRIETARY BOUNDARY
-MODEL INTERNAL ALGORITHM / FITTED INTERNALS NOT DISPLAYED.
-INPUT TELEMETRY, PHYSICS EVIDENCE, MODEL OUTPUTS, HEALTH STATE, DATA ORIGIN, AND AUTHORITY ARE VISIBLE.
+MODEL ALGORITHM IMPLEMENTATION AND PRIVATE CLASSIFIER COEFFICIENT ARRAYS ARE NOT DISPLAYED.
+OPERATOR-FACING INPUTS, HEALTHY REFERENCE VALUES REQUIRED TO EXPLAIN CURRENT EVIDENCE,
+PHYSICS CALIBRATION DATA, MODEL OUTPUTS, HEALTH STATE, DATA ORIGIN, AND AUTHORITY ARE VISIBLE.
 
 RESEARCH LIMIT
 DESIGN INFORMED BY INDUSTRIAL HMI, ALARM-DISPLAY, OT-SECURITY, AND ACCESSIBILITY GUIDANCE.

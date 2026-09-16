@@ -52,9 +52,23 @@ class HealthTests(unittest.TestCase):
         self.assess(engine, 0, 0.0, family_risk_score=0.9)
         self.assess(engine, 1, 0.0, family_risk_score=0.9)
         result = self.assess(engine, 2, 0.0, family_risk_score=0.9)
-        self.assertEqual(HealthState.CRITICAL, result.health_state)
+        self.assertEqual(HealthState.NORMAL, result.health_state)
         self.assertEqual((), result.suspected_subsystems)
-        self.assertIn("unlocalized", result.reason)
+        self.assertEqual(0.9, result.family_risk_score)
+        self.assertIn("advisory", result.reason)
+        self.assertIn("does not alter", result.reason)
+
+    def test_nonfinite_scores_force_unknown(self) -> None:
+        for score in (float("nan"), float("inf"), float("-inf")):
+            with self.subTest(score=score):
+                state, _ = StateTracker().update(score, NOW)
+                self.assertEqual(HealthState.UNKNOWN, state)
+
+    def test_health_timestamps_cannot_move_backward(self) -> None:
+        tracker = StateTracker()
+        tracker.update(0.0, NOW)
+        with self.assertRaisesRegex(ValueError, "backward"):
+            tracker.update(0.0, NOW - dt.timedelta(seconds=1))
 
     def test_unknown_gap_resets_pending_hysteresis(self) -> None:
         tracker = StateTracker()
