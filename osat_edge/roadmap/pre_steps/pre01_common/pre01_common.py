@@ -9,7 +9,9 @@ from enum import Enum
 import numpy as np
 
 
-VERSION = "0.2.5"
+VERSION = "0.2.6"
+# POST04 reproduces frozen 0.2.5 experiments, not new 0.2.6 measurements.
+FROZEN_EXTERNAL_EVIDENCE_VERSION = "0.2.5"
 RELEASE_CLASS = "RESEARCH / DEVELOPMENT"
 
 

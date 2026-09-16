@@ -35,6 +35,7 @@ from PyQt6.QtWidgets import (
 )
 
 from ..roadmap.pre_steps.pre01_common.pre01_common import HealthState, RELEASE_CLASS, RuntimeMode, VERSION
+from ..roadmap.pre_steps.pre01_common.core.authority import AuthorityMode
 from ..roadmap.post_steps.post01_demo.post01_demo import DemoFleet, create_demo_fleet
 from ..roadmap.pre_steps.pre02_machine_registry.pre02_machine_registry import STATION_ORDER, STATIONS
 from ..roadmap.steps.step01_physics_library.step01_physics_library import (
@@ -401,7 +402,7 @@ class FleetCommandWindow(QMainWindow):
         names = QVBoxLayout()
         title = QLabel(f"OSAT FLEET COMMAND  {VERSION}")
         title.setObjectName("title")
-        release = QLabel(f"{RELEASE_CLASS} · EDGE MONITORING PROTOTYPE · NOT PRODUCTION QUALIFIED")
+        release = QLabel(f"{RELEASE_CLASS} · {AuthorityMode.SHADOW.value} · NOT PRODUCTION QUALIFIED")
         release.setObjectName("release")
         names.addWidget(title)
         names.addWidget(release)
@@ -626,7 +627,7 @@ class FleetCommandWindow(QMainWindow):
         self.connection_label.setText(f"CONNECTION: {self.pipeline.link_state}")
         self.runtime_label.setText(f"RUNTIME: {mode.value}")
         self.origin_label.setText(f"DECLARED DATA ORIGIN: {origin.value}")
-        self.authority_label.setText(f"ACTION AUTHORITY: {authority}")
+        self.authority_label.setText(f"{AuthorityMode.SHADOW.value} · ACTION AUTHORITY: {authority}")
         simulation = mode is RuntimeMode.SIMULATION
         self.demo_controls.setVisible(simulation)
         self.inject_button.setEnabled(simulation)

@@ -85,6 +85,11 @@ class UiTests(unittest.TestCase):
             self.assertIn(state, HEALTH_COLOR)
         self.window._paint()
 
+    def test_shadow_label_preserves_demo_only_ticket_authority(self) -> None:
+        self.window._paint()
+        self.assertIn("SHADOW / READ-ONLY", self.window.authority_label.text())
+        self.assertIn("DEMO TICKETS ONLY", self.window.authority_label.text())
+
     def test_ws01_telemetry_table_exposes_every_canonical_channel(self) -> None:
         self.window._select("wafer_saw")
         rows = {

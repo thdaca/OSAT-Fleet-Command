@@ -28,6 +28,7 @@ POST01 deterministic demo
 POST02 frozen reference replay
 POST03 external benchmark
 POST04 real-data and REAL_OSAT evaluation
+POST05 full functional PoC: onboarding → monitoring → maintenance, SHADOW only
 ```
 
 PRE-STEPS own foundational contracts, the machine registry, and provenance.

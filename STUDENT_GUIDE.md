@@ -1,6 +1,6 @@
 # Student guide
 
-OSAT Fleet Command 0.2.5 is intentionally a minimum research build with a
+OSAT Fleet Command 0.2.6 is intentionally a minimum research build with a
 transparent industrial edge-monitoring HMI prototype. Start with
 `osat_edge/roadmap/README.md`; the file names are the architecture map.
 
@@ -23,7 +23,8 @@ transparent industrial edge-monitoring HMI prototype. Start with
 - `pipeline.py` connects those steps with explicit control flow.
 - `roadmap/post_steps/post01_demo/post01_demo.py` owns synthetic generation and injection;
   POST02 validates the frozen synthetic replay, POST03 runs the isolated NASA
-  description, and POST04 evaluates explicitly supplied external data offline.
+  description, POST04 evaluates explicitly supplied external data offline, and
+  POST05 proves the functional path by orchestrating existing stages in SHADOW.
 - `ui/cli.py` and `ui/dashboard.py` are human interfaces, not roadmap stages.
 
 ## Boundaries to preserve

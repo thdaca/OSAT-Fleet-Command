@@ -4,13 +4,14 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Any, Mapping
-from ....pre_steps.pre01_common.pre01_common import DataOrigin, VERSION
+from ....pre_steps.pre01_common.pre01_common import DataOrigin, FROZEN_EXTERNAL_EVIDENCE_VERSION as VERSION
 from ....pre_steps.pre03_data_provenance.pre03_data_provenance import sha256_file as _sha256_file
 from .dataset_context import DATASET_ORDER, POST04_ROOT, RealDataEvaluationError
 from .reporting import deterministic_scientific_bytes, deterministic_scientific_sha256
 HISTORICAL_EVIDENCE_PATH = POST04_ROOT / "resources" / "0.2.4-real-data.json"
 CURRENT_EVIDENCE_PATH = POST04_ROOT / "resources" / "0.2.5-real-data.json"
 COMMITTED_EVIDENCE_PATH = CURRENT_EVIDENCE_PATH
+FROZEN_025_ARTIFACT_SHA256 = "4148cccf463e8806b2748715f7bd68784941121fc0157a3cc113f47ba8a4be2f"
 HISTORICAL_EVIDENCE_SHA256 = "371b9f6c40f2185a5d505f373483973f7f5974c276890d0616b9a715706014b3"
 THIRD_PARTY_DATA_USE_PATH = POST04_ROOT / "resources" / "THIRD_PARTY_DATA_USE.json"
 SNAPSHOT4_SCIENTIFIC_PAYLOAD_SHA256 = (
@@ -266,13 +267,32 @@ def verify_committed_real_data_evidence(
     drift: list[str] = []
     if expected.get("release_version") != VERSION:
         drift.append("release version")
-    if expected.get("evaluator_sha256") != evaluator_hash:
+    # Frozen measurements retain their original evaluator identity. Reproduction
+    # reports the current source hash separately, never relabels historical bytes.
+    frozen_record = expected_path.resolve() == CURRENT_EVIDENCE_PATH.resolve()
+    if frozen_record and _sha256_file(expected_path) != FROZEN_025_ARTIFACT_SHA256:
+        drift.append("frozen 0.2.5 artifact SHA-256")
+    if frozen_record:
+        # Pin the release-corrected reproducer too. A version change is not
+        # permission to silently accept arbitrary evaluator implementation drift.
+        identity_path = POST04_ROOT / "resources" / "0.2.6-reproducer.json"
+        try:
+            approved = json.loads(identity_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise RealDataEvaluationError("Frozen reproducer identity unavailable") from exc
+        if (approved.get("evaluator_sha256") != evaluator_hash
+                or approved.get("frozen_artifact_sha256") != FROZEN_025_ARTIFACT_SHA256):
+            drift.append("approved frozen-experiment reproducer SHA-256")
+    if not frozen_record and expected.get("evaluator_sha256") != evaluator_hash:
         drift.append("evaluator SHA-256")
     if expected.get("deterministic_comparison_report_sha256") != report_hash:
         drift.append("deterministic comparison report SHA-256")
     if expected.get("summary") != regenerated.get("summary"):
         drift.append("summary")
-    if expected != regenerated_evidence:
+    comparison = dict(regenerated_evidence)
+    if frozen_record:
+        comparison["evaluator_sha256"] = expected.get("evaluator_sha256")
+    if expected != comparison:
         drift.append("complete deterministic aggregate evidence")
     regenerated_by_id = {item["dataset"]: item for item in regenerated["datasets"]}
     for item in expected.get("results", []):
@@ -291,6 +311,7 @@ def verify_committed_real_data_evidence(
         "status": "PASS",
         "release_version": VERSION,
         "evaluator_sha256": evaluator_hash,
+        "frozen_evaluator_sha256": expected.get("evaluator_sha256"),
         "deterministic_comparison_report_sha256": report_hash,
         "snapshot4_scientific_payload_sha256": regenerated_evidence[
             "snapshot4_scientific_payload_sha256"

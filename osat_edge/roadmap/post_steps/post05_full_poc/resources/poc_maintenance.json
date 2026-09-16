@@ -1,0 +1,12 @@
+{
+  "authorship": "OSAT Fleet Command project-authored synthetic PoC fixture; not an OEM manual",
+  "chunks": [
+    {
+      "id": "poc-ws01-spindle-review",
+      "station_key": "wafer_saw",
+      "subsystem": "spindle",
+      "title": "WS-01 spindle evidence review",
+      "body": "For this simulated demonstration, review the spindle current-speed residual and exact-machine deviations with a qualified maintenance reviewer. Confirm signal validity and operating context. Do not infer a causal bearing failure or command equipment shutdown from these research observations. Record the review against the existing demo ticket."
+    }
+  ]
+}

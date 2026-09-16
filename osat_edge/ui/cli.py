@@ -23,6 +23,10 @@ def parser() -> argparse.ArgumentParser:
     value.add_argument("--version", action="version", version=VERSION)
     commands = value.add_subparsers(dest="command", required=True)
     commands.add_parser("demo", help="Run the deterministic nine-machine demo")
+    poc = commands.add_parser("poc", help="Run POST05 full SHADOW / READ-ONLY functional PoC")
+    poc.add_argument("--output", default=".artifacts/poc/0.2.6-poc.json", help="Deterministic JSON report path")
+    poc.add_argument("--artifacts", default=None, help="Keep runtime model/SQLite in a new .artifacts subdirectory")
+    poc.add_argument("--require-connectivity", action="store_true", help="Fail if the optional HSMS simulator is unavailable")
     replay = commands.add_parser(
         "reference-replay", help="Run the frozen synthetic reference replay"
     )
@@ -75,6 +79,23 @@ def parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
+    if args.command == "poc":
+        from pathlib import Path
+        from ..roadmap.post_steps.post05_full_poc.post05_full_poc import run_full_poc, write_poc_report, poc_summary
+
+        try:
+            result = run_full_poc(artifact_root=Path(args.artifacts) if args.artifacts else None)
+            write_poc_report(result, args.output)
+        except (OSError, ValueError, RuntimeError) as exc:
+            print(f"SHADOW POC ERROR: {exc}", file=sys.stderr)
+            return 2
+        print(json.dumps(poc_summary(result), indent=2, sort_keys=True))
+        components = result["components"]
+        if any(status == "FAIL" for status in components.values()):
+            return 2
+        if args.require_connectivity and components["connectivity_simulation"] != "PASS":
+            return 2
+        return 0
     if args.command == "demo":
         print(json.dumps(run_demo(), indent=2, sort_keys=True))
         return 0

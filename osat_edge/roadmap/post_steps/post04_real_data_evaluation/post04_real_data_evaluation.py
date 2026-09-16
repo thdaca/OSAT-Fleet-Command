@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ...pre_steps.pre01_common.pre01_common import DataOrigin, VERSION
+from ...pre_steps.pre01_common.pre01_common import DataOrigin, FROZEN_EXTERNAL_EVIDENCE_VERSION as VERSION
 from .core.dataset_context import (
     DATASET_ORDER,
     DATASETS,

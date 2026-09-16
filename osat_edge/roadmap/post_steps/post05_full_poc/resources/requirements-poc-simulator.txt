@@ -1,0 +1,13 @@
+# Optional loopback laboratory only; never required for edge inference.
+# secsgem is LGPL-2.1-or-later; no dependency source is copied into Fleet Command.
+secsgem==0.3.0
+jsonschema==4.26.0
+pyserial==3.5
+python-dateutil==2.9.0.post0
+PyYAML==6.0.3
+attrs==26.1.0
+jsonschema-specifications==2025.9.1
+referencing==0.37.0
+rpds-py==2026.6.3
+six==1.17.0
+typing_extensions==4.16.0

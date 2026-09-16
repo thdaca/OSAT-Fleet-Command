@@ -1,14 +1,28 @@
-# OSAT Fleet Command 0.2.5
+# OSAT Fleet Command 0.2.6 (Snapshot 1)
 
 **RESEARCH / DEVELOPMENT BUILD — not production qualified**
 
-Release title: **STEP01 PHYSICS-LIBRARY FOUNDATION**
+Release title: **FULL END-TO-END FUNCTIONAL PROOF OF CONCEPT**
 
-Version 0.2.5 modularizes the Step01 physics library and adds optional offline
-unit, symbolic, and experiment-design audits. The 0.2.3 inference method,
-thresholds, canonical stations, demo, reference replay, UI, security boundary,
-ticket authority, and historical 0.2.4 deterministic evidence are not tuned,
-redesigned, or relabeled.
+Version 0.2.6 adds POST05 orchestration and a minimal exact-machine JSON
+save/load capability. Existing physics, fitting, thresholds, canonical stations,
+fault logic, demo/replay and ticket authority remain unchanged. The dashboard
+now explicitly labels **SHADOW / READ-ONLY**; no equipment control is provided.
+The frozen 0.2.5 external experiments and historical 0.2.4 evidence retain their
+original identities. Functional system proof is not REAL_OSAT, prospective
+plant validation, causal diagnosis or production qualification.
+
+Run the full WS-01 PoC (no GGUF required):
+
+```powershell
+.venv\Scripts\python -m pip install -r osat_edge\roadmap\post_steps\post05_full_poc\resources\requirements-poc-simulator.txt
+.venv\Scripts\python -m osat_edge.ui.cli poc --require-connectivity
+```
+
+The optional simulator dependency is isolated from core runtime requirements.
+Without it, `poc` still runs operational scenarios but explicitly marks HSMS
+NOT_RUN and qualification incomplete. Output is `.artifacts/poc/0.2.6-poc.json`.
+See [POST05 proof scope and reproducibility](osat_edge/roadmap/post_steps/post05_full_poc/research/FULL_POC.md).
 
 OSAT Fleet Command is a small, edge-oriented teaching and research implementation for exploring equipment-health evidence in semiconductor back-end manufacturing. It keeps deterministic health and maintenance decisions separate from optional language-model enrichment.
 

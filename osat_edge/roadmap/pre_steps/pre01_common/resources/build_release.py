@@ -165,7 +165,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--project-root", type=Path, default=default_root)
     parser.add_argument("--output", type=Path)
     arguments = parser.parse_args(argv)
-    output = arguments.output or arguments.project_root.resolve().parent / "0.2.5.zip"
+    output = arguments.output or arguments.project_root.resolve().parent / "0.2.6 (snapshot 1).zip"
     members = build_release_archive(arguments.project_root, output)
     print(
         json.dumps(

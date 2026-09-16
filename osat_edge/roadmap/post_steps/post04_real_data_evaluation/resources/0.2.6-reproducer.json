@@ -1,0 +1,9 @@
+{
+  "schema_version": "FROZEN_EXTERNAL_REPRODUCER_V1",
+  "software_release": "0.2.6 Snapshot 1",
+  "experiment_release": "0.2.5 Snapshot 6",
+  "evaluator_sha256": "0be0657f7aa3f7f4e1bba8b0774cb0ad09903e631aff470a805d72538412c70d",
+  "frozen_artifact_sha256": "4148cccf463e8806b2748715f7bd68784941121fc0157a3cc113f47ba8a4be2f",
+  "frozen_evaluator_sha256": "100dd6f047d84f497f52b9ddab853868ce3e81af5e612b6a25dfaf5bacbe8344",
+  "change_scope": "Release metadata and frozen-evidence verification only; no new measurements or numerical implementation changes."
+}

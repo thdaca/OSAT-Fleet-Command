@@ -1,0 +1,1 @@
+"""Shared explicit authority contracts."""

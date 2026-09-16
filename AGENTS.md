@@ -1,9 +1,9 @@
 # Repository rules
 
-OSAT Fleet Command 0.2.5 is a research/development student project, not production software.
+OSAT Fleet Command 0.2.6 is a research/development student project, not production software.
 
 - Keep PRE01–PRE03 in `osat_edge/roadmap/pre_steps/`, Step01–Step15 in
-  `osat_edge/roadmap/steps/`, and POST01–POST04 in
+  `osat_edge/roadmap/steps/`, and POST01–POST05 in
   `osat_edge/roadmap/post_steps/`, aligned with the documented roadmap.
 - Prefer explicit ordinary Python and small dataclasses over framework-like indirection.
 - Preserve machine-family and exact-machine identity checks.
@@ -17,6 +17,10 @@ OSAT Fleet Command 0.2.5 is a research/development student project, not producti
 - Keep the NASA Milling benchmark isolated from OSAT physics, models, health,
   tickets, and the HMI. It is external non-semiconductor machining data.
 - Health is deterministic. RAG and the optional local LLM may enrich a ticket, never create it.
+- POST05 orchestrates existing stages; traces never influence inference. SHADOW
+  forbids equipment control and does not expand live/external ticket authority.
+- Keep frozen 0.2.5 external evidence and science bytes intact. Runtime model,
+  SQLite, nominal-history and simulator artifacts belong under `.artifacts/`.
 - Do not call a risk score a failure probability.
 - Do not add compatibility layers for deleted pre-0.2.0 architecture.
 - Run `python -W error::ResourceWarning -m unittest discover -s osat_edge -t . -p "test_*.py" -v`
