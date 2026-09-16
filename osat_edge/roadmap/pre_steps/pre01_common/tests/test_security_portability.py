@@ -20,18 +20,31 @@ from osat_edge.roadmap.steps.step11b_oem_manuals.step11b_oem_manuals import DEFA
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[5]
+REQUIRED_ROOT_ENTRIES = {
+    ".gitignore",
+    "AGENTS.md",
+    "README.md",
+    "STUDENT_GUIDE.md",
+    "requirements.txt",
+    "osat_edge",
+}
+OPTIONAL_LOCAL_ROOT_ENTRIES = {".artifacts", ".venv", "benchmarks"}
+PERMITTED_ROOT_METADATA = {".git"}
 
 
 class SecurityPortabilityTests(unittest.TestCase):
+    def assert_clean_repository_root(self, actual: set[str]) -> None:
+        self.assertTrue(REQUIRED_ROOT_ENTRIES <= actual)
+        self.assertTrue(
+            actual
+            <= REQUIRED_ROOT_ENTRIES
+            | OPTIONAL_LOCAL_ROOT_ENTRIES
+            | PERMITTED_ROOT_METADATA
+        )
+
     def test_repository_organization_is_enforced(self) -> None:
         package_root = ROOT / "osat_edge"
-        self.assertEqual(
-            {
-                ".artifacts", ".gitignore", ".venv", "AGENTS.md", "README.md",
-                "STUDENT_GUIDE.md", "benchmarks", "osat_edge", "requirements.txt",
-            },
-            {path.name for path in ROOT.iterdir()},
-        )
+        self.assert_clean_repository_root({path.name for path in ROOT.iterdir()})
         self.assertEqual(
             {"__init__.py", "pipeline.py"},
             {path.name for path in package_root.glob("*.py")},
@@ -95,6 +108,9 @@ class SecurityPortabilityTests(unittest.TestCase):
                         {path.name for path in (parent / stage).glob("*.py")},
                     )
         self.assertEqual("0.2.4", VERSION)
+
+    def test_ignored_local_root_directories_are_optional(self) -> None:
+        self.assert_clean_repository_root(set(REQUIRED_ROOT_ENTRIES))
 
     def test_stage_owned_research_resources_and_readmes_are_not_byte_duplicates(self) -> None:
         package_root = ROOT / "osat_edge"
