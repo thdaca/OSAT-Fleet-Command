@@ -1,7 +1,7 @@
 # External real-data catalog
 
-OSAT Fleet Command 0.2.4 is an **EXTERNAL REAL-DATA EVALUATION** release. This
-catalog records what was sought, what was locally inspected, what could be run
+OSAT Fleet Command 0.2.5 extends the isolated **EXTERNAL REAL-DATA EVALUATION**
+stage. This catalog records what was sought, what was locally inspected, what could be run
 without changing the frozen 0.2.3 method, and why other sources were refused.
 Raw datasets are never bundled. Keep approved local copies under ignored
 `benchmarks/_external/<dataset-id>/`.
@@ -48,9 +48,95 @@ provenance establishes an outsourced assembly/test facility; A/B/C/D describes
 equipment relevance. No record is `REAL_OSAT` merely because it studies a
 back-end semiconductor process.
 
-## Executable and inspected sources
+## Snapshot 4 verified public-data additions
 
-The release attempt order is the CLI registry order.
+### STMicroelectronics ST-AWFD D1 and D2
+
+The authoritative source is
+[STMicroelectronics/ST-AWFD](https://github.com/STMicroelectronics/ST-AWFD),
+commit `54be5cc91b83615240710bda9745f51c984d10c5`, licensed
+CC BY-NC-SA 4.0. The evaluator pins the official archives separately:
+
+- `st-awfd-d1` / `D1.zip`: SHA-256
+  `97b2df4206177c5bc5b89ba18758215674bd437fef8c514320b831404f7674b7`;
+- `st-awfd-d2` / `D2.zip`: SHA-256
+  `e93d9f69ecb5c303f7f484647406d1ac2beda5726b99bb2984801867fea36297`.
+
+Both contain the five reference fields `MaterialID`, `StepID`, `duration_ms`,
+`target`, and `is_test`, followed by 15 anonymous normalized features for D1
+and 20 for D2. `MaterialID` boundaries and the official `is_test` split are
+preserved. Calibration uses only `is_test == 0` and `target == 0`, which means
+normal-process benchmark data—not independently confirmed healthy machine
+history. Per MaterialID and supplied headline StepID, each anonymous feature
+produces a median (`kind="location"`) and MAD (`kind="spread"`). No slope is
+calculated because `duration_ms` is normalized process-step time. Each StepID
+is fit independently with the unchanged Step07 center/scale calculation; D1
+and D2 never share models.
+
+The pinned D1 bytes contain 602,108 data rows, 5,104 MaterialIDs and StepIDs
+`-2, -1, 1, 2, 4, 6, 7`. This differs from the repository README's 5,105
+MaterialIDs and mandatory StepID 5. Snapshot 4 retains the specified headline
+set `2, 4, 5, 6, 7`, reports StepID 5 as `NO_SOURCE_ROWS`, reports optional
+`-1/-2` coverage descriptively, and does not relabel StepID 1. On 1,807
+held-out MaterialIDs (2 abnormal), the location score has AUROC
+`0.935180055401662` and average precision `0.012303436225975538`.
+
+The pinned D2 bytes contain 126,794 data rows and 1,156 MaterialIDs, one below
+each README value, with supplied mandatory StepIDs 1 and 2. On 604 held-out
+MaterialIDs (367 abnormal), the location score has AUROC and average precision
+of `1.0`. These values are reported as observed, without threshold tuning.
+
+Static probes of the frozen numeric thresholds 0.35, 0.60, and 0.82 report
+confusion counts, precision, recall, F1, balanced accuracy, and MCC. They are
+not health states. Anonymous z-scaled columns receive no physical-channel or
+canonical-station mapping; there is no machine identity, Step01 physics,
+Step05, Step09 chronology/hysteresis, Step10/15 authority, or OSAT-validation
+claim. The labels identify abnormal MaterialIDs/process outcomes, not confirmed
+maintenance faults. Raw and sample-level transformed data remain ignored and
+uncommitted.
+
+### TUHH DISCO DAD3350 diced-surface maps
+
+The authoritative v1.0 source is DOI
+[10.15480/882.15763](https://doi.org/10.15480/882.15763), Public Domain. Pinned
+source identities are:
+
+- `data_raw.zip`: SHA-256
+  `8dc6cd61c837100a0e5e9b7877e6b6c7e5bbde2f70e08017d48c4f0577125dca`,
+  publisher MD5 `e559d1736e23898b9d29e85b7f0ab3ed`;
+- `README.txt`: SHA-256
+  `fdb9112d2061afef6b3af38647ef3ec10729983f9b159a978e7a5adc5d97715f`,
+  publisher MD5 `48d7f327a2d6068d8a130436762f1a20`.
+
+The archive contains exactly six VK7 maps at feed velocities 0.1, 0.2, 0.5,
+0.7, 1, and 5 mm/s. The source records a DISCO DAD3350, 1-mm-thick/100-mm
+fused-silica wafer, 30,000-rpm spindle, and DISCO R07-SDC600-BB101-75 blade.
+The optional parser is `convert-keyence-files` 0.1.0 at commit
+`36e1eb9f550a41f5be2369de125ec51338f54d9e` (Unlicense). `surfalize` is not
+used because its current GPL terms are unsuitable here.
+
+All six 768×1024 maps parsed successfully. Snapshot 4 reports only dimensions,
+valid-pixel fraction, median height, robust spread, detrended height RMS,
+detrended mean absolute deviation, peak-to-valley, and per-statistic Spearman
+association with feed velocity. Detrended quantities are descriptive proxies
+unless independently validated against Keyence VK-A3D output; no ISO roughness
+compliance is claimed. This is real target-equipment/process evidence, not
+equipment-health validation or OSAT evidence. Steps 07/09/10/15 are not run.
+
+### CHDL disposition
+
+The official arXiv v1 source for
+[2507.06738](https://arxiv.org/abs/2507.06738) describes CHDL but supplies no
+working dataset/repository URL; its rendered contribution links are malformed
+placeholders. No authoritative dataset bytes could therefore be pinned.
+CHDL remains catalog-only. No vision model is added, and image intensity is not
+converted into telemetry.
+
+## Historical 0.2.4 executable and inspected sources
+
+The following entries preserve the 0.2.4 evaluation record. They are no longer
+the complete current CLI registry order because Snapshot 4 adds the three
+datasets above.
 
 1. **Chang/Tsai/Mo wafer dicing (A)** — DOI
    [10.3390/electronics13101802](https://doi.org/10.3390/electronics13101802).
@@ -278,7 +364,19 @@ full text until 2035-07-09; no linked attachment or data repository was
 available. **Published study setting: REAL_OSAT. Evidence type:
 process-quality/AOI imagery, not equipment telemetry. Raw-data/execution
 status: EMBARGOED/PAPER_ONLY; not obtained or executed. Potential evidence
-class if verified: A. Canonical mapping: none.**
+class if verified: A. Canonical mapping: none.** No public sample count is
+claimed for this embargoed wire-bond thesis.
+
+### ASE drilling-process AOI dataset
+
+The separate ASE-provided drilling dataset is described by arXiv
+[2404.05183](https://arxiv.org/abs/2404.05183) and IEEE ICCE 2025 DOI
+[10.1109/ICCE63647.2025.10930135](https://doi.org/10.1109/ICCE63647.2025.10930135).
+It contains 455 drilling/AOI samples: 225 normal and four defect classes of 92,
+44, 50, and 44. These counts do not belong to the wire-bond thesis. This is
+genuine ASE-provided process-inspection evidence, not wire-bond telemetry or
+equipment-health validation. No authoritative raw dataset bytes were located,
+so it remains publication-only and non-executed.
 
 ### UTAC smart-manufacturing wafer-saw evidence
 
@@ -376,6 +474,9 @@ failure, not an independently adjudicated machine-readable interval.**
 
 ```powershell
 .venv\Scripts\python -m osat_edge.ui.cli evaluate-real --dataset kuka-kr3 --path benchmarks\_external\kuka-kr3
+.venv\Scripts\python -m osat_edge.ui.cli evaluate-real --dataset st-awfd-d1 --path benchmarks\_external\st-awfd-d1
+.venv\Scripts\python -m osat_edge.ui.cli evaluate-real --dataset st-awfd-d2 --path benchmarks\_external\st-awfd-d2
+.venv\Scripts\python -m osat_edge.ui.cli evaluate-real --dataset tuhh-dad3350-surface --path benchmarks\_external\tuhh-dad3350-surface
 .venv\Scripts\python -m osat_edge.ui.cli evaluate-real --all --root benchmarks\_external
 .venv\Scripts\python -m osat_edge.ui.cli evaluate-real --all --root benchmarks\_external --report
 .venv\Scripts\python -m osat_edge.ui.cli verify-real-evidence --root benchmarks\_external
@@ -384,12 +485,14 @@ failure, not an independently adjudicated machine-readable interval.**
 Without `--report`, no artifact is written. With it, the comparison is written
 to `.artifacts/real_data/comparison.json`. Runtime measurements remain in CLI
 output but are removed from this deterministic scientific artifact. A small
-auditable release result is retained at
-`post04_real_data_evaluation/resources/0.2.4-real-data.json`; it contains
-no raw dataset records.
-`verify-real-evidence` performs no download: it verifies local provenance,
-regenerates the deterministic comparison, and fails if the report hash,
-evaluator hash, release summary, or committed per-dataset identity drifts.
+current aggregate result is retained at
+`post04_real_data_evaluation/resources/0.2.5-real-data.json`; it contains no raw
+records or sample-level transformed features. The existing
+`0.2.4-real-data.json` remains byte-immutable historical evidence.
+`verify-real-evidence` performs no download. It first verifies historical
+artifact byte integrity, then separately regenerates the current 0.2.5
+comparison and checks its report/evaluator identities. A changed 0.2.5
+evaluator hash is not described as drift from the historical 0.2.4 evaluator.
 External data never enter the HMI,
 operational `MachinePipeline`, family-model trainer, maintenance database, RAG,
 LLM, or ticket stage.

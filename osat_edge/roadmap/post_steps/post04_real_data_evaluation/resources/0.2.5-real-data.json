@@ -1,0 +1,671 @@
+{
+  "deterministic_comparison_report_sha256": "1db1bdb93adf27130ef460644f093a636376deffef7f732bf6b0152bf8c7df33",
+  "evaluator_sha256": "8dacd29472cfc029b33a3798ba6673be8e33c2f557f2360ef56b664d0ece8c82",
+  "historical_artifact": {
+    "name": "0.2.4-real-data.json",
+    "reproduced_as_current": false,
+    "sha256": "371b9f6c40f2185a5d505f373483973f7f5974c276890d0616b9a715706014b3"
+  },
+  "methodology": {
+    "operational_ticket_authority": false,
+    "sample_level_data_committed": false,
+    "step05_family_model": false,
+    "step09_temporal_state_machine": false,
+    "threshold_selection": "none; frozen threshold probes only"
+  },
+  "origin": "EXTERNAL_BENCHMARK",
+  "release_version": "0.2.5",
+  "results": [
+    {
+      "abnormal_location_score_distribution": {
+        "count": 2,
+        "maximum": 0.9769219787090959,
+        "median": 0.9429082756590155,
+        "minimum": 0.9088945726089349,
+        "p95": 0.9735206084040878
+      },
+      "artifact_observations": [
+        "The pinned D1 CSV has 602108 data rows and 5104 MaterialIDs; the repository README states 602108 rows and 5105 MaterialIDs.",
+        "The pinned D1 CSV contains StepID 1 and no StepID 5 although the repository README names StepID 5 as mandatory; neither identifier is relabeled."
+      ],
+      "continuous_metrics": {
+        "auroc": 0.935180055401662,
+        "average_precision": 0.012303436225975538
+      },
+      "data_quality_coverage": 1.0,
+      "dataset": "st-awfd-d1",
+      "headline_step_ids": [
+        2,
+        4,
+        5,
+        6,
+        7
+      ],
+      "health_eligible_location_score_distribution": {
+        "count": 1807,
+        "maximum": 0.9999999999045367,
+        "median": 0.5129232051466717,
+        "minimum": 0.1302875499636642,
+        "p95": 0.9792313064935102
+      },
+      "held_out_label_counts": {
+        "abnormal": 2,
+        "normal": 1805
+      },
+      "held_out_materials": 1807,
+      "limitations": [
+        "Real semiconductor production data with DataOrigin.EXTERNAL_BENCHMARK; not OSAT validation.",
+        "The anonymous z-scaled feature semantics and physical engineering units are unavailable, so there is no Step01 physics or canonical station mapping.",
+        "Actual machine IDs are unavailable; the benchmark model is not exact-machine validation.",
+        "The normal-process calibration subset is not independently confirmed healthy machine history.",
+        "duration_ms is normalized process-step time, so no slope or cross-MaterialID chronology is asserted.",
+        "No Step05 family model, Step09 temporal state machine, Step10 evidence authority, or Step15 ticket authority is used.",
+        "Labels describe abnormal MaterialIDs/process results, not confirmed equipment-maintenance faults.",
+        "The authoritative D1 bytes contain no StepID 5; the headline registry retains StepID 5 with NO_SOURCE_ROWS and does not substitute StepID 1."
+      ],
+      "machines": null,
+      "method_scope": "per-MaterialID/per-mandatory-StepID anonymous-feature median and MAD; frozen Step07 numerical deviation only",
+      "normal_location_score_distribution": {
+        "count": 1805,
+        "maximum": 0.9999999999045367,
+        "median": 0.5129232051466717,
+        "minimum": 0.1302875499636642,
+        "p95": 0.9792697305871827
+      },
+      "operational_ticket_count": 0,
+      "optional_step_ids": [
+        -1,
+        -2
+      ],
+      "pipeline": {
+        "benchmark_feature_sets": true,
+        "step01_physics": false,
+        "step05_family_model": false,
+        "step07_numerical_deviation": true,
+        "step09_temporal_state_machine": false,
+        "step10_evidence": false,
+        "step15_ticket": false
+      },
+      "pipeline_coverage": 1.0,
+      "provenance_method": "official STMicroelectronics GitHub commit 54be5cc91b83615240710bda9745f51c984d10c5; pinned archive SHA-256",
+      "provenance_status": "VERIFIED_OFFICIAL_ARTIFACT",
+      "runs": 5104,
+      "samples": 602108,
+      "source_commit": "54be5cc91b83615240710bda9745f51c984d10c5",
+      "source_field_coverage": {
+        "anonymous_normalized_features_available": 15,
+        "anonymous_normalized_features_used": 15,
+        "fraction": 1.0
+      },
+      "source_license": "CC BY-NC-SA 4.0",
+      "source_sha256": "97b2df4206177c5bc5b89ba18758215674bd437fef8c514320b831404f7674b7",
+      "split": "official MaterialID-level is_test split preserved",
+      "status": "EXECUTED",
+      "step07_max_all_deviation_distribution": {
+        "count": 1807,
+        "maximum": 0.9999999999999911,
+        "median": 0.8785755792478823,
+        "minimum": 0.3792569097538008,
+        "p95": 0.9876693406450593
+      },
+      "step_results": [
+        {
+          "available_scores": 1807,
+          "held_out_materials": 1807,
+          "status": "SCORED",
+          "step_id": 2,
+          "training_materials": 3297
+        },
+        {
+          "available_scores": 1807,
+          "held_out_materials": 1807,
+          "status": "SCORED",
+          "step_id": 4,
+          "training_materials": 3297
+        },
+        {
+          "held_out_materials": 0,
+          "status": "NO_SOURCE_ROWS",
+          "step_id": 5,
+          "training_materials": 0
+        },
+        {
+          "available_scores": 1807,
+          "held_out_materials": 1807,
+          "status": "SCORED",
+          "step_id": 6,
+          "training_materials": 3294
+        },
+        {
+          "available_scores": 1807,
+          "held_out_materials": 1807,
+          "status": "SCORED",
+          "step_id": 7,
+          "training_materials": 3297
+        }
+      ],
+      "step_row_coverage": {
+        "-1": 24738,
+        "-2": 11631,
+        "1": 52569,
+        "2": 203937,
+        "4": 186793,
+        "6": 20422,
+        "7": 102018
+      },
+      "threshold_probe_semantics": "static probes of frozen entry thresholds; these are not health states and no threshold was selected or optimized",
+      "threshold_probes": {
+        "CRITICAL_ENTRY": {
+          "balanced_accuracy": 0.9592797783933518,
+          "f1": 0.026490066225165563,
+          "fn": 0,
+          "fp": 147,
+          "mcc": 0.1110389953140717,
+          "precision": 0.013422818791946308,
+          "recall": 1.0,
+          "threshold": 0.82,
+          "tn": 1658,
+          "tp": 2
+        },
+        "DEGRADED_ENTRY": {
+          "balanced_accuracy": 0.885595567867036,
+          "f1": 0.00959232613908873,
+          "fn": 0,
+          "fp": 413,
+          "mcc": 0.060963790783302066,
+          "precision": 0.004819277108433735,
+          "recall": 1.0,
+          "threshold": 0.6,
+          "tn": 1392,
+          "tp": 2
+        },
+        "WATCH_ENTRY": {
+          "balanced_accuracy": 0.5171745152354571,
+          "f1": 0.0022896393817973667,
+          "fn": 0,
+          "fp": 1743,
+          "mcc": 0.006274433544077264,
+          "precision": 0.001146131805157593,
+          "recall": 1.0,
+          "threshold": 0.35,
+          "tn": 62,
+          "tp": 2
+        }
+      },
+      "training_materials": 3297
+    },
+    {
+      "abnormal_location_score_distribution": {
+        "count": 367,
+        "maximum": 1.0,
+        "median": 1.0,
+        "minimum": 0.9999999999999744,
+        "p95": 1.0
+      },
+      "artifact_observations": [
+        "The pinned D2 CSV has 126794 data rows and 1156 MaterialIDs; the repository README states 126795 rows and 1157 MaterialIDs."
+      ],
+      "continuous_metrics": {
+        "auroc": 1.0,
+        "average_precision": 1.0
+      },
+      "data_quality_coverage": 1.0,
+      "dataset": "st-awfd-d2",
+      "headline_step_ids": [
+        1,
+        2
+      ],
+      "health_eligible_location_score_distribution": {
+        "count": 604,
+        "maximum": 1.0,
+        "median": 0.9999999999999993,
+        "minimum": 0.4929700555799478,
+        "p95": 1.0
+      },
+      "held_out_label_counts": {
+        "abnormal": 367,
+        "normal": 237
+      },
+      "held_out_materials": 604,
+      "limitations": [
+        "Real semiconductor production data with DataOrigin.EXTERNAL_BENCHMARK; not OSAT validation.",
+        "The anonymous z-scaled feature semantics and physical engineering units are unavailable, so there is no Step01 physics or canonical station mapping.",
+        "Actual machine IDs are unavailable; the benchmark model is not exact-machine validation.",
+        "The normal-process calibration subset is not independently confirmed healthy machine history.",
+        "duration_ms is normalized process-step time, so no slope or cross-MaterialID chronology is asserted.",
+        "No Step05 family model, Step09 temporal state machine, Step10 evidence authority, or Step15 ticket authority is used.",
+        "Labels describe abnormal MaterialIDs/process results, not confirmed equipment-maintenance faults."
+      ],
+      "machines": null,
+      "method_scope": "per-MaterialID/per-mandatory-StepID anonymous-feature median and MAD; frozen Step07 numerical deviation only",
+      "normal_location_score_distribution": {
+        "count": 237,
+        "maximum": 0.9869265555759356,
+        "median": 0.7323563854678523,
+        "minimum": 0.4929700555799478,
+        "p95": 0.961434193151741
+      },
+      "operational_ticket_count": 0,
+      "optional_step_ids": [],
+      "pipeline": {
+        "benchmark_feature_sets": true,
+        "step01_physics": false,
+        "step05_family_model": false,
+        "step07_numerical_deviation": true,
+        "step09_temporal_state_machine": false,
+        "step10_evidence": false,
+        "step15_ticket": false
+      },
+      "pipeline_coverage": 1.0,
+      "provenance_method": "official STMicroelectronics GitHub commit 54be5cc91b83615240710bda9745f51c984d10c5; pinned archive SHA-256",
+      "provenance_status": "VERIFIED_OFFICIAL_ARTIFACT",
+      "runs": 1156,
+      "samples": 126794,
+      "source_commit": "54be5cc91b83615240710bda9745f51c984d10c5",
+      "source_field_coverage": {
+        "anonymous_normalized_features_available": 20,
+        "anonymous_normalized_features_used": 20,
+        "fraction": 1.0
+      },
+      "source_license": "CC BY-NC-SA 4.0",
+      "source_sha256": "e93d9f69ecb5c303f7f484647406d1ac2beda5726b99bb2984801867fea36297",
+      "split": "official MaterialID-level is_test split preserved",
+      "status": "EXECUTED",
+      "step07_max_all_deviation_distribution": {
+        "count": 604,
+        "maximum": 1.0,
+        "median": 0.9999999999999993,
+        "minimum": 0.5828437211030792,
+        "p95": 1.0
+      },
+      "step_results": [
+        {
+          "available_scores": 604,
+          "held_out_materials": 604,
+          "status": "SCORED",
+          "step_id": 1,
+          "training_materials": 552
+        },
+        {
+          "available_scores": 604,
+          "held_out_materials": 604,
+          "status": "SCORED",
+          "step_id": 2,
+          "training_materials": 552
+        }
+      ],
+      "step_row_coverage": {
+        "1": 74945,
+        "2": 51849
+      },
+      "threshold_probe_semantics": "static probes of frozen entry thresholds; these are not health states and no threshold was selected or optimized",
+      "threshold_probes": {
+        "CRITICAL_ENTRY": {
+          "balanced_accuracy": 0.8670886075949367,
+          "f1": 0.9209535759096612,
+          "fn": 0,
+          "fp": 63,
+          "mcc": 0.7915880975736019,
+          "precision": 0.8534883720930233,
+          "recall": 1.0,
+          "threshold": 0.82,
+          "tn": 174,
+          "tp": 367
+        },
+        "DEGRADED_ENTRY": {
+          "balanced_accuracy": 0.510548523206751,
+          "f1": 0.7598343685300207,
+          "fn": 0,
+          "fp": 232,
+          "mcc": 0.11369214233317079,
+          "precision": 0.6126878130217028,
+          "recall": 1.0,
+          "threshold": 0.6,
+          "tn": 5,
+          "tp": 367
+        },
+        "WATCH_ENTRY": {
+          "balanced_accuracy": 0.5,
+          "f1": 0.7559217301750772,
+          "fn": 0,
+          "fp": 237,
+          "mcc": null,
+          "precision": 0.6076158940397351,
+          "recall": 1.0,
+          "threshold": 0.35,
+          "tn": 0,
+          "tp": 367
+        }
+      },
+      "training_materials": 552
+    },
+    {
+      "continuous_metrics": null,
+      "data_quality_coverage": 1.0,
+      "dataset": "tuhh-dad3350-surface",
+      "feed_velocity_spearman": {
+        "detrended_height_rms": 0.7714285714285715,
+        "detrended_mean_absolute_deviation": 0.7714285714285715,
+        "median_height": 0.8857142857142858,
+        "peak_to_valley": 0.7714285714285715,
+        "robust_spread": 0.3142857142857143,
+        "valid_pixel_fraction": null
+      },
+      "limitations": [
+        "Real target-equipment/process evidence; not equipment-health validation and not OSAT evidence.",
+        "Detrended metrics are descriptive proxies unless independently validated against Keyence VK-A3D output.",
+        "No ISO surface-roughness compliance is claimed.",
+        "One surface map per feed velocity supports descriptive rank association only, not causal inference.",
+        "Steps 07, 09, 10, and 15 are not run and no operational ticket authority exists."
+      ],
+      "machines": null,
+      "method_scope": "descriptive target-process surface metrology only",
+      "operational_ticket_count": 0,
+      "pipeline": {
+        "step01_physics": false,
+        "step05_family_model": false,
+        "step07_machine_model": false,
+        "step09_temporal_state_machine": false,
+        "step10_evidence": false,
+        "step15_ticket": false
+      },
+      "pipeline_coverage": 1.0,
+      "provenance_method": "pinned authoritative TORE v1.0 archive and README SHA-256/MD5",
+      "provenance_status": "VERIFIED_OFFICIAL_ARTIFACT",
+      "runs": 6,
+      "samples": 6,
+      "source_field_coverage": {
+        "fraction": 1.0,
+        "official_surface_maps": 6,
+        "parsed_surface_maps": 6
+      },
+      "source_files": {
+        "README.txt": {
+          "md5": "48d7f327a2d6068d8a130436762f1a20",
+          "sha256": "fdb9112d2061afef6b3af38647ef3ec10729983f9b159a978e7a5adc5d97715f"
+        },
+        "data_raw.zip": {
+          "md5": "e559d1736e23898b9d29e85b7f0ab3ed",
+          "sha256": "8dc6cd61c837100a0e5e9b7877e6b6c7e5bbde2f70e08017d48c4f0577125dca"
+        }
+      },
+      "source_license": "Public Domain Mark 1.0",
+      "source_sha256": "8dc6cd61c837100a0e5e9b7877e6b6c7e5bbde2f70e08017d48c4f0577125dca",
+      "status": "EXECUTED_DESCRIPTIVE",
+      "surface_maps": [
+        {
+          "detrended_height_rms": 0.07080782418631229,
+          "detrended_mean_absolute_deviation": 0.06465423360482152,
+          "dimensions": [
+            768,
+            1024
+          ],
+          "feed_velocity_mm_per_s": 0.1,
+          "median_height": 0.13957949999999997,
+          "peak_to_valley": 0.20457,
+          "robust_spread": 0.026893500000000015,
+          "valid_pixel_fraction": 1.0
+        },
+        {
+          "detrended_height_rms": 0.10725397984079008,
+          "detrended_mean_absolute_deviation": 0.09745587196660892,
+          "dimensions": [
+            768,
+            1024
+          ],
+          "feed_velocity_mm_per_s": 0.2,
+          "median_height": 0.20334449999999998,
+          "peak_to_valley": 0.42317099999999996,
+          "robust_spread": 0.054473999999999995,
+          "valid_pixel_fraction": 1.0
+        },
+        {
+          "detrended_height_rms": 0.08848199314860566,
+          "detrended_mean_absolute_deviation": 0.07993283124373003,
+          "dimensions": [
+            768,
+            1024
+          ],
+          "feed_velocity_mm_per_s": 0.5,
+          "median_height": 0.171978,
+          "peak_to_valley": 0.273389,
+          "robust_spread": 0.036859,
+          "valid_pixel_fraction": 1.0
+        },
+        {
+          "detrended_height_rms": 0.10100681119016405,
+          "detrended_mean_absolute_deviation": 0.09327681042115515,
+          "dimensions": [
+            768,
+            1024
+          ],
+          "feed_velocity_mm_per_s": 0.7,
+          "median_height": 0.22084399999999998,
+          "peak_to_valley": 0.32755599999999996,
+          "robust_spread": 0.03551199999999999,
+          "valid_pixel_fraction": 1.0
+        },
+        {
+          "detrended_height_rms": 0.2118158881373376,
+          "detrended_mean_absolute_deviation": 0.19001478255390322,
+          "dimensions": [
+            768,
+            1024
+          ],
+          "feed_velocity_mm_per_s": 1.0,
+          "median_height": 0.44605649999999997,
+          "peak_to_valley": 0.586916,
+          "robust_spread": 0.05037550000000002,
+          "valid_pixel_fraction": 1.0
+        },
+        {
+          "detrended_height_rms": 0.19641661198365384,
+          "detrended_mean_absolute_deviation": 0.17464128306342008,
+          "dimensions": [
+            768,
+            1024
+          ],
+          "feed_velocity_mm_per_s": 5.0,
+          "median_height": 0.4156085,
+          "peak_to_valley": 0.557836,
+          "robust_spread": 0.0463925,
+          "valid_pixel_fraction": 1.0
+        }
+      ]
+    },
+    {
+      "dataset": "wafer-dicing-chang-2024",
+      "limitations": [
+        "No local dataset artifact was present."
+      ],
+      "operational_ticket_count": 0,
+      "provenance_method": null,
+      "provenance_status": "UNVERIFIED_OR_NOT_EVALUATED",
+      "source_sha256": null,
+      "status": "UNAVAILABLE"
+    },
+    {
+      "dataset": "phm-2018-ion-mill",
+      "limitations": [
+        "No local dataset artifact was present."
+      ],
+      "operational_ticket_count": 0,
+      "provenance_method": null,
+      "provenance_status": "UNVERIFIED_OR_NOT_EVALUATED",
+      "source_sha256": null,
+      "status": "UNAVAILABLE"
+    },
+    {
+      "dataset": "phm-2016-cmp",
+      "limitations": [
+        "No local dataset artifact was present."
+      ],
+      "operational_ticket_count": 0,
+      "provenance_method": null,
+      "provenance_status": "UNVERIFIED_OR_NOT_EVALUATED",
+      "source_sha256": null,
+      "status": "UNAVAILABLE"
+    },
+    {
+      "dataset": "forinfpro-himd",
+      "limitations": [
+        "Evidence class C industrial mechanism analog; polymer injection molding is not semiconductor transfer molding.",
+        "The inspected CSV headers do not declare physical units, so cavity pressure and temperature cannot be mapped to unit-enforced channels without guessing.",
+        "Only one published cycle was present locally, so a disjoint exact-machine calibration/evaluation split is unavailable."
+      ],
+      "operational_ticket_count": 0,
+      "provenance_method": "complete official v1 three-file MD5 manifest",
+      "provenance_status": "VERIFIED_OFFICIAL_ARTIFACT",
+      "source_sha256": "aeb5de2fd98641fe003bd7a320ba7249a9208567a1f47c8a1a10469125ed453d",
+      "status": "INSPECTED_NOT_EXECUTABLE"
+    },
+    {
+      "dataset": "r2r-web-tension",
+      "limitations": [
+        "Evidence class C roll-to-roll mechanism analog; not semiconductor or OSAT validation.",
+        "Four of 20 classified physical-valued source fields have exact Fleet Command mappings; selected-field coverage is not reported as 100% channel coverage.",
+        "The four mapped fields have explicit physical semantics and units, but the dataset provides process-setting experiments rather than equipment-health labels.",
+        "No confirmed-healthy exact-machine history or preregistered health split exists, so no Step 07/09/10 result is produced.",
+        "The workbooks are schema-inspected only; controller settings, material geometry, and derived aggregate columns are not PHM channels."
+      ],
+      "machines": null,
+      "operational_ticket_count": 0,
+      "provenance_method": "pinned public Mendeley Data v2 dataset.zip SHA-256",
+      "provenance_status": "VERIFIED_OFFICIAL_ARTIFACT",
+      "runs": 210,
+      "samples": null,
+      "source_field_coverage": {
+        "classification_rule": "For the checksum-pinned v2 sensor schema, Date/Model/Trigger/Film kind are metadata or labels; OutFeeder-Control:/ReWinder-Control: fields are controller configuration; all remaining physical-valued fields form the source-signal denominator.",
+        "controller_configuration_fields_excluded": 9,
+        "exact_mapped_physical_signals": 4,
+        "fraction": 0.2,
+        "inspected_source_fields": 33,
+        "metadata_or_label_fields_excluded": 4,
+        "physical_signal_fields": 20
+      },
+      "source_sha256": "3168a831e38c9388e73ba809661c282b560640ea269beba5d976340eb5e1ac16",
+      "status": "INSPECTED_NOT_EXECUTABLE"
+    },
+    {
+      "dataset": "me-ad",
+      "limitations": [
+        "No local dataset artifact was present."
+      ],
+      "operational_ticket_count": 0,
+      "provenance_method": null,
+      "provenance_status": "UNVERIFIED_OR_NOT_EVALUATED",
+      "source_sha256": null,
+      "status": "UNAVAILABLE"
+    },
+    {
+      "data_quality_coverage": 1.0,
+      "dataset": "kuka-kr3",
+      "limitations": [
+        "Evidence class D component/process analog; not semiconductor or OSAT validation.",
+        "The dataset contains payload variation but no fault or independently adjudicated health labels.",
+        "Calibration files form a benchmark-only nominal baseline, not confirmed healthy equipment history.",
+        "The README states a 12 ms sampling period while Sample increments resemble 4 ms; trend features are excluded from every score until that discrepancy is resolved.",
+        "Each CSV is one independent run-level window, not an operational 60-second feature window.",
+        "Independent recordings have no asserted cross-run chronology, so Steps 09 and 10 are not run and no health-state distribution is reported.",
+        "No KUKA signal is substituted for an OSAT station channel, and no physics relation is available for this ephemeral family."
+      ],
+      "machines": 2,
+      "method_scope": "partial Step02 location/spread and pure Step07 run-level numerical reuse; not end-to-end operational inference",
+      "operational_ticket_count": 0,
+      "pipeline": {
+        "bounded_store": true,
+        "step02_run_statistics": true,
+        "step02_timing_features": false,
+        "step03_physics": false,
+        "step05_family_model": false,
+        "step07_numerical_deviation": true,
+        "step09_health": false,
+        "step10_evidence": false,
+        "step15_ticket": false
+      },
+      "pipeline_coverage": 1.0,
+      "provenance_method": "pinned official v1 archive SHA-256 and MD5",
+      "provenance_status": "VERIFIED_OFFICIAL_ARTIFACT",
+      "runs": 128,
+      "samples": 685400,
+      "source_field_coverage": {
+        "fraction": 0.8571428571428571,
+        "mapped_physical_signals": 6,
+        "total_fields_including_timestamp": 7
+      },
+      "source_sha256": "51f93e8c453dd857170698627dc1d64ef14839e5c6efdb68148d01e0100c1253",
+      "split": "published same-machine split: R1 D1-D3 to D4; R2 D5-D7 to D8; whole files preserved",
+      "status": "EXECUTED"
+    },
+    {
+      "dataset": "rddac",
+      "limitations": [
+        "No local dataset artifact was present."
+      ],
+      "operational_ticket_count": 0,
+      "provenance_method": null,
+      "provenance_status": "UNVERIFIED_OR_NOT_EVALUATED",
+      "source_sha256": null,
+      "status": "UNAVAILABLE"
+    },
+    {
+      "continuous_metrics": {
+        "runs": 146,
+        "spearman": {
+          "smcAC.median": 0.23340750311388317,
+          "smcAC.rms": 0.7248574366603864,
+          "smcAC.robust_spread": 0.8087448172978855,
+          "smcDC.median": 0.7385788884518742,
+          "smcDC.rms": 0.7404059106398992,
+          "smcDC.robust_spread": -0.2231084588887115,
+          "vib_spindle.median": -0.5650565582448719,
+          "vib_spindle.rms": -0.5301061463538608,
+          "vib_spindle.robust_spread": -0.44433191482540835
+        }
+      },
+      "dataset": "nasa-milling",
+      "limitations": [
+        "Evidence class C machining analog; not semiconductor or OSAT validation.",
+        "Signal output units are not documented and no spindle-speed time series exists, so Step 02/03/07/09 cannot be entered without fabrication.",
+        "Wear correlations are descriptive associations and not failure probabilities, health labels, or causal effects."
+      ],
+      "machines": null,
+      "operational_ticket_count": 0,
+      "provenance_method": "pinned official archive SHA-256",
+      "provenance_status": "VERIFIED_OFFICIAL_ARTIFACT",
+      "runs": 167,
+      "samples": null,
+      "source_sha256": "de9c8685cb0e07b4f39459dc282b49192a3ad660e9577ff99b68dc9994e35d27",
+      "split": "none; descriptive association only",
+      "status": "EXECUTED_DESCRIPTIVE"
+    },
+    {
+      "dataset": "uci-secom",
+      "limitations": [
+        "Evidence class B other semiconductor process/yield data; not equipment-health or OSAT plant validation.",
+        "All sensor variables are anonymized and have no physical names or units, so zero channels can be mapped exactly.",
+        "Pass/fail yield labels cannot be relabeled as equipment health or maintenance faults.",
+        "No accuracy is reported because the unchanged PHM pipeline cannot execute without fabricated channel semantics."
+      ],
+      "machines": null,
+      "operational_ticket_count": 0,
+      "provenance_method": "pinned official archive SHA-256",
+      "provenance_status": "VERIFIED_OFFICIAL_ARTIFACT",
+      "runs": null,
+      "samples": 1567,
+      "source_sha256": "eea568baf3c2229096d7d294cf0b096b5502bd96d92c0b80a65b84714059be8e",
+      "status": "INSPECTED_NOT_EXECUTABLE"
+    }
+  ],
+  "schema_version": "1.0",
+  "summary": {
+    "attempted": 13,
+    "executed": 5,
+    "inspected_not_executable": 3,
+    "operational_tickets": 0,
+    "rejected_invalid": 0,
+    "unavailable": 5,
+    "unverified_external_input": 0
+  }
+}
+

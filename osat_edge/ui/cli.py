@@ -9,7 +9,10 @@ from typing import Sequence
 
 from ..roadmap.pre_steps.pre01_common.pre01_common import RELEASE_CLASS, VERSION
 from ..roadmap.post_steps.post01_demo.post01_demo import run_demo
-from ..roadmap.post_steps.post04_real_data_evaluation.post04_real_data_evaluation import DEFAULT_EXTERNAL_DATA_ROOT
+from ..roadmap.post_steps.post04_real_data_evaluation.post04_real_data_evaluation import (
+    DATASET_ORDER,
+    DEFAULT_EXTERNAL_DATA_ROOT,
+)
 
 
 def parser() -> argparse.ArgumentParser:
@@ -39,11 +42,7 @@ def parser() -> argparse.ArgumentParser:
         help="Evaluate explicitly supplied external real data offline",
     )
     choice = real.add_mutually_exclusive_group(required=True)
-    choice.add_argument("--dataset", choices=(
-        "wafer-dicing-chang-2024", "phm-2018-ion-mill", "phm-2016-cmp",
-        "forinfpro-himd", "r2r-web-tension", "me-ad", "kuka-kr3",
-        "rddac", "nasa-milling", "uci-secom",
-    ))
+    choice.add_argument("--dataset", choices=DATASET_ORDER)
     choice.add_argument("--all", action="store_true", help="Attempt all registered datasets")
     real.add_argument("--path", help="Local artifact/directory for --dataset")
     real.add_argument(

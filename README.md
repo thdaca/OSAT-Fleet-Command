@@ -100,9 +100,10 @@ printed by the CLI but omitted from the deterministic report written under
 for source provenance,
 exact mappings, attempted datasets, supported metrics, and limitations.
 When the official datasets are already present locally, `verify-real-evidence`
-re-runs them without network access and checks the deterministic comparison and
-evaluator hashes against the committed POST04 resource
-`osat_edge/roadmap/post_steps/post04_real_data_evaluation/resources/0.2.4-real-data.json`.
+first checks the immutable historical `0.2.4-real-data.json` byte identity, then
+separately re-runs the current datasets without network access and checks the
+deterministic comparison against `0.2.5-real-data.json`. A current evaluator
+hash is not compared with the historical evaluator hash.
 
 ## Repository map
 

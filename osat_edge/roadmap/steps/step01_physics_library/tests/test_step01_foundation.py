@@ -102,7 +102,7 @@ EXPECTED_CANDIDATE_IDS = (
 EXPECTED_RECORD_HASHES = {
     "relations": "e151f9eb7a530cdb4f32231b354f24ca1c39c7d543e872707910689b9c098f83",
     "candidates": "7faa134a19bd481b5c710340881d66a001d8cc3f32ed5f8823f6311126bc9430",
-    "references": "d1cc5e68249a01a3d07e9154bb572774edc14beac41579727e8a3023fafbbcdf",
+    "references": "b3ac830ba8885a30b65eb771853fa0bdf6e40b6c2d753456e6f6be386b12e51f",
     "readiness": "742e14e5ee64e4b5d4b182713b0d1d8cfb07dd43a9009ff0f8b897ccab28cc02",
 }
 

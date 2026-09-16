@@ -890,6 +890,11 @@ equations.
     evidence for DISCO wafer saw logs, FDC/data mining and predictive maintenance.
 57. C.-C. Hsu. *AOI-Based Defect Detection in the Wire Bonding Process*.
     National Sun Yat-sen University thesis record `etd-0609125-111038` (2025).
+    The full thesis is embargoed until 2035; no public sample count is assigned.
+58. C.-C. Hsu et al. *Progressive Alignment with VLM-LLM Feature to Augment
+    Defect Classification for the ASE Dataset*. arXiv:2404.05183; IEEE ICCE
+    2025 DOI 10.1109/ICCE63647.2025.10930135. The separate drilling/AOI dataset
+    reports 455 samples and is not wire-bond telemetry.
 
 This bibliography records sources actually used to bound claims. Listing a
 standard or publication does not claim compliance, endorsement, or validation

@@ -51,15 +51,27 @@ operational `DataOrigin` enum.
   the raw time series; no canonical station, runtime score, or executable OSAT
   evidence is created.
 
-### ASE wire-bond process inspection
+### ASE wire-bond process inspection thesis
 
 - Classification: `PUBLISHED_REAL_OSAT_STUDY`; noncanonical process evidence.
 - Source: Ching-Chao Hsu (2025), *AOI-Based Defect Detection in the Wire Bonding
   Process*, record `etd-0609125-111038`.
-- The source documents a genuine ASE-provided process/inspection dataset with
-  455 labeled samples.
-- Boundary: no public raw download was identified. These are process/AOI labels,
-  not equipment-health telemetry or maintenance evidence.
+- The public repository record describes genuine ASE-provided wire-bond
+  process/inspection samples, but the full thesis is embargoed until 2035.
+- Boundary: no public sample count or raw download is established. These are
+  process/AOI samples, not equipment-health telemetry or maintenance evidence.
+
+### ASE drilling-process AOI study
+
+- Classification: published real-semiconductor process evidence; not wire-bond
+  telemetry and not an executed dataset in this repository.
+- Sources: arXiv [2404.05183](https://arxiv.org/abs/2404.05183) and IEEE ICCE
+  2025 DOI [10.1109/ICCE63647.2025.10930135](https://doi.org/10.1109/ICCE63647.2025.10930135).
+- The ASE-provided drilling/AOI study reports 455 samples: 225 normal and four
+  defect classes containing 92, 44, 50, and 44 samples.
+- Boundary: these counts belong only to the drilling dataset. They must not be
+  attributed to the embargoed ASE wire-bond thesis or treated as equipment
+  telemetry.
 
 ### UTAC wafer-saw industrial practice
 

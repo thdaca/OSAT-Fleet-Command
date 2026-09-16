@@ -11,11 +11,13 @@ from __future__ import annotations
 import csv
 import datetime as dt
 import hashlib
+import importlib.metadata
 import io
 import json
 import math
 from pathlib import Path
 import re
+import tempfile
 import time
 from typing import Any, Mapping, Sequence
 import zipfile
@@ -45,7 +47,11 @@ from ...pre_steps.pre03_data_provenance.pre03_data_provenance import (
     legacy_external_named_content_hash as _named_content_hash,
     sha256_file as _sha256_file,
 )
-from ...steps.step02_physical_features.step02_physical_features import FeatureSet, extract_physical_features
+from ...steps.step02_physical_features.step02_physical_features import (
+    Feature,
+    FeatureSet,
+    extract_physical_features,
+)
 from ...steps.step07_machine_model.step07_machine_model import (
     ContextModel,
     MachineModel,
@@ -59,6 +65,9 @@ from ...steps.step08_live_telemetry.step08_live_telemetry import (
 
 
 DATASET_ORDER = (
+    "st-awfd-d1",
+    "st-awfd-d2",
+    "tuhh-dad3350-surface",
     "wafer-dicing-chang-2024",
     "phm-2018-ion-mill",
     "phm-2016-cmp",
@@ -73,12 +82,32 @@ DATASET_ORDER = (
 
 POST04_ROOT = Path(__file__).resolve().parent
 # This is the immutable historical 0.2.4 record, not a current-release artifact.
-COMMITTED_EVIDENCE_PATH = POST04_ROOT / "resources" / "0.2.4-real-data.json"
+HISTORICAL_EVIDENCE_PATH = POST04_ROOT / "resources" / "0.2.4-real-data.json"
+CURRENT_EVIDENCE_PATH = POST04_ROOT / "resources" / "0.2.5-real-data.json"
+COMMITTED_EVIDENCE_PATH = CURRENT_EVIDENCE_PATH
 DEFAULT_EXTERNAL_DATA_ROOT = (
     Path(__file__).resolve().parents[4] / "benchmarks" / "_external"
 )
 
 DATASETS: dict[str, dict[str, str]] = {
+    "st-awfd-d1": {
+        "title": "STMicroelectronics Automatic Wafer Fault Detection D1",
+        "source": "https://github.com/STMicroelectronics/ST-AWFD",
+        "evidence_class": "B",
+        "domain": "semiconductor wafer-production process sequences",
+    },
+    "st-awfd-d2": {
+        "title": "STMicroelectronics Automatic Wafer Fault Detection D2",
+        "source": "https://github.com/STMicroelectronics/ST-AWFD",
+        "evidence_class": "B",
+        "domain": "semiconductor wafer-production process sequences",
+    },
+    "tuhh-dad3350-surface": {
+        "title": "TUHH DISCO DAD3350 diced-surface profilometry",
+        "source": "https://doi.org/10.15480/882.15763",
+        "evidence_class": "A",
+        "domain": "wafer-dicing surface metrology",
+    },
     "wafer-dicing-chang-2024": {
         "title": "Chang/Tsai/Mo wafer-dicing study data",
         "source": "https://doi.org/10.3390/electronics13101802",
@@ -165,6 +194,50 @@ KUKA_OFFICIAL_CSV_SET_SHA256 = "f3af97316d3366e0ac28f299025e36f4e9eeffc58e93c231
 SECOM_OFFICIAL_ARCHIVE_SHA256 = "eea568baf3c2229096d7d294cf0b096b5502bd96d92c0b80a65b84714059be8e"
 SECOM_OFFICIAL_FILE_SET_SHA256 = "29c8312b075821292d52eb8e3e20fbe6a4943272de3aa3900c6b9b19026dd927"
 R2R_OFFICIAL_ARCHIVE_SHA256 = "3168a831e38c9388e73ba809661c282b560640ea269beba5d976340eb5e1ac16"
+ST_AWFD_SOURCE_COMMIT = "54be5cc91b83615240710bda9745f51c984d10c5"
+ST_AWFD_LICENSE = "CC BY-NC-SA 4.0"
+ST_AWFD_SPECS: dict[str, dict[str, Any]] = {
+    "st-awfd-d1": {
+        "archive": "D1.zip",
+        "member": "D1.csv",
+        "sha256": "97b2df4206177c5bc5b89ba18758215674bd437fef8c514320b831404f7674b7",
+        "feature_count": 15,
+        "headline_steps": (2, 4, 5, 6, 7),
+        "optional_steps": (-1, -2),
+    },
+    "st-awfd-d2": {
+        "archive": "D2.zip",
+        "member": "D2.csv",
+        "sha256": "e93d9f69ecb5c303f7f484647406d1ac2beda5726b99bb2984801867fea36297",
+        "feature_count": 20,
+        "headline_steps": (1, 2),
+        "optional_steps": (),
+    },
+}
+ST_THRESHOLD_PROBES = {
+    "WATCH_ENTRY": 0.35,
+    "DEGRADED_ENTRY": 0.60,
+    "CRITICAL_ENTRY": 0.82,
+}
+MAXIMUM_ST_ARCHIVE_BYTES = 32 * 1024 * 1024
+MAXIMUM_ST_CSV_BYTES = 160 * 1024 * 1024
+
+TUHH_DATA_ARCHIVE_SHA256 = "8dc6cd61c837100a0e5e9b7877e6b6c7e5bbde2f70e08017d48c4f0577125dca"
+TUHH_DATA_ARCHIVE_MD5 = "e559d1736e23898b9d29e85b7f0ab3ed"
+TUHH_README_SHA256 = "fdb9112d2061afef6b3af38647ef3ec10729983f9b159a978e7a5adc5d97715f"
+TUHH_README_MD5 = "48d7f327a2d6068d8a130436762f1a20"
+TUHH_FEED_FILES = {
+    "data_raw/Dicing_surfaceroughness_white_light_0_1mms.vk7": 0.1,
+    "data_raw/Dicing_surfaceroughness_white_light_0_2mms.vk7": 0.2,
+    "data_raw/Dicing_surfaceroughness_white_light_0_5mms.vk7": 0.5,
+    "data_raw/Dicing_surfaceroughness_white_light_0_7mms.vk7": 0.7,
+    "data_raw/Dicing_surfaceroughness_white_light_1mms.vk7": 1.0,
+    "data_raw/Dicing_surfaceroughness_white_light_5mms.vk7": 5.0,
+}
+KEYENCE_PARSER_DISTRIBUTION = "convert-keyence-files"
+KEYENCE_PARSER_VERSION = "0.1.0"
+KEYENCE_PARSER_COMMIT = "36e1eb9f550a41f5be2369de125ec51338f54d9e"
+HISTORICAL_EVIDENCE_SHA256 = "371b9f6c40f2185a5d505f373483973f7f5974c276890d0616b9a715706014b3"
 FORINFPRO_OFFICIAL_MD5 = {
     "cycle_001_machine_data.csv": "d2a7d96d133f3d7b43a5089ad4bf0b09",
     "cycle_001_pt.csv": "40d8511c11e8e0575dc3930ddd258c19",
@@ -545,6 +618,762 @@ def _fit_nominal_benchmark_model(
         contexts={EquipmentState.PROCESSING: context},
         physics_parameters={},
     )
+
+
+def _binary_threshold_metrics(
+    labels: Sequence[int], scores: Sequence[float], threshold: float
+) -> dict[str, int | float | None]:
+    truth = np.asarray(labels, dtype=np.int8)
+    predicted = np.asarray(scores, dtype=np.float64) >= threshold
+    positive = truth == 1
+    negative = ~positive
+    tp = int(np.sum(predicted & positive))
+    fp = int(np.sum(predicted & negative))
+    tn = int(np.sum(~predicted & negative))
+    fn = int(np.sum(~predicted & positive))
+    precision = tp / (tp + fp) if tp + fp else None
+    recall = tp / (tp + fn) if tp + fn else None
+    specificity = tn / (tn + fp) if tn + fp else None
+    f1 = (
+        2.0 * precision * recall / (precision + recall)
+        if precision is not None and recall is not None and precision + recall
+        else None
+    )
+    balanced_accuracy = (
+        (recall + specificity) / 2.0
+        if recall is not None and specificity is not None
+        else None
+    )
+    denominator = math.sqrt((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn))
+    mcc = (tp * tn - fp * fn) / denominator if denominator else None
+    return {
+        "threshold": threshold,
+        "tp": tp,
+        "fp": fp,
+        "tn": tn,
+        "fn": fn,
+        "precision": precision,
+        "recall": recall,
+        "f1": f1,
+        "balanced_accuracy": balanced_accuracy,
+        "mcc": mcc,
+    }
+
+
+def _continuous_binary_metrics(
+    labels: Sequence[int], scores: Sequence[float]
+) -> dict[str, float | None]:
+    truth = np.asarray(labels, dtype=np.int8)
+    values = np.asarray(scores, dtype=np.float64)
+    positives = int(np.sum(truth == 1))
+    negatives = int(np.sum(truth == 0))
+    if positives == 0 or negatives == 0:
+        return {"auroc": None, "average_precision": None}
+    ranks = _average_ranks(values)
+    rank_sum = float(np.sum(ranks[truth == 1]))
+    auroc = (rank_sum - positives * (positives - 1) / 2.0) / (
+        positives * negatives
+    )
+    order = np.argsort(-values, kind="mergesort")
+    sorted_scores = values[order]
+    sorted_truth = truth[order]
+    cumulative_positive = 0
+    average_precision = 0.0
+    start = 0
+    while start < len(order):
+        end = start + 1
+        while end < len(order) and sorted_scores[end] == sorted_scores[start]:
+            end += 1
+        group_positive = int(np.sum(sorted_truth[start:end] == 1))
+        cumulative_positive += group_positive
+        average_precision += (
+            group_positive / positives * cumulative_positive / end
+        )
+        start = end
+    return {"auroc": float(auroc), "average_precision": average_precision}
+
+
+def _score_distribution(values: Sequence[float]) -> dict[str, int | float | None]:
+    if not values:
+        return {
+            "count": 0,
+            "minimum": None,
+            "median": None,
+            "p95": None,
+            "maximum": None,
+        }
+    array = np.asarray(values, dtype=np.float64)
+    return {
+        "count": len(array),
+        "minimum": float(np.min(array)),
+        "median": float(np.median(array)),
+        "p95": float(np.percentile(array, 95.0)),
+        "maximum": float(np.max(array)),
+    }
+
+
+def _st_identity(dataset_id: str, step_id: int) -> MachineIdentity:
+    suffix = dataset_id.removeprefix("st-awfd-").upper()
+    return MachineIdentity(
+        machine_id=f"BENCH-{suffix}-STEP-{step_id}",
+        family=f"external_{dataset_id.replace('-', '_')}",
+        station_id=f"EXTERNAL-{suffix}-STEP-{step_id}",
+        name=f"Anonymous ST-AWFD {suffix} StepID {step_id}",
+    )
+
+
+def _st_expected_header(feature_count: int) -> tuple[str, ...]:
+    return (
+        "MaterialID",
+        "StepID",
+        "duration_ms",
+        *(f"feature_{index}" for index in range(1, feature_count + 1)),
+        "is_test",
+        "target",
+    )
+
+
+def _load_st_awfd_matrix(
+    archive_path: Path, dataset_id: str
+) -> tuple[tuple[str, ...], np.ndarray]:
+    spec = ST_AWFD_SPECS[dataset_id]
+    if archive_path.stat().st_size > MAXIMUM_ST_ARCHIVE_BYTES:
+        raise RealDataEvaluationError("ST-AWFD archive exceeds the size limit")
+    try:
+        with zipfile.ZipFile(archive_path) as archive:
+            files = [item for item in archive.infolist() if not item.is_dir()]
+            if len(files) != 1 or files[0].filename != spec["member"]:
+                raise RealDataEvaluationError(
+                    f"{dataset_id} must contain only {spec['member']}"
+                )
+            item = files[0]
+            if item.file_size > MAXIMUM_ST_CSV_BYTES:
+                raise RealDataEvaluationError("ST-AWFD CSV exceeds the size limit")
+            with archive.open(item) as stream:
+                header = tuple(
+                    value.strip()
+                    for value in stream.readline().decode("utf-8-sig").split(",")
+                )
+                expected = _st_expected_header(spec["feature_count"])
+                if header != expected:
+                    raise RealDataEvaluationError(
+                        f"{dataset_id} does not have the pinned official schema"
+                    )
+                try:
+                    matrix = np.loadtxt(
+                        stream,
+                        delimiter=",",
+                        dtype=np.float64,
+                        ndmin=2,
+                    )
+                except (TypeError, ValueError) as exc:
+                    raise RealDataEvaluationError(
+                        f"{dataset_id} contains invalid or missing numeric data"
+                    ) from exc
+    except zipfile.BadZipFile as exc:
+        raise RealDataEvaluationError("ST-AWFD archive is invalid") from exc
+    if matrix.shape[1] != len(header):
+        raise RealDataEvaluationError("ST-AWFD row width does not match its header")
+    return header, matrix
+
+
+def _validate_st_awfd_matrix(
+    header: Sequence[str], matrix: np.ndarray
+) -> tuple[
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    dict[int, tuple[int, int]],
+]:
+    columns = {name: index for index, name in enumerate(header)}
+    material = matrix[:, columns["MaterialID"]]
+    step = matrix[:, columns["StepID"]]
+    duration = matrix[:, columns["duration_ms"]]
+    split = matrix[:, columns["is_test"]]
+    target = matrix[:, columns["target"]]
+    feature_indexes = [
+        columns[name] for name in header if name.startswith("feature_")
+    ]
+    features = matrix[:, feature_indexes]
+    if not bool(np.isfinite(features).all()):
+        raise RealDataEvaluationError(
+            "ST-AWFD anonymous features contain nonfinite values; the source defines no missing-value sentinel"
+        )
+    if not bool(
+        np.isfinite(material).all()
+        and np.isfinite(step).all()
+        and np.isfinite(duration).all()
+        and np.isfinite(split).all()
+        and np.isfinite(target).all()
+    ):
+        raise RealDataEvaluationError("ST-AWFD reference fields must be finite")
+    for name, values in (
+        ("MaterialID", material),
+        ("StepID", step),
+        ("is_test", split),
+        ("target", target),
+    ):
+        if not bool(np.equal(values, np.floor(values)).all()):
+            raise RealDataEvaluationError(f"ST-AWFD {name} must be integer-valued")
+    if not set(np.unique(split)).issubset({0.0, 1.0}):
+        raise RealDataEvaluationError("ST-AWFD is_test must contain only 0 or 1")
+    if not set(np.unique(target)).issubset({0.0, 1.0}):
+        raise RealDataEvaluationError("ST-AWFD target must contain only 0 or 1")
+    material_int = material.astype(np.int64)
+    step_int = step.astype(np.int64)
+    split_int = split.astype(np.int8)
+    target_int = target.astype(np.int8)
+    unique_materials, inverse = np.unique(material_int, return_inverse=True)
+    split_min = np.full(len(unique_materials), 2, dtype=np.int8)
+    split_max = np.full(len(unique_materials), -1, dtype=np.int8)
+    target_min = np.full(len(unique_materials), 2, dtype=np.int8)
+    target_max = np.full(len(unique_materials), -1, dtype=np.int8)
+    np.minimum.at(split_min, inverse, split_int)
+    np.maximum.at(split_max, inverse, split_int)
+    np.minimum.at(target_min, inverse, target_int)
+    np.maximum.at(target_max, inverse, target_int)
+    if not bool(np.equal(split_min, split_max).all()):
+        raise RealDataEvaluationError("ST-AWFD is_test changes within a MaterialID")
+    if not bool(np.equal(target_min, target_max).all()):
+        raise RealDataEvaluationError("ST-AWFD target changes within a MaterialID")
+    metadata = {
+        int(material_id): (int(split_min[index]), int(target_min[index]))
+        for index, material_id in enumerate(unique_materials)
+    }
+    return material_int, step_int, duration, features, target_int, metadata
+
+
+def _st_feature_sets_for_step(
+    dataset_id: str,
+    step_id: int,
+    material: np.ndarray,
+    steps: np.ndarray,
+    anonymous_features: np.ndarray,
+    metadata: Mapping[int, tuple[int, int]],
+) -> list[tuple[int, int, int, FeatureSet]]:
+    selected = np.flatnonzero(steps == step_id)
+    if len(selected) == 0:
+        return []
+    selected = selected[np.argsort(material[selected], kind="mergesort")]
+    ordered_material = material[selected]
+    boundaries = np.r_[
+        0,
+        np.flatnonzero(np.diff(ordered_material)) + 1,
+        len(selected),
+    ]
+    identity = _st_identity(dataset_id, step_id)
+    timestamp = dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc)
+    records: list[tuple[int, int, int, FeatureSet]] = []
+    for start, end in zip(boundaries[:-1], boundaries[1:], strict=True):
+        material_id = int(ordered_material[start])
+        rows = anonymous_features[selected[start:end]]
+        median = np.median(rows, axis=0)
+        mad = np.median(np.abs(rows - median), axis=0)
+        features: list[Any] = []
+        for index, (location, spread) in enumerate(zip(median, mad, strict=True), 1):
+            prefix = f"{dataset_id}.step_{step_id}.feature_{index}"
+            subsystem = f"anonymous_process_step_{step_id}"
+            features.append(Feature(prefix + ".median", float(location), subsystem, "location"))
+            features.append(Feature(prefix + ".mad", float(spread), subsystem, "spread"))
+        split, target = metadata[material_id]
+        records.append(
+            (
+                material_id,
+                split,
+                target,
+                FeatureSet(
+                    identity,
+                    timestamp,
+                    EquipmentState.PROCESSING,
+                    timestamp,
+                    timestamp,
+                    tuple(features),
+                ),
+            )
+        )
+    return records
+
+
+def _evaluate_st_awfd(path: Path, dataset_id: str) -> dict[str, Any]:
+    started = time.perf_counter()
+    spec = ST_AWFD_SPECS[dataset_id]
+    archive_path = path / spec["archive"] if path.is_dir() else path
+    if not archive_path.is_file():
+        raise RealDataNotFound(f"Official {spec['archive']} was not present")
+    source_hash = _sha256_file(archive_path)
+    if source_hash != spec["sha256"]:
+        return _unverified_input(
+            dataset_id,
+            source_hash,
+            "The ST-AWFD artifact does not match the pinned official GitHub archive SHA-256.",
+            expected_official_archive_sha256=spec["sha256"],
+        )
+    header, matrix = _load_st_awfd_matrix(archive_path, dataset_id)
+    material, steps, _duration, anonymous, _target_rows, metadata = (
+        _validate_st_awfd_matrix(header, matrix)
+    )
+    training_materials = {
+        material_id
+        for material_id, (split, target) in metadata.items()
+        if split == 0 and target == 0
+    }
+    held_out_materials = {
+        material_id for material_id, (split, _target) in metadata.items() if split == 1
+    }
+    if training_materials & held_out_materials:
+        raise RealDataEvaluationError("ST-AWFD MaterialID train/test leakage detected")
+    all_scores: dict[int, list[float]] = {
+        material_id: [] for material_id in held_out_materials
+    }
+    location_scores: dict[int, list[float]] = {
+        material_id: [] for material_id in held_out_materials
+    }
+    step_results: list[dict[str, Any]] = []
+    evaluated_feature_sets = 0
+    for step_id in spec["headline_steps"]:
+        records = _st_feature_sets_for_step(
+            dataset_id, step_id, material, steps, anonymous, metadata
+        )
+        if not records:
+            step_results.append(
+                {
+                    "step_id": step_id,
+                    "status": "NO_SOURCE_ROWS",
+                    "training_materials": 0,
+                    "held_out_materials": 0,
+                }
+            )
+            continue
+        training = [
+            feature_set
+            for material_id, split, target, feature_set in records
+            if material_id in training_materials and split == 0 and target == 0
+        ]
+        evaluation = [record for record in records if record[0] in held_out_materials]
+        model = _fit_nominal_benchmark_model(_st_identity(dataset_id, step_id), training)
+        available = 0
+        for material_id, _split, _target, feature_set in evaluation:
+            result = evaluate_machine_model_numerically(
+                model, feature_set.machine, feature_set
+            )
+            evaluated_feature_sets += 1
+            if not result.available:
+                continue
+            available += 1
+            all_scores[material_id].append(
+                max(deviation.score for deviation in result.deviations)
+            )
+            location_scores[material_id].append(
+                max(
+                    deviation.score
+                    for deviation in result.deviations
+                    if deviation.kind == "location"
+                )
+            )
+        step_results.append(
+            {
+                "step_id": step_id,
+                "status": "SCORED",
+                "training_materials": len(training),
+                "held_out_materials": len(evaluation),
+                "available_scores": available,
+            }
+        )
+    scored_materials = sorted(
+        material_id for material_id, scores in location_scores.items() if scores
+    )
+    labels = [metadata[material_id][1] for material_id in scored_materials]
+    location = [max(location_scores[material_id]) for material_id in scored_materials]
+    maximum_all = [max(all_scores[material_id]) for material_id in scored_materials]
+    normal = [score for score, label in zip(location, labels, strict=True) if label == 0]
+    abnormal = [score for score, label in zip(location, labels, strict=True) if label == 1]
+    unique_steps, step_counts = np.unique(steps, return_counts=True)
+    step_row_coverage = {
+        str(int(step_id)): int(count)
+        for step_id, count in zip(unique_steps, step_counts, strict=True)
+    }
+    report = _base_report(
+        dataset_id,
+        source_hash,
+        provenance_verified=True,
+        provenance_method=(
+            f"official STMicroelectronics GitHub commit {ST_AWFD_SOURCE_COMMIT}; "
+            "pinned archive SHA-256"
+        ),
+    )
+    report.update(
+        {
+            "status": "EXECUTED",
+            "source_license": ST_AWFD_LICENSE,
+            "source_commit": ST_AWFD_SOURCE_COMMIT,
+            "source_schema": list(header),
+            "mapped_channels": [],
+            "channel_coverage": {
+                "mapped": 0,
+                "total": spec["feature_count"],
+                "fraction": 0.0,
+            },
+            "source_field_coverage": {
+                "anonymous_normalized_features_used": spec["feature_count"],
+                "anonymous_normalized_features_available": spec["feature_count"],
+                "fraction": 1.0,
+            },
+            "full_station_representation": False,
+            "station_profile": None,
+            "canonical_station_mapping": False,
+            "machine_identity_available": False,
+            "samples": int(len(matrix)),
+            "runs": len(metadata),
+            "machines": None,
+            "split": "official MaterialID-level is_test split preserved",
+            "training_materials": len(training_materials),
+            "held_out_materials": len(held_out_materials),
+            "held_out_label_counts": {
+                "normal": int(sum(label == 0 for label in labels)),
+                "abnormal": int(sum(label == 1 for label in labels)),
+            },
+            "headline_step_ids": list(spec["headline_steps"]),
+            "optional_step_ids": list(spec["optional_steps"]),
+            "step_row_coverage": step_row_coverage,
+            "artifact_observations": (
+                [
+                    "The pinned D1 CSV has 602108 data rows and 5104 MaterialIDs; the repository README states 602108 rows and 5105 MaterialIDs.",
+                    "The pinned D1 CSV contains StepID 1 and no StepID 5 although the repository README names StepID 5 as mandatory; neither identifier is relabeled.",
+                ]
+                if dataset_id == "st-awfd-d1"
+                else [
+                    "The pinned D2 CSV has 126794 data rows and 1156 MaterialIDs; the repository README states 126795 rows and 1157 MaterialIDs."
+                ]
+            ),
+            "step_results": step_results,
+            "feature_kinds_used": ["location", "spread"],
+            "timing_dependent_features_used": False,
+            "duration_ms_interpretation": (
+                "normalized within-step process time only; no physical seconds or cross-MaterialID chronology"
+            ),
+            "nominal_baseline_semantics": (
+                "is_test == 0 and target == 0 normal-process benchmark baseline; not independently confirmed healthy machine history"
+            ),
+            "method_scope": (
+                "per-MaterialID/per-mandatory-StepID anonymous-feature median and MAD; frozen Step07 numerical deviation only"
+            ),
+            "pipeline": {
+                "benchmark_feature_sets": True,
+                "step01_physics": False,
+                "step05_family_model": False,
+                "step07_numerical_deviation": True,
+                "step09_temporal_state_machine": False,
+                "step10_evidence": False,
+                "step15_ticket": False,
+            },
+            "step07_max_all_deviation_distribution": _score_distribution(maximum_all),
+            "health_eligible_location_score_distribution": _score_distribution(location),
+            "normal_location_score_distribution": _score_distribution(normal),
+            "abnormal_location_score_distribution": _score_distribution(abnormal),
+            "continuous_metrics": _continuous_binary_metrics(labels, location),
+            "threshold_probes": {
+                name: _binary_threshold_metrics(labels, location, threshold)
+                for name, threshold in ST_THRESHOLD_PROBES.items()
+            },
+            "threshold_probe_semantics": (
+                "static probes of frozen entry thresholds; these are not health states and no threshold was selected or optimized"
+            ),
+            "classification_metrics": None,
+            "metrics_supported": [
+                "held-out normal/abnormal continuous-score distributions",
+                "AUROC and average precision",
+                "frozen static-threshold confusion probes",
+                "pipeline coverage",
+            ],
+            "data_quality_coverage": 1.0,
+            "pipeline_coverage": (
+                len(scored_materials) / len(held_out_materials)
+                if held_out_materials
+                else None
+            ),
+            "runtime": {
+                "elapsed_seconds": time.perf_counter() - started,
+                "evaluated_feature_sets": evaluated_feature_sets,
+            },
+            "operational_ticket_count": 0,
+            "limitations": [
+                "Real semiconductor production data with DataOrigin.EXTERNAL_BENCHMARK; not OSAT validation.",
+                "The anonymous z-scaled feature semantics and physical engineering units are unavailable, so there is no Step01 physics or canonical station mapping.",
+                "Actual machine IDs are unavailable; the benchmark model is not exact-machine validation.",
+                "The normal-process calibration subset is not independently confirmed healthy machine history.",
+                "duration_ms is normalized process-step time, so no slope or cross-MaterialID chronology is asserted.",
+                "No Step05 family model, Step09 temporal state machine, Step10 evidence authority, or Step15 ticket authority is used.",
+                "Labels describe abnormal MaterialIDs/process results, not confirmed equipment-maintenance faults.",
+                *(
+                    [
+                        "The authoritative D1 bytes contain no StepID 5; the headline registry retains StepID 5 with NO_SOURCE_ROWS and does not substitute StepID 1."
+                    ]
+                    if dataset_id == "st-awfd-d1"
+                    else []
+                ),
+            ],
+        }
+    )
+    return report
+
+
+def _keyence_parser() -> tuple[Any | None, dict[str, Any]]:
+    try:
+        distribution = importlib.metadata.distribution(KEYENCE_PARSER_DISTRIBUTION)
+    except importlib.metadata.PackageNotFoundError:
+        return None, {
+            "status": "DEPENDENCY_UNAVAILABLE",
+            "required_version": KEYENCE_PARSER_VERSION,
+            "required_commit": KEYENCE_PARSER_COMMIT,
+        }
+    direct_text = distribution.read_text("direct_url.json")
+    try:
+        direct = json.loads(direct_text) if direct_text else {}
+    except json.JSONDecodeError:
+        direct = {}
+    observed_commit = direct.get("vcs_info", {}).get("commit_id")
+    if distribution.version != KEYENCE_PARSER_VERSION or observed_commit != KEYENCE_PARSER_COMMIT:
+        return None, {
+            "status": "PIN_MISMATCH",
+            "observed_version": distribution.version,
+            "observed_commit": observed_commit,
+            "required_version": KEYENCE_PARSER_VERSION,
+            "required_commit": KEYENCE_PARSER_COMMIT,
+        }
+    try:
+        from convert_keyence_files import read
+    except ImportError:
+        return None, {"status": "IMPORT_FAILED"}
+    return read, {
+        "status": "AVAILABLE",
+        "version": distribution.version,
+        "commit": observed_commit,
+        "license": "Unlicense",
+    }
+
+
+def _surface_statistics(height: Any) -> dict[str, Any]:
+    array = np.asarray(height, dtype=np.float64)
+    if array.ndim != 2 or min(array.shape) < 2 or array.size > 10_000_000:
+        raise RealDataEvaluationError("Keyence height map dimensions exceed parser bounds")
+    valid = np.isfinite(array)
+    count = int(np.sum(valid))
+    if count < 3:
+        raise RealDataEvaluationError("Keyence height map has insufficient valid pixels")
+    rows, columns = np.nonzero(valid)
+    values = array[valid]
+    x = columns.astype(np.float64)
+    y = rows.astype(np.float64)
+    design = np.asarray(
+        [
+            [np.dot(x, x), np.dot(x, y), np.sum(x)],
+            [np.dot(x, y), np.dot(y, y), np.sum(y)],
+            [np.sum(x), np.sum(y), count],
+        ],
+        dtype=np.float64,
+    )
+    response = np.asarray(
+        [np.dot(x, values), np.dot(y, values), np.sum(values)],
+        dtype=np.float64,
+    )
+    try:
+        plane = np.linalg.solve(design, response)
+    except np.linalg.LinAlgError as exc:
+        raise RealDataEvaluationError("Keyence height map plane fit is singular") from exc
+    residual = values - (plane[0] * x + plane[1] * y + plane[2])
+    center = float(np.median(values))
+    return {
+        "dimensions": [int(array.shape[0]), int(array.shape[1])],
+        "valid_pixel_fraction": count / int(array.size),
+        "median_height": center,
+        "robust_spread": float(np.median(np.abs(values - center))),
+        "detrended_height_rms": float(np.sqrt(np.mean(np.square(residual)))),
+        "detrended_mean_absolute_deviation": float(np.mean(np.abs(residual))),
+        "peak_to_valley": float(np.max(values) - np.min(values)),
+    }
+
+
+def _evaluate_tuhh_surface(path: Path) -> dict[str, Any]:
+    started = time.perf_counter()
+    if not path.is_dir():
+        raise RealDataEvaluationError(
+            "TUHH evaluation requires a directory containing data_raw.zip and README.txt"
+        )
+    archive_path = path / "data_raw.zip"
+    readme_path = path / "README.txt"
+    if not archive_path.is_file() or not readme_path.is_file():
+        raise RealDataNotFound("Official TUHH data_raw.zip and README.txt were not both present")
+    archive_sha = _sha256_file(archive_path)
+    readme_sha = _sha256_file(readme_path)
+    archive_md5 = _md5_file(archive_path)
+    readme_md5 = _md5_file(readme_path)
+    if (
+        archive_sha != TUHH_DATA_ARCHIVE_SHA256
+        or readme_sha != TUHH_README_SHA256
+        or archive_md5 != TUHH_DATA_ARCHIVE_MD5
+        or readme_md5 != TUHH_README_MD5
+    ):
+        return _unverified_input(
+            "tuhh-dad3350-surface",
+            archive_sha,
+            "TUHH source files do not match the pinned authoritative v1.0 SHA-256/MD5 identities.",
+            observed_readme_sha256=readme_sha,
+        )
+    try:
+        with zipfile.ZipFile(archive_path) as archive:
+            files = [item for item in archive.infolist() if not item.is_dir()]
+            names = [item.filename for item in files]
+            if len(names) != len(set(names)) or set(names) != set(TUHH_FEED_FILES):
+                raise RealDataEvaluationError(
+                    "TUHH archive must contain exactly the six pinned VK7 feed-velocity maps"
+                )
+            if any(
+                Path(name).is_absolute() or ".." in Path(name).parts
+                for name in names
+            ):
+                raise RealDataEvaluationError("TUHH archive contains an unsafe member path")
+            if any(item.file_size > 8 * 1024 * 1024 for item in files):
+                raise RealDataEvaluationError("TUHH VK7 member exceeds the parser bound")
+            parser, parser_identity = _keyence_parser()
+            if parser is None:
+                report = _base_report(
+                    "tuhh-dad3350-surface",
+                    archive_sha,
+                    provenance_verified=True,
+                    provenance_method="pinned authoritative TORE v1.0 archive and README SHA-256/MD5",
+                )
+                report.update(
+                    {
+                        "status": "INSPECTED_NOT_EXECUTABLE",
+                        "parser": parser_identity,
+                        "mapped_channels": [],
+                        "channel_coverage": {"mapped": 0, "total": 1, "fraction": 0.0},
+                        "full_station_representation": False,
+                        "limitations": [
+                            "Pinned source identity and six-file schema verified, but the optional pinned parser is unavailable.",
+                            "No descriptive height-map conversion was fabricated.",
+                        ],
+                    }
+                )
+                return report
+            maps: list[dict[str, Any]] = []
+            with tempfile.TemporaryDirectory() as directory:
+                temporary = Path(directory)
+                for item in sorted(files, key=lambda value: TUHH_FEED_FILES[value.filename]):
+                    destination = temporary / Path(item.filename).name
+                    destination.write_bytes(archive.read(item))
+                    try:
+                        parsed = parser(destination)
+                        statistics = _surface_statistics(parsed.height)
+                    except Exception as exc:
+                        report = _base_report(
+                            "tuhh-dad3350-surface",
+                            archive_sha,
+                            provenance_verified=True,
+                            provenance_method="pinned authoritative TORE v1.0 archive and README SHA-256/MD5",
+                        )
+                        report.update(
+                            {
+                                "status": "INSPECTED_NOT_EXECUTABLE",
+                                "parser": {**parser_identity, "status": "PARSER_FAILED"},
+                                "mapped_channels": [],
+                                "channel_coverage": {"mapped": 0, "total": 1, "fraction": 0.0},
+                                "full_station_representation": False,
+                                "limitations": [
+                                    f"The pinned optional parser could not safely read all six official VK7 maps: {type(exc).__name__}.",
+                                    "No converted values or fabricated substitute were used.",
+                                ],
+                            }
+                        )
+                        return report
+                    maps.append(
+                        {
+                            "feed_velocity_mm_per_s": TUHH_FEED_FILES[item.filename],
+                            **statistics,
+                        }
+                    )
+    except zipfile.BadZipFile as exc:
+        raise RealDataEvaluationError("TUHH data_raw.zip is invalid") from exc
+    statistic_names = (
+        "valid_pixel_fraction",
+        "median_height",
+        "robust_spread",
+        "detrended_height_rms",
+        "detrended_mean_absolute_deviation",
+        "peak_to_valley",
+    )
+    feeds = [item["feed_velocity_mm_per_s"] for item in maps]
+    associations = {
+        name: _spearman(feeds, [item[name] for item in maps])
+        for name in statistic_names
+    }
+    report = _base_report(
+        "tuhh-dad3350-surface",
+        archive_sha,
+        provenance_verified=True,
+        provenance_method="pinned authoritative TORE v1.0 archive and README SHA-256/MD5",
+    )
+    report.update(
+        {
+            "status": "EXECUTED_DESCRIPTIVE",
+            "official_version": "v1.0",
+            "source_license": "Public Domain Mark 1.0",
+            "source_files": {
+                "data_raw.zip": {"sha256": archive_sha, "md5": archive_md5},
+                "README.txt": {"sha256": readme_sha, "md5": readme_md5},
+            },
+            "parser": parser_identity,
+            "equipment": "DISCO DAD3350",
+            "material": "fused-silica wafer, 1 mm thickness / 100 mm diameter",
+            "spindle_speed_rpm": 30_000,
+            "blade": "DISCO R07-SDC600-BB101-75",
+            "mapped_channels": [],
+            "channel_coverage": {"mapped": 0, "total": 1, "fraction": 0.0},
+            "source_field_coverage": {
+                "parsed_surface_maps": len(maps),
+                "official_surface_maps": 6,
+                "fraction": len(maps) / 6.0,
+            },
+            "full_station_representation": False,
+            "samples": 6,
+            "runs": 6,
+            "machines": None,
+            "feature_kinds_used": [],
+            "timing_dependent_features_used": False,
+            "metrics_supported": [
+                "conservative per-map descriptive height statistics",
+                "Spearman association with supplied feed velocity",
+            ],
+            "height_unit": "micrometre as decoded by the pinned parser",
+            "surface_maps": maps,
+            "feed_velocity_spearman": associations,
+            "classification_metrics": None,
+            "continuous_metrics": None,
+            "method_scope": "descriptive target-process surface metrology only",
+            "pipeline": {
+                "step01_physics": False,
+                "step05_family_model": False,
+                "step07_machine_model": False,
+                "step09_temporal_state_machine": False,
+                "step10_evidence": False,
+                "step15_ticket": False,
+            },
+            "data_quality_coverage": min(item["valid_pixel_fraction"] for item in maps),
+            "pipeline_coverage": len(maps) / 6.0,
+            "runtime": {"elapsed_seconds": time.perf_counter() - started},
+            "operational_ticket_count": 0,
+            "limitations": [
+                "Real target-equipment/process evidence; not equipment-health validation and not OSAT evidence.",
+                "Detrended metrics are descriptive proxies unless independently validated against Keyence VK-A3D output.",
+                "No ISO surface-roughness compliance is claimed.",
+                "One surface map per feed velocity supports descriptive rank association only, not causal inference.",
+                "Steps 07, 09, 10, and 15 are not run and no operational ticket authority exists.",
+            ],
+        }
+    )
+    return report
 
 
 def _evaluate_kuka(path: Path) -> dict[str, Any]:
@@ -1192,6 +2021,10 @@ def evaluate_real_dataset(dataset_id: str, path: str | Path) -> dict[str, Any]:
     selected = Path(path)
     if not selected.exists():
         raise RealDataNotFound(f"Dataset path not found: {selected.name}")
+    if dataset_id in ST_AWFD_SPECS:
+        return _evaluate_st_awfd(selected, dataset_id)
+    if dataset_id == "tuhh-dad3350-surface":
+        return _evaluate_tuhh_surface(selected)
     if dataset_id == "kuka-kr3":
         return _evaluate_kuka(selected)
     if dataset_id == "nasa-milling":
@@ -1293,11 +2126,24 @@ def real_data_summary(report: Mapping[str, Any]) -> dict[str, Any]:
         "metrics_supported",
         "classification_metrics",
         "continuous_metrics",
+        "threshold_probes",
+        "threshold_probe_semantics",
         "method_scope",
         "feature_kinds_used",
         "timing_dependent_features_used",
         "nominal_baseline_semantics",
         "deviation_score_distribution",
+        "step07_max_all_deviation_distribution",
+        "health_eligible_location_score_distribution",
+        "normal_location_score_distribution",
+        "abnormal_location_score_distribution",
+        "headline_step_ids",
+        "optional_step_ids",
+        "step_row_coverage",
+        "artifact_observations",
+        "surface_maps",
+        "feed_velocity_spearman",
+        "parser",
         "data_quality_coverage",
         "pipeline_coverage",
         "runtime",
@@ -1339,17 +2185,131 @@ def deterministic_scientific_sha256(report: Mapping[str, Any]) -> str:
     return hashlib.sha256(deterministic_scientific_bytes(report)).hexdigest()
 
 
+def verify_historical_real_data_artifact(
+    historical_result: str | Path | None = None,
+) -> dict[str, Any]:
+    """Verify the immutable 0.2.4 bytes without reproducing them as 0.2.5."""
+
+    path = Path(historical_result) if historical_result else HISTORICAL_EVIDENCE_PATH
+    try:
+        observed_hash = _sha256_file(path)
+        stored = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RealDataEvaluationError(
+            f"Historical real-data evidence is unavailable or invalid: {path.name}"
+        ) from exc
+    if observed_hash != HISTORICAL_EVIDENCE_SHA256:
+        raise RealDataEvaluationError(
+            "HISTORICAL 0.2.4 ARTIFACT INTEGRITY FAILURE: byte identity changed"
+        )
+    if stored.get("release_version") != "0.2.4" or stored.get("schema_version") != "1.0":
+        raise RealDataEvaluationError(
+            "HISTORICAL 0.2.4 ARTIFACT INTEGRITY FAILURE: embedded identity changed"
+        )
+    return {
+        "status": "PASS",
+        "artifact": path.name,
+        "release_version": "0.2.4",
+        "artifact_sha256": observed_hash,
+        "meaning": "historical artifact integrity only; not current scientific reproduction",
+    }
+
+
+def current_real_data_evidence_record(report: Mapping[str, Any]) -> dict[str, Any]:
+    """Return the small 0.2.5 evidence record; never include sample-level data."""
+
+    result_keys = (
+        "dataset",
+        "status",
+        "source_sha256",
+        "source_license",
+        "source_commit",
+        "source_files",
+        "provenance_status",
+        "provenance_method",
+        "samples",
+        "runs",
+        "machines",
+        "split",
+        "training_materials",
+        "held_out_materials",
+        "held_out_label_counts",
+        "headline_step_ids",
+        "optional_step_ids",
+        "step_row_coverage",
+        "artifact_observations",
+        "step_results",
+        "method_scope",
+        "pipeline",
+        "step07_max_all_deviation_distribution",
+        "health_eligible_location_score_distribution",
+        "normal_location_score_distribution",
+        "abnormal_location_score_distribution",
+        "continuous_metrics",
+        "threshold_probes",
+        "threshold_probe_semantics",
+        "source_field_coverage",
+        "surface_maps",
+        "feed_velocity_spearman",
+        "data_quality_coverage",
+        "pipeline_coverage",
+        "operational_ticket_count",
+        "limitations",
+    )
+    results = [
+        {key: item[key] for key in result_keys if key in item}
+        for item in report["datasets"]
+    ]
+    return {
+        "schema_version": "1.0",
+        "release_version": VERSION,
+        "origin": DataOrigin.EXTERNAL_BENCHMARK.value,
+        "historical_artifact": {
+            "name": HISTORICAL_EVIDENCE_PATH.name,
+            "sha256": HISTORICAL_EVIDENCE_SHA256,
+            "reproduced_as_current": False,
+        },
+        "evaluator_sha256": _sha256_file(Path(__file__).resolve()),
+        "deterministic_comparison_report_sha256": deterministic_scientific_sha256(report),
+        "methodology": {
+            "threshold_selection": "none; frozen threshold probes only",
+            "step05_family_model": False,
+            "step09_temporal_state_machine": False,
+            "operational_ticket_authority": False,
+            "sample_level_data_committed": False,
+        },
+        "summary": report["summary"],
+        "results": results,
+    }
+
+
+def write_current_real_data_evidence(
+    report: Mapping[str, Any],
+    output_path: str | Path = CURRENT_EVIDENCE_PATH,
+) -> Path:
+    """Write the deterministic aggregate-only current evidence record."""
+
+    path = Path(output_path)
+    path.write_bytes(deterministic_scientific_bytes(current_real_data_evidence_record(report)))
+    return path
+
+
 def verify_committed_real_data_evidence(
     external_root: str | Path,
     committed_result: str | Path | None = None,
 ) -> dict[str, Any]:
-    """Regenerate locally available evidence and fail clearly on scientific drift.
+    """Regenerate current evidence separately from historical-artifact integrity.
 
     This path performs no download.  The caller must provide the ignored local
     dataset root used for the committed evidence record.
     """
 
-    expected_path = Path(committed_result) if committed_result else COMMITTED_EVIDENCE_PATH
+    historical = (
+        verify_historical_real_data_artifact()
+        if committed_result is None
+        else None
+    )
+    expected_path = Path(committed_result) if committed_result else CURRENT_EVIDENCE_PATH
     try:
         expected = json.loads(expected_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -1379,9 +2339,9 @@ def verify_committed_real_data_evidence(
                 drift.append(f"{item['dataset']} {field}")
     if drift:
         raise RealDataEvaluationError(
-            "COMMITTED REAL-DATA EVIDENCE DRIFT: " + ", ".join(drift)
+            "CURRENT SCIENTIFIC REPRODUCTION DRIFT: " + ", ".join(drift)
         )
-    return {
+    result = {
         "status": "PASS",
         "release_version": VERSION,
         "evaluator_sha256": evaluator_hash,
@@ -1389,6 +2349,9 @@ def verify_committed_real_data_evidence(
         "datasets_checked": len(expected.get("results", [])),
         "operational_tickets": regenerated["summary"]["operational_tickets"],
     }
+    if historical is not None:
+        result["historical_artifact_integrity"] = historical
+    return result
 
 
 def write_real_data_report(

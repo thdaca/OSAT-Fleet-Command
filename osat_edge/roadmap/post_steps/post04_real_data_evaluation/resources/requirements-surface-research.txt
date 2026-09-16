@@ -1,0 +1,3 @@
+# Optional TUHH Keyence VK7 research parser; not required by normal runtime.
+# Commit and Unlicense were verified for the Snapshot 4 evaluation.
+convert-keyence-files @ git+https://github.com/nulltyto/convert_keyence_files.git@36e1eb9f550a41f5be2369de125ec51338f54d9e

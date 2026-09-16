@@ -15,7 +15,7 @@ import numpy as np
 from osat_edge.ui.cli import main
 from osat_edge.roadmap.pre_steps.pre01_common.pre01_common import DataOrigin, EquipmentState, VERSION
 from osat_edge.roadmap.post_steps.post04_real_data_evaluation.post04_real_data_evaluation import (
-    COMMITTED_EVIDENCE_PATH,
+    HISTORICAL_EVIDENCE_PATH,
     DATASET_ORDER,
     DATASETS,
     RealDataEvaluationError,
@@ -57,7 +57,8 @@ def _write_kuka(root: Path, *, bad_unit: bool = False) -> None:
 class RealDataEvaluationTests(unittest.TestCase):
     def test_registry_order_and_provenance_are_explicit(self) -> None:
         self.assertEqual(tuple(DATASETS), DATASET_ORDER)
-        self.assertEqual(10, len(DATASET_ORDER))
+        self.assertEqual(13, len(DATASET_ORDER))
+        self.assertEqual(("st-awfd-d1", "st-awfd-d2", "tuhh-dad3350-surface"), DATASET_ORDER[:3])
         self.assertEqual("A", DATASETS["wafer-dicing-chang-2024"]["evidence_class"])
         self.assertEqual("B", DATASETS["phm-2018-ion-mill"]["evidence_class"])
         self.assertEqual("D", DATASETS["kuka-kr3"]["evidence_class"])
@@ -160,7 +161,7 @@ class RealDataEvaluationTests(unittest.TestCase):
         kuka = next(item for item in report["datasets"] if item["dataset"] == "kuka-kr3")
         self.assertEqual("REJECTED_INVALID", kuka["status"])
         self.assertEqual(1, report["summary"]["rejected_invalid"])
-        self.assertEqual(9, report["summary"]["unavailable"])
+        self.assertEqual(12, report["summary"]["unavailable"])
 
     def test_secom_labels_are_not_recast_as_equipment_health(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -185,8 +186,8 @@ class RealDataEvaluationTests(unittest.TestCase):
             root = Path(directory)
             report = evaluate_all_real_data(root)
             self.assertFalse((root / ".artifacts").exists())
-        self.assertEqual(10, report["summary"]["attempted"])
-        self.assertEqual(10, report["summary"]["unavailable"])
+        self.assertEqual(13, report["summary"]["attempted"])
+        self.assertEqual(13, report["summary"]["unavailable"])
         self.assertEqual(0, report["summary"]["operational_tickets"])
 
     def test_report_is_written_only_when_explicitly_called(self) -> None:
@@ -270,7 +271,7 @@ class RealDataEvaluationTests(unittest.TestCase):
         self.assertIn("requires --path", stderr.getvalue())
 
     def test_committed_release_result_is_small_deterministic_and_code_pinned(self) -> None:
-        result_path = COMMITTED_EVIDENCE_PATH
+        result_path = HISTORICAL_EVIDENCE_PATH
         result = json.loads(result_path.read_text(encoding="utf-8"))
         self.assertLess(result_path.stat().st_size, 20_000)
         self.assertEqual("0.2.4-real-data.json", result_path.name)
@@ -278,6 +279,10 @@ class RealDataEvaluationTests(unittest.TestCase):
         self.assertEqual(
             "7c8fc2c86679227b95bafafcfe2e83a421e3098cb64cc4b50d21a05089de27b9",
             result["evaluator_sha256"],
+        )
+        self.assertEqual(
+            "371b9f6c40f2185a5d505f373483973f7f5974c276890d0616b9a715706014b3",
+            hashlib.sha256(result_path.read_bytes()).hexdigest(),
         )
         serialized = json.dumps(result)
         self.assertNotIn('"runtime"', serialized)

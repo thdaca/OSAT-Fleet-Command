@@ -243,8 +243,17 @@ ASE_WIRE_BOND_AOI = _reference(
     "etd-0609125-111038",
     ReferenceType.ACADEMIC_THESIS,
     2025,
-    "Genuine ASE-provided wire-bond process/inspection evidence with 455 labeled samples.",
-    "Process/AOI evidence only; no public raw download or equipment-health telemetry was identified.",
+    "The public record describes genuine ASE-provided wire-bond process/inspection samples.",
+    "The full thesis is embargoed until 2035; no public sample count, raw download, or equipment-health telemetry is established.",
+)
+ASE_DRILLING_AOI = _reference(
+    "ase_drilling_aoi_2024",
+    "C.-C. Hsu et al., Progressive Alignment with VLM-LLM Feature to Augment Defect Classification for the ASE Dataset; arXiv preprint and IEEE ICCE 2025 publication.",
+    "arXiv:2404.05183 / 10.1109/ICCE63647.2025.10930135",
+    ReferenceType.PEER_REVIEWED_PRIMARY,
+    2025,
+    "Genuine ASE-provided drilling-process/AOI evidence with 455 samples: 225 normal and defect classes of 92, 44, 50, and 44 samples.",
+    "This is drilling-process inspection evidence, not wire-bond telemetry or equipment-health validation; no public raw dataset bytes are established.",
 )
 UTAC_WAFER_SAW = _reference(
     "utac_wafer_saw_2023",
@@ -273,5 +282,5 @@ RESEARCH_REFERENCES: tuple[ResearchReference, ...] = (
     INFINEON_TAPE_TENSION, DISCO_DAD3660, BESI_DIE_BONDER,
     PTI_WIRE_BOND, BESI_FICO_MOLDING, GALLANT_TRIM_FORM,
     TAIJIN_TRIM_FORM, FINAL_TEST_HANDLER, ST_AWFD, TUHH_DAD3350,
-    CHDL, AMKOR_ATEP, ASE_WIRE_BOND_AOI, UTAC_WAFER_SAW,
+    CHDL, AMKOR_ATEP, ASE_WIRE_BOND_AOI, ASE_DRILLING_AOI, UTAC_WAFER_SAW,
 )

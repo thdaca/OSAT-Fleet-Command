@@ -114,6 +114,7 @@ class Step01EvidenceExpansionTests(unittest.TestCase):
             "chdl_2025": "arXiv:2507.06738",
             "amkor_atep_2022": "hdl:10400.22/20698",
             "ase_wire_bond_aoi_2025": "etd-0609125-111038",
+            "ase_drilling_aoi_2024": "arXiv:2404.05183 / 10.1109/ICCE63647.2025.10930135",
         }
         for key, identifier in expected.items():
             self.assertEqual(identifier, identifiers[key])
@@ -137,6 +138,26 @@ class Step01EvidenceExpansionTests(unittest.TestCase):
         self.assertIn("A paper is never treated as raw telemetry", catalog)
         self.assertIn("no public raw records", catalog)
         self.assertIn("not machine-health validation", catalog)
+
+    def test_ase_wire_bond_and_drilling_evidence_are_not_conflated(self) -> None:
+        catalog = (self.research_root / "EVIDENCE_CATALOG.md").read_text(encoding="utf-8")
+        wire_bond = next(
+            item for item in physics.RESEARCH_REFERENCES
+            if item.key == "ase_wire_bond_aoi_2025"
+        )
+        drilling = next(
+            item for item in physics.RESEARCH_REFERENCES
+            if item.key == "ase_drilling_aoi_2024"
+        )
+        self.assertIn("embargoed until 2035", wire_bond.scope_limitations)
+        self.assertIn("no public sample count", wire_bond.scope_limitations)
+        self.assertNotIn("455", wire_bond.supports)
+        self.assertIn("455 samples", drilling.supports)
+        self.assertIn("drilling-process", drilling.supports)
+        self.assertIn(
+            "these counts belong only to the drilling dataset",
+            " ".join(catalog.lower().split()),
+        )
 
 
 if __name__ == "__main__":
