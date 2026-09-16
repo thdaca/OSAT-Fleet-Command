@@ -19,7 +19,7 @@ from support import NOW, identity, window
 
 class PhysicsTests(unittest.TestCase):
     def test_library_is_small_and_family_specific(self) -> None:
-        self.assertEqual(2, len(relations_for_family("wafer_saw")))
+        self.assertEqual(1, len(relations_for_family("wafer_saw")))
         self.assertEqual((), relations_for_family("wire_bond"))
 
     def test_robust_features_have_three_clear_statistics(self) -> None:
@@ -65,10 +65,10 @@ class PhysicsTests(unittest.TestCase):
 
     def test_wrong_units_suppress_physics_evidence(self) -> None:
         windows = {
-            "coolant_pressure": window("coolant_pressure", "psi", [2] * 10),
-            "coolant_flow": window("coolant_flow", "L/min", [4] * 10),
+            "contact_voltage_drop": window("contact_voltage_drop", "V", [20] * 10),
+            "site_current": window("site_current", "A", [2] * 10),
         }
-        self.assertEqual((), calculate_physical_residuals("wafer_saw", windows))
+        self.assertEqual((), calculate_physical_residuals("final_test", windows))
 
 
 if __name__ == "__main__":

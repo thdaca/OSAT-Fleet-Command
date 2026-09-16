@@ -1,6 +1,8 @@
-# OSAT Fleet Command 0.2.0
+# OSAT Fleet Command 0.2.1
 
 **RESEARCH / DEVELOPMENT BUILD — not production qualified**
+
+Version 0.2.1 is the deep Step-01 physics-library research exemplar.
 
 OSAT Fleet Command is a small, edge-oriented teaching and research implementation for exploring equipment-health evidence in semiconductor back-end manufacturing. It keeps deterministic health and maintenance decisions separate from optional language-model enrichment.
 
@@ -21,7 +23,7 @@ The repository follows one visible path:
 
 The nine isolated demo stations are WM-01, WS-01, DA-01, WB-04, MO-01, MK-01, TF-01, SG-01, and FT-01. A model or baseline for one machine or family is rejected for another.
 
-The 0.2.0 runtime intentionally represents one demonstration machine per family, keyed by family. It is not yet a general plant inventory for multiple simultaneous machines of the same family. The family-data stage may still learn from historical records for multiple real machines of one family.
+The 0.2.1 runtime intentionally represents one demonstration machine per family, keyed by family. It is not yet a general plant inventory for multiple simultaneous machines of the same family. The family-data stage may still learn from historical records for multiple real machines of one family.
 
 This build does **not** provide calibrated failure probabilities, causal diagnosis, a real OSAT fleet validation, autonomous control, or a commercial SECS/GEM implementation. The model output is a `risk_score`, not a failure probability.
 
