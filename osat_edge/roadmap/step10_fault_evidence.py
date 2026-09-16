@@ -24,19 +24,31 @@ def build_fault_evidence(assessment: HealthAssessment) -> FaultEvidence | None:
     if assessment.health_state not in {HealthState.DEGRADED, HealthState.CRITICAL}:
         return None
     descriptions: list[str] = []
-    for subsystem in assessment.subsystem_health:
-        ranked = sorted(subsystem.deviations, key=lambda item: item.score, reverse=True)
-        for deviation in ranked[:3]:
+    suspected = set(assessment.suspected_subsystems)
+    detail = [
+        deviation
+        for subsystem in assessment.subsystem_health
+        if not suspected or subsystem.subsystem in suspected
+        for deviation in subsystem.deviations
+        if deviation.score > 0
+    ]
+    kind_priority = {"location": 0, "physics": 1}
+    ranked = sorted(
+        detail,
+        key=lambda item: (kind_priority.get(item.kind, 2), -item.score),
+    )
+    for deviation in ranked[:6]:
             if deviation.score <= 0:
                 continue
+            direction = "above" if deviation.z_score >= 0 else "below"
             descriptions.append(
                 f"{deviation.feature} in {deviation.subsystem} deviates "
-                f"{abs(deviation.z_score):.2f} robust scales from confirmed healthy behavior"
+                f"{deviation.z_score:+.2f} robust scales {direction} confirmed healthy behavior"
             )
     family_note = None
     if assessment.family_risk_score is not None and not assessment.suspected_subsystems:
         family_note = (
-            "Machine-wide family risk is elevated; no subsystem attribution is supported."
+            "Machine-wide uncalibrated family risk is advisory; no subsystem attribution is supported."
         )
     if not descriptions:
         descriptions.append("Deterministic health evidence is elevated without causal proof.")

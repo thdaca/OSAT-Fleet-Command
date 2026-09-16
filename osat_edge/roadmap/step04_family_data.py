@@ -34,8 +34,16 @@ class FamilySample:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "timestamp", utc(self.timestamp))
+        if not self.sample_id.strip() or not self.machine_id.strip():
+            raise ValueError("Family sample ID and machine ID are required")
+        if self.future_event_id is not None and not self.future_event_id.strip():
+            raise ValueError("A supplied future event ID must be nonempty")
         values = {str(name): float(value) for name, value in self.features.items()}
-        if not values or not all(np.isfinite(value) for value in values.values()):
+        if (
+            not values
+            or not all(name.strip() for name in values)
+            or not all(np.isfinite(value) for value in values.values())
+        ):
             raise ValueError("Family sample features must be present and finite")
         object.__setattr__(self, "features", MappingProxyType(values))
 
@@ -61,15 +69,20 @@ class FamilyDataset:
             for item in (*self.samples, *self.events)
         ):
             raise ValueError("Family samples and events must lie inside the collection period")
-        schemas = {tuple(sample.features) for sample in self.samples}
-        if len(schemas) != 1:
+        if len({sample.sample_id for sample in self.samples}) != len(self.samples):
+            raise ValueError("Family sample IDs must be globally unique")
+        schema = set(self.samples[0].features)
+        if any(set(sample.features) != schema for sample in self.samples[1:]):
             raise ValueError("Every family sample must use the same feature schema")
+        event_keys = [(event.machine_id, event.event_id) for event in self.events]
+        if len(event_keys) != len(set(event_keys)):
+            raise ValueError("Observed event machine/event keys must be unique")
         events = {
             (event.machine_id, event.event_id): event
             for event in self.events
         }
         for sample in self.samples:
-            if sample.future_event_id:
+            if sample.future_event_id is not None:
                 event = events.get((sample.machine_id, sample.future_event_id))
                 if event is None:
                     raise ValueError("Positive family windows must reference an observed event")

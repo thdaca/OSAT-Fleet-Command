@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
@@ -20,7 +21,13 @@ class TicketEnrichment:
 
 
 def _clean(value: Any, limit: int) -> str:
-    text = re.sub(r"[\x00-\x08\x0b-\x1f\x7f]", " ", str(value))
+    text = "".join(
+        character
+        for character in str(value)
+        if unicodedata.category(character) not in {"Cc", "Cf"}
+        or character in "\t\n\r"
+    )
+    text = re.sub(r"[\x00-\x08\x0b-\x1f\x7f]", " ", text)
     return re.sub(r"\s+", " ", text).strip()[:limit]
 
 
@@ -30,8 +37,9 @@ def deterministic_fallback(
 ) -> TicketEnrichment:
     localized = ", ".join(evidence.suspected_subsystems) or "unlocalized machine-wide evidence"
     checks = tuple(
-        f"Review approved local guidance: {passage.text[:220]}"
+        f"Review approved local guidance: {_clean(passage.text, 220)}"
         for passage in passages[:3]
+        if _clean(passage.text, 220)
     )
     if not checks:
         checks = tuple(
@@ -71,10 +79,15 @@ def validate_llm_json(
         fields = [payload["summary"], payload["likely_issue"], *checks]
         if any(not isinstance(value, str) or not value.strip() for value in fields):
             return fallback
+        summary = _clean(payload["summary"], 500)
+        likely_issue = _clean(payload["likely_issue"], 500)
+        cleaned_checks = tuple(_clean(value, 280) for value in checks)
+        if not summary or not likely_issue or any(not value for value in cleaned_checks):
+            return fallback
         return TicketEnrichment(
-            summary=_clean(payload["summary"], 500),
-            likely_issue=_clean(payload["likely_issue"], 500),
-            recommended_checks=tuple(_clean(value, 280) for value in checks),
+            summary=summary,
+            likely_issue=likely_issue,
+            recommended_checks=cleaned_checks,
             backend="local-llm",
         )
     except (TypeError, ValueError, json.JSONDecodeError):

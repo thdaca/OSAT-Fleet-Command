@@ -25,6 +25,8 @@ def retrieve_rag_context(
     *,
     limit: int = 4,
 ) -> tuple[RetrievedPassage, ...]:
+    if limit <= 0:
+        return ()
     candidates = [
         RetrievedPassage(f"maintenance:{index}", text)
         for index, text in enumerate(maintenance_context)
@@ -45,7 +47,10 @@ def retrieve_rag_context(
         )
     )
     vectorizer = TfidfVectorizer(stop_words="english", ngram_range=(1, 2))
-    matrix = vectorizer.fit_transform([candidate.text for candidate in candidates])
+    try:
+        matrix = vectorizer.fit_transform([candidate.text for candidate in candidates])
+    except ValueError:
+        return tuple(candidates[:limit])
     scores = (matrix @ vectorizer.transform([query]).T).toarray().reshape(-1)
-    order = np.argsort(scores)[::-1][: max(1, limit)]
+    order = np.argsort(scores)[::-1][:limit]
     return tuple(candidates[int(index)] for index in order)

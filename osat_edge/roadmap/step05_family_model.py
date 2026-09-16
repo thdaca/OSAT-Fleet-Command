@@ -23,9 +23,29 @@ class FamilyModel:
     intercept: float
 
     def __post_init__(self) -> None:
+        if not self.family.strip() or not self.feature_names:
+            raise ValueError("Family and feature names are required")
+        if len(self.feature_names) != len(set(self.feature_names)) or not all(
+            name.strip() for name in self.feature_names
+        ):
+            raise ValueError("Family-model feature names must be nonempty and unique")
         width = len(self.feature_names)
-        if any(array.shape != (width,) for array in (self.scaler_center, self.scaler_scale, self.coefficients)):
+        arrays = tuple(
+            np.asarray(array, dtype=np.float64).copy()
+            for array in (self.scaler_center, self.scaler_scale, self.coefficients)
+        )
+        if any(array.shape != (width,) for array in arrays):
             raise ValueError("Family model vector width does not match its feature schema")
+        center, scale, coefficients = arrays
+        if not all(bool(np.isfinite(array).all()) for array in arrays) or not np.isfinite(self.intercept):
+            raise ValueError("Family model values must be finite")
+        if not bool(np.all(scale > 0.0)):
+            raise ValueError("Family-model scaler scale must be positive")
+        for array in arrays:
+            array.setflags(write=False)
+        object.__setattr__(self, "scaler_center", center)
+        object.__setattr__(self, "scaler_scale", scale)
+        object.__setattr__(self, "coefficients", coefficients)
 
 
 def _validate_machine_isolation(
@@ -97,6 +117,8 @@ def score_family_model(
     if any(name not in features for name in model.feature_names):
         raise ValueError("Family-model feature schema is unavailable")
     values = np.asarray([features[name] for name in model.feature_names], dtype=np.float64)
+    if not bool(np.isfinite(values).all()):
+        raise ValueError("Family-model inputs must be finite")
     standardized = (values - model.scaler_center) / model.scaler_scale
     logit = float(standardized @ model.coefficients + model.intercept)
     return float(1.0 / (1.0 + np.exp(-np.clip(logit, -40.0, 40.0))))

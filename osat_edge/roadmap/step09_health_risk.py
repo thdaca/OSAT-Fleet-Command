@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import math
 from dataclasses import dataclass
 
 from ..common import (
@@ -62,8 +63,13 @@ class StateTracker:
 
     def update(self, score: float | None, timestamp: dt.datetime) -> tuple[HealthState, bool]:
         now = utc(timestamp)
+        timeline = tuple(
+            value for value in (self.entered_at, self.candidate_since) if value is not None
+        )
+        if any(now < value for value in timeline):
+            raise ValueError("Health-state timestamps must not move backward")
         previous = self.state
-        if score is None:
+        if score is None or not math.isfinite(score):
             self.state = HealthState.UNKNOWN
             self.entered_at = now
             self.reset_candidate()
@@ -228,25 +234,19 @@ class HealthEngine:
                 "No scoreable subsystem evidence",
             )
         machine_score = max(scores)
-        if family_risk_score is not None:
-            machine_score = max(machine_score, family_risk_score)
         machine_state, transitioned = self.machine_tracker.update(machine_score, timestamp)
-        supporting = [
-            item.subsystem
-            for item in results
-            if health_rank(item.state) >= health_rank(machine_state)
-        ]
         reason = None
-        if (
-            family_risk_score is not None
-            and family_risk_score >= WATCH_ENTRY
-            and machine_state in {HealthState.WATCH, HealthState.DEGRADED, HealthState.CRITICAL}
-            and not supporting
-        ):
-            reason = "Machine-wide family risk is elevated; subsystem is unlocalized."
+        if family_risk_score is not None:
+            reason = (
+                "Uncalibrated family risk is advisory research evidence and does not "
+                "alter the health state."
+            )
         if runtime_mode is RuntimeMode.LIVE_EQUIPMENT:
             observe_only = "LIVE_EQUIPMENT is OBSERVE ONLY; no actionable ticket is authorized."
             reason = f"{reason} {observe_only}".strip() if reason else observe_only
+        elif runtime_mode is RuntimeMode.REAL_REPLAY:
+            replay_only = "RESEARCH REPLAY; no actionable maintenance authority."
+            reason = f"{reason} {replay_only}".strip() if reason else replay_only
         return HealthAssessment(
             machine=self.machine,
             timestamp=utc(timestamp),

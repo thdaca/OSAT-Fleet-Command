@@ -5,12 +5,14 @@ from __future__ import annotations
 import datetime as dt
 from collections import deque
 from dataclasses import dataclass
+from threading import Lock
 from typing import Any, Mapping, Protocol, Sequence
 
 import numpy as np
 
 from ..common import (
     ChannelWindow,
+    DataOrigin,
     MachineIdentity,
     OperatingContext,
     RuntimeMode,
@@ -50,6 +52,7 @@ class TelemetrySource(Protocol):
     identity: MachineIdentity
     profile: StationDefinition
     runtime_mode: RuntimeMode
+    origin: DataOrigin
 
     def poll(self) -> TelemetryBatch:
         ...
@@ -57,13 +60,24 @@ class TelemetrySource(Protocol):
 
 class QueuedTelemetrySource:
     runtime_mode = RuntimeMode.LIVE_EQUIPMENT
+    origin = DataOrigin.REAL_OSAT
 
-    def __init__(self, identity: MachineIdentity, profile: StationDefinition) -> None:
+    def __init__(
+        self,
+        identity: MachineIdentity,
+        profile: StationDefinition,
+        *,
+        maximum_queued_batches: int = 256,
+    ) -> None:
         if identity.family != profile.family or identity.station_id != profile.station_id:
             raise ValueError("Live source identity and station profile must match")
+        if maximum_queued_batches < 1:
+            raise ValueError("Maximum queued batches must be positive")
         self.identity = identity
         self.profile = profile
         self._batches: deque[TelemetryBatch] = deque()
+        self._maximum_queued_batches = maximum_queued_batches
+        self._lock = Lock()
 
     def submit(
         self,
@@ -71,16 +85,22 @@ class QueuedTelemetrySource:
         *,
         context: OperatingContext | None = None,
     ) -> None:
-        self._batches.append(TelemetryBatch(tuple(samples), context))
+        batch = TelemetryBatch(tuple(samples), context)
+        with self._lock:
+            if len(self._batches) >= self._maximum_queued_batches:
+                raise TelemetryError("Live telemetry input queue is full")
+            self._batches.append(batch)
 
     def poll(self) -> TelemetryBatch:
-        if not self._batches:
-            raise NoNewTelemetry("No new live telemetry is queued")
-        return self._batches.popleft()
+        with self._lock:
+            if not self._batches:
+                raise NoNewTelemetry("No new live telemetry is queued")
+            return self._batches.popleft()
 
 
 class ReplayTelemetrySource:
     runtime_mode = RuntimeMode.REAL_REPLAY
+    origin = DataOrigin.REAL_OSAT
 
     def __init__(
         self,
@@ -120,6 +140,8 @@ class BoundedTelemetryStore:
     ) -> None:
         if identity.family != profile.family or identity.station_id != profile.station_id:
             raise ValueError("Telemetry store identity and station profile must match")
+        if maximum_samples_per_channel < 1 or maximum_context_records < 1:
+            raise ValueError("Telemetry store capacities must be positive")
         self.identity = identity
         self.profile = profile
         self._specs = {channel.name: channel for channel in profile.channels}
@@ -134,7 +156,11 @@ class BoundedTelemetryStore:
         self._latest: dict[str, TelemetrySample] = {}
         self._contexts: deque[OperatingContext] = deque(maxlen=maximum_context_records)
 
-    def append(self, sample: TelemetrySample) -> None:
+    def _validate_sample(
+        self,
+        sample: TelemetrySample,
+        latest_epoch: float | None,
+    ) -> float:
         if sample.machine_id != self.identity.machine_id:
             raise TelemetryError("Telemetry sample belongs to another machine")
         spec = self._specs.get(sample.channel)
@@ -148,25 +174,52 @@ class BoundedTelemetryStore:
             raise TelemetrySecurityError(
                 f"Source {sample.source_id!r} is not approved for {sample.channel}"
             )
+        if not np.isfinite(sample.value):
+            raise TelemetryError("Telemetry sample value must be finite")
         epoch = sample.timestamp.timestamp()
-        timestamps = self._timestamps[sample.channel]
-        if timestamps and epoch <= timestamps[-1]:
+        if not np.isfinite(epoch):
+            raise TelemetryError("Telemetry sample timestamp must be finite")
+        if latest_epoch is not None and epoch <= latest_epoch:
             raise TelemetryError("Per-channel timestamps must be strictly increasing")
+        return epoch
+
+    def _commit_sample(self, sample: TelemetrySample, epoch: float) -> None:
+        timestamps = self._timestamps[sample.channel]
         timestamps.append(epoch)
         self._values[sample.channel].append(sample.value)
         self._latest[sample.channel] = sample
 
-    def append_batch(self, batch: TelemetryBatch) -> None:
-        for sample in batch.samples:
-            self.append(sample)
-        if batch.context is not None:
-            self.append_context(batch.context)
+    def append(self, sample: TelemetrySample) -> None:
+        timestamps = self._timestamps.get(sample.channel)
+        latest_epoch = timestamps[-1] if timestamps else None
+        epoch = self._validate_sample(sample, latest_epoch)
+        self._commit_sample(sample, epoch)
 
-    def append_context(self, context: OperatingContext) -> None:
+    def append_batch(self, batch: TelemetryBatch) -> None:
+        staged_latest = {
+            name: timestamps[-1] if timestamps else None
+            for name, timestamps in self._timestamps.items()
+        }
+        validated: list[tuple[TelemetrySample, float]] = []
+        for sample in batch.samples:
+            epoch = self._validate_sample(sample, staged_latest.get(sample.channel))
+            staged_latest[sample.channel] = epoch
+            validated.append((sample, epoch))
+        if batch.context is not None:
+            self._validate_context(batch.context)
+        for sample, epoch in validated:
+            self._commit_sample(sample, epoch)
+        if batch.context is not None:
+            self._contexts.append(batch.context)
+
+    def _validate_context(self, context: OperatingContext) -> None:
         if context.machine_id != self.identity.machine_id:
             raise TelemetryError("Operating context belongs to another machine")
         if self._contexts and context.timestamp <= self._contexts[-1].timestamp:
             raise TelemetryError("Operating-context timestamps must increase")
+
+    def append_context(self, context: OperatingContext) -> None:
+        self._validate_context(context)
         self._contexts.append(context)
 
     def latest(self, channel: str) -> TelemetrySample | None:
@@ -261,6 +314,8 @@ def assess_telemetry(
         problem: str | None = None
         if latest is None:
             problem = "missing"
+        elif latest.timestamp > current:
+            problem = "future timestamp"
         elif (current - latest.timestamp).total_seconds() > spec.stale_seconds:
             problem = "stale"
         elif window is None or len(window.values) < 3:
@@ -276,6 +331,9 @@ def assess_telemetry(
     context_observable = context is not None
     if context is None:
         issues.append("operating context: missing")
+    elif context.timestamp > current:
+        context_observable = False
+        issues.append("operating context: future timestamp")
     elif current - context.timestamp > MAXIMUM_CONTEXT_AGE:
         context_observable = False
         issues.append("operating context: stale")
@@ -331,15 +389,25 @@ class SecsGemAdapter:
         known = {channel.name: channel for channel in profile.channels}
         mapping = {channel.source_id: channel.name for channel in profile.channels}
         for source_id, canonical in (approved_mapping or {}).items():
+            source_id = str(source_id)
+            if not source_id.strip():
+                raise ValueError("Custom source IDs must be nonempty")
             if canonical not in known:
                 raise ValueError(f"Mapping target {canonical!r} is not approved")
-            mapping[str(source_id)] = canonical
+            existing = mapping.get(source_id)
+            if existing is not None and existing != canonical:
+                raise TelemetrySecurityError(
+                    f"Source {source_id!r} is already approved for {existing!r}"
+                )
+            mapping[source_id] = canonical
         self._mapping = mapping
         self._specs = known
 
     def parse(self, payload: Mapping[str, Any], *, received_at: dt.datetime) -> tuple[TelemetrySample, ...]:
         _reject_process_ip(payload)
-        if int(payload.get("stream", 6)) != 6 or int(payload.get("function", 11)) != 11:
+        if "stream" not in payload or "function" not in payload:
+            raise ValueError("SECS/GEM stream and function are required")
+        if int(payload["stream"]) != 6 or int(payload["function"]) != 11:
             raise ValueError("Only SECS/GEM S6F11 reports are accepted")
         variables = payload.get("variables", ())
         if not isinstance(variables, (list, tuple)):
@@ -347,6 +415,7 @@ class SecsGemAdapter:
         timestamp = utc(received_at)
         samples: list[TelemetrySample] = []
         unknown: list[str] = []
+        resolved_channels: set[str] = set()
         for item in variables:
             if not isinstance(item, Mapping) or "id" not in item or "value" not in item:
                 raise ValueError("Each status variable requires id and value")
@@ -355,6 +424,11 @@ class SecsGemAdapter:
             if canonical is None:
                 unknown.append(source_id)
                 continue
+            if canonical in resolved_channels:
+                raise TelemetrySecurityError(
+                    f"Multiple report variables resolve to canonical channel {canonical!r}"
+                )
+            resolved_channels.add(canonical)
             spec = self._specs[canonical]
             samples.append(
                 TelemetrySample(

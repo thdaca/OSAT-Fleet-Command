@@ -33,7 +33,7 @@ from .roadmap.step11a_maintenance_db import MaintenanceRepository
 from .roadmap.step11b_oem_manuals import ManualChunk
 from .roadmap.step12_rag import retrieve_rag_context
 from .roadmap.step13_local_llm import generate_local_llm_json
-from .roadmap.step14_json_validation import validate_llm_json
+from .roadmap.step14_json_validation import deterministic_fallback, validate_llm_json
 from .roadmap.step15_maintenance_ticket import MaintenanceTicket, create_or_update_ticket
 
 
@@ -102,11 +102,16 @@ class MachinePipeline:
         if not self.monitored:
             return None
         try:
-            now = self._poll()
+            source_now = self._poll()
+            now = (
+                wall_now or dt.datetime.now(dt.timezone.utc)
+                if self.source.runtime_mode is RuntimeMode.LIVE_EQUIPMENT
+                else source_now
+            )
         except NoNewTelemetry:
             now = wall_now or dt.datetime.now(dt.timezone.utc)
         except TelemetrySourceExhausted:
-            return self.last_result
+            return None
 
         windows = self.store.windows(
             [channel.name for channel in self.station.channels],
@@ -185,13 +190,19 @@ class MachinePipeline:
                 )
             except Exception:
                 passages = ()
+            ticket = create_or_update_ticket(
+                self.repository,
+                fault_evidence,
+                deterministic_fallback(fault_evidence, passages),
+            )
             raw = generate_local_llm_json(
                 fault_evidence, passages, model_path=self.llm_model_path
             )
             enrichment = validate_llm_json(raw, fault_evidence, passages)
-            ticket = create_or_update_ticket(
-                self.repository, fault_evidence, enrichment
-            )
+            if enrichment.backend == "local-llm":
+                ticket = create_or_update_ticket(
+                    self.repository, fault_evidence, enrichment
+                )
         result = PipelineResult(
             assessment=assessment,
             fault_evidence=fault_evidence,

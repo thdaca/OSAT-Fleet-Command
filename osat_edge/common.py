@@ -122,10 +122,22 @@ class ChannelWindow:
     values: np.ndarray
 
     def __post_init__(self) -> None:
-        if self.timestamps.shape != self.values.shape:
-            raise ValueError("Window timestamps and values must align")
-        if self.timestamps.ndim != 1:
+        if not self.channel.strip() or not self.unit.strip():
+            raise ValueError("Window channel and unit are required")
+        timestamps = np.asarray(self.timestamps, dtype=np.float64).copy()
+        values = np.asarray(self.values, dtype=np.float64).copy()
+        if timestamps.ndim != 1 or values.ndim != 1:
             raise ValueError("Channel windows must be one-dimensional")
+        if timestamps.shape != values.shape:
+            raise ValueError("Window timestamps and values must align")
+        if not bool(np.isfinite(timestamps).all()) or not bool(np.isfinite(values).all()):
+            raise ValueError("Channel window values and timestamps must be finite")
+        if len(timestamps) > 1 and not bool(np.all(np.diff(timestamps) > 0)):
+            raise ValueError("Channel window timestamps must be strictly increasing")
+        timestamps.setflags(write=False)
+        values.setflags(write=False)
+        object.__setattr__(self, "timestamps", timestamps)
+        object.__setattr__(self, "values", values)
 
     @property
     def duration_seconds(self) -> float:

@@ -22,6 +22,29 @@ class ContextModel:
     center: np.ndarray
     scale: np.ndarray
 
+    def __post_init__(self) -> None:
+        width = len(self.feature_names)
+        if (
+            width == 0
+            or len(self.subsystems) != width
+            or len(self.kinds) != width
+            or len(set(self.feature_names)) != width
+            or not all(name.strip() for name in self.feature_names)
+        ):
+            raise ValueError("Context-model metadata must have one unique entry per feature")
+        center = np.asarray(self.center, dtype=np.float64).copy()
+        scale = np.asarray(self.scale, dtype=np.float64).copy()
+        if center.shape != (width,) or scale.shape != (width,):
+            raise ValueError("Context-model arrays must match the feature width")
+        if not bool(np.isfinite(center).all()) or not bool(np.isfinite(scale).all()):
+            raise ValueError("Context-model center and scale must be finite")
+        if not bool(np.all(scale > 0.0)):
+            raise ValueError("Context-model scale must be positive")
+        center.setflags(write=False)
+        scale.setflags(write=False)
+        object.__setattr__(self, "center", center)
+        object.__setattr__(self, "scale", scale)
+
 
 @dataclass(frozen=True)
 class MachineModel:
@@ -31,6 +54,16 @@ class MachineModel:
     physics_parameters: Mapping[str, Mapping[str, float]]
 
     def __post_init__(self) -> None:
+        if not self.contexts:
+            raise ValueError("Machine model requires at least one equipment-state context")
+        if any(key is not context.equipment_state for key, context in self.contexts.items()):
+            raise ValueError("Machine-model context keys must match their equipment states")
+        if any(
+            not np.isfinite(value)
+            for parameters in self.physics_parameters.values()
+            for value in parameters.values()
+        ):
+            raise ValueError("Machine-model physics parameters must be finite")
         object.__setattr__(self, "contexts", MappingProxyType(dict(self.contexts)))
         object.__setattr__(
             self,

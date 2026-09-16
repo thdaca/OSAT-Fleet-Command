@@ -62,6 +62,7 @@ def _stable_center(channel: str, unit: str) -> float:
 
 class SyntheticTelemetrySource:
     runtime_mode = RuntimeMode.SIMULATION
+    origin = DataOrigin.SYNTHETIC
 
     def __init__(
         self,
@@ -108,12 +109,13 @@ class SyntheticTelemetrySource:
         if subsystem == self.injected_subsystem:
             progress = min(self.injection_elapsed / 18.0, 1.0)
             direction = 1.0 if center >= 0 else -1.0
-            value += (
-                direction
-                * max(abs(center) * 0.9, amplitude * 80.0)
-                * self.injection_strength
-                * progress
-            )
+            if self.profile.family == "wafer_saw" and subsystem == "spindle":
+                if channel_name == "spindle_current":
+                    value += max(abs(center) * 0.9, amplitude * 80.0) * self.injection_strength * progress
+                elif channel_name == "spindle_vibration":
+                    value += max(abs(center) * 0.25, amplitude * 20.0) * self.injection_strength * progress
+            else:
+                value += direction * max(abs(center) * 0.9, amplitude * 80.0) * self.injection_strength * progress
         return float(value)
 
     def poll(self) -> TelemetryBatch:

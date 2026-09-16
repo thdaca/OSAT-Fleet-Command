@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, replace
 from typing import Any, Mapping
 
-from ..common import HealthState, RuntimeMode
+from ..common import HealthState, RuntimeMode, health_rank
 from .step10_fault_evidence import FaultEvidence
 from .step11a_maintenance_db import MaintenanceRepository
 from .step14_json_validation import TicketEnrichment
@@ -72,6 +72,9 @@ def create_or_update_ticket(
     timestamp = evidence.timestamp.isoformat()
     if existing_payload is not None:
         existing = MaintenanceTicket.from_payload(existing_payload)
+        existing_state = HealthState(existing.health_state)
+        if health_rank(evidence.health_state) < health_rank(existing_state):
+            return existing
         ticket = replace(
             existing,
             updated_utc=timestamp,
