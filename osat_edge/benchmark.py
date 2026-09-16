@@ -21,6 +21,8 @@ NASA_REPOSITORY_URL = (
     "discovery-and-systems-health/pcoe/pcoe-data-set-repository/"
 )
 NASA_OPEN_DATA_URL = "https://data.nasa.gov/dataset/milling-wear"
+NASA_OFFICIAL_ARCHIVE_SHA256 = "de9c8685cb0e07b4f39459dc282b49192a3ad660e9577ff99b68dc9994e35d27"
+NASA_OFFICIAL_MAT_SHA256 = "71486a857939d1416c86c7cf0c469d5e69c7c30495e01ec8a0e13aafd2a313cb"
 REQUIRED_FIELDS = (
     "case",
     "run",
@@ -100,7 +102,23 @@ def _mat_source(path: Path) -> tuple[str | io.BytesIO, str, str, str, str]:
     if not path.exists():
         raise BenchmarkDatasetNotFound("NASA MILLING DATASET NOT FOUND")
     if path.is_dir():
-        matches = sorted(path.rglob("mill.mat"))
+        files: list[Path] = []
+        total = 0
+        for item in sorted(path.rglob("*")):
+            if item.is_symlink():
+                raise BenchmarkError("Dataset directories may not contain symbolic links")
+            if not item.is_file():
+                continue
+            files.append(item)
+            if len(files) > MAXIMUM_ARCHIVE_MEMBERS:
+                raise BenchmarkError("Dataset directory contains too many files")
+            size = item.stat().st_size
+            if size > MAXIMUM_SOURCE_ARTIFACT_BYTES:
+                raise BenchmarkError("Dataset directory file exceeds the analysis size limit")
+            total += size
+            if total > MAXIMUM_SOURCE_ARTIFACT_BYTES:
+                raise BenchmarkError("Dataset directory exceeds the total analysis size limit")
+        matches = [item for item in files if item.name.casefold() == "mill.mat"]
         if len(matches) != 1:
             raise BenchmarkError("Dataset directory must contain exactly one mill.mat")
         selected = matches[0]
@@ -384,10 +402,22 @@ def analyze_nasa_milling(dataset: str | Path) -> dict[str, Any]:
         raise BenchmarkError("NASA case/run identities must be unique")
     conditions = _condition_summary(rows)
     measured = sum(row["vb_mm"] is not None for row in rows)
+    provenance_verified = (
+        source_artifact_hash == NASA_OFFICIAL_ARCHIVE_SHA256
+        or mill_mat_hash == NASA_OFFICIAL_MAT_SHA256
+    )
     return {
         "version": VERSION,
         "benchmark": NASA_DATASET_TITLE,
         "origin": DataOrigin.EXTERNAL_BENCHMARK.value,
+        "real_data": True if provenance_verified else None,
+        "synthetic_data": False if provenance_verified else None,
+        "provenance_verified": provenance_verified,
+        "provenance_status": (
+            "VERIFIED_OFFICIAL_ARTIFACT"
+            if provenance_verified
+            else "UNVERIFIED_EXTERNAL_INPUT"
+        ),
         "domain": "milling / machining",
         "semiconductor_data": False,
         "osat_data": False,
@@ -422,7 +452,11 @@ def analyze_nasa_milling(dataset: str | Path) -> dict[str, Any]:
         "run_summaries": rows,
         "sources": [NASA_REPOSITORY_URL, NASA_OPEN_DATA_URL],
         "claims": [
-            "EXTERNAL REAL-DATA BENCHMARK",
+            (
+                "VERIFIED EXTERNAL REAL-DATA BENCHMARK"
+                if provenance_verified
+                else "UNVERIFIED EXTERNAL INPUT; REAL/SYNTHETIC STATUS UNKNOWN"
+            ),
             "NON-SEMICONDUCTOR MACHINING DATA",
             "NO HEALTH STATE OR MAINTENANCE TICKET IS PRODUCED",
             "NOT REAL OSAT VALIDATION",
@@ -439,6 +473,10 @@ def benchmark_summary(report: Mapping[str, Any]) -> dict[str, Any]:
         "version",
         "benchmark",
         "origin",
+        "real_data",
+        "synthetic_data",
+        "provenance_verified",
+        "provenance_status",
         "domain",
         "semiconductor_data",
         "osat_data",

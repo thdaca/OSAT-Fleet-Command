@@ -21,7 +21,8 @@ transparent industrial edge-monitoring HMI prototype. Read it from `step01` to
   live synthetic generation and injection. `reference_replay.py` validates and
   runs the one frozen synthetic replay artifact. `benchmark.py` is a separate,
   descriptive external-data analysis path. `real_data.py` is the isolated
-  offline evaluator for explicitly supplied external real data.
+  offline evaluator for explicitly supplied external data. It treats schema
+  compatibility and verified provenance as separate requirements.
 
 ## Boundaries to preserve
 
@@ -44,7 +45,9 @@ maintenance tickets.
 
 Read [REAL_DATA_CATALOG.md](REAL_DATA_CATALOG.md) before using `evaluate-real`.
 External data are offline research inputs only; a semantically similar signal
-is not automatically an approved OSAT channel.
+is not automatically an approved OSAT channel. A compatible file is also not
+automatically the official real dataset: pinned archive/content identity must
+match before `real_data=true` is emitted.
 
 Source identifiers must be explicitly reviewed and mapped to canonical health channels. Do not ingest recipes, PPIDs, wafer maps, geometry, proprietary process windows, or unknown equipment variables.
 

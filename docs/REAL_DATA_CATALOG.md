@@ -6,6 +6,12 @@ without changing the frozen 0.2.3 method, and why other sources were refused.
 Raw datasets are never bundled. Keep approved local copies under ignored
 `benchmarks/_external/<dataset-id>/`.
 
+Schema compatibility is not provenance. A result is marked `real_data=true`
+only when the supplied archive identity, canonical content hash, or complete
+publisher checksum manifest matches an identity pinned from the authoritative
+versioned record. Compatible but unmatched bytes are
+`UNVERIFIED_EXTERNAL_INPUT`; malformed present bytes are `REJECTED_INVALID`.
+
 Evidence classes are deliberately narrow:
 
 - **A — TARGET SEMICONDUCTOR EQUIPMENT:** same target equipment type, but still
@@ -51,19 +57,27 @@ The release attempt order is the CLI registry order.
 
 4. **FORinFPRO-HIMD (C)** — DOI
    [10.5281/zenodo.20744054](https://doi.org/10.5281/zenodo.20744054).
-   Two official files were inspected: `cycle_001_machine_data.csv` and
-   `cycle_001_pt.csv`. They contain one polymer hybrid-injection-molding cycle.
-   The CSV headers do not declare units, and polymer injection molding is not
-   semiconductor transfer molding. With no exact unit mapping and no disjoint
-   baseline/evaluation cycles, the evaluator reports schema/coverage only.
+   All three v1 files and their publisher MD5 identities were inspected:
+   `cycle_001_machine_data.csv`, `cycle_001_pt.csv`, and
+   `cycle_001_us_rms.csv`. They contain one polymer
+   hybrid-injection-molding cycle. The CSV headers do not declare units, and
+   polymer injection molding is not semiconductor transfer molding. With no
+   exact unit mapping and no disjoint baseline/evaluation cycles, the evaluator
+   reports schema/coverage only.
 
 5. **R2R Web Tension (C)** — DOI
    [10.17632/gz3rzw6xgf.2](https://doi.org/10.17632/gz3rzw6xgf.2) and the
    associated [method paper](https://link.springer.com/article/10.1007/s10845-024-02488-y).
-   The publication describes PET web tension and speed experiments, but the
-   repository API required authentication during the release attempt. No
-   authoritative local file schema was available to verify whether raw tension
-   in newtons exists rather than aggregates or set points. **Not run.**
+   The public v2 `dataset.zip` (SHA-256
+   `3168a831e38c9388e73ba809661c282b560640ea269beba5d976340eb5e1ac16`)
+   was retrieved and its aggregate workbook plus 210 sensor workbooks were
+   inspected without adding a spreadsheet dependency. Four raw fields have
+   exact physical names and units: `Film Tension #1 (kg)`, `Film Tension #2
+   (kg)`, `Film Tension #3 (kg)`, and `Web Current Speed (mm/sec)`. They map to
+   four ephemeral `web_transport` benchmark channels. Controller settings,
+   material geometry, and derived aggregates are not mapped. Because the data
+   are operating-point experiments without health labels or confirmed-healthy
+   exact-machine history, no Step 07/09/10 result is reported.
 
 6. **ME-AD (C)** — DOI
    [10.5281/zenodo.20817531](https://doi.org/10.5281/zenodo.20817531).
@@ -84,16 +98,25 @@ The release attempt order is the CLI registry order.
    - `Iststrom_A5 (A)` → `motor_current_a5`, unit `A`, subsystem `axis_a5`
    - `Iststrom_A6 (A)` → `motor_current_a6`, unit `A`, subsystem `axis_a6`
 
-   `Sample` is used only as the source timestamp. Physical-signal channel
-   coverage is 6/6; source-field coverage is 6/7 when the timestamp is counted.
+   `Sample` is checked only for finite monotonic source order. Physical-signal
+   channel coverage is 6/6; source-field coverage is 6/7 when that field is
+   counted. The v1 archive SHA-256, publisher MD5, and canonical 128-CSV content
+   hash are pinned; compatible unmatched directories are not declared real.
    `FULL_STATION_REPRESENTATION=false`: these channels live in an
    ephemeral `external_kuka_kr3` profile and are never substituted into a
-   canonical OSAT station. Complete files preserve robot/run boundaries. R1
-   uses D1–D2 for nominal calibration and D3–D4 for evaluation; R2 uses D5–D6
-   and D7–D8. The dataset has payload values but no fault/health labels, so the
-   report includes score/state distributions, payload/score rank association,
-   UNKNOWN fraction, coverage, and runtime—never accuracy or a confusion
-   matrix. The nominal baseline is not independently adjudicated healthy.
+   canonical OSAT station. Complete files preserve robot/run boundaries and
+   the published same-machine splits: R1 D1–D3 calibrates an explicitly
+   nominal workload baseline and D4 is evaluated; R2 uses D5–D7 and D8.
+
+   Independent CSVs are not assigned a cross-run chronology. Step 09
+   hysteresis and Step 10 evidence are therefore not run, and no health-state
+   distribution is reported. The unresolved 12 ms documentation versus
+   Sample-increment discrepancy makes trend features assumption-dependent, so
+   only Step 02 location/spread statistics enter the pure Step 07 run-level
+   numerical deviation score. One CSV is one external run-level window, not
+   the operational 60-second window. Payload/deviation association, score
+   distribution, coverage, and runtime are reported—never accuracy. The
+   nominal baseline is not represented as confirmed healthy history.
 
 8. **RDDAC (C)** — DOI
    [10.18419/DARUS-5589](https://doi.org/10.18419/DARUS-5589) and
@@ -170,6 +193,10 @@ The release attempt order is the CLI registry order.
 ```
 
 Without `--report`, no artifact is written. With it, the comparison is written
-to `.artifacts/real_data/comparison.json`. External data never enter the HMI,
+to `.artifacts/real_data/comparison.json`. Runtime measurements remain in CLI
+output but are removed from this deterministic scientific artifact. A small
+auditable release result is retained at
+`benchmarks/results/0.2.4-real-data.json`; it contains no raw dataset records.
+External data never enter the HMI,
 operational `MachinePipeline`, family-model trainer, maintenance database, RAG,
 LLM, or ticket stage.

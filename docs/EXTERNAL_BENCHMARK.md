@@ -28,6 +28,12 @@ Pass `--output path\report.json` only when a full per-run JSON report is wanted.
 Without it, the command writes no report artifact and prints a concise summary.
 Missing input exits cleanly with `NASA MILLING DATASET NOT FOUND`.
 
+The parser does not infer authenticity from a compatible MATLAB schema. It
+sets `real_data=true` only when the source archive SHA-256 or canonical
+`mill.mat` SHA-256 matches the pinned official artifact used for this release;
+other compatible inputs remain `UNVERIFIED_EXTERNAL_INPUT` with unknown
+real/synthetic status.
+
 The report separates `mill_mat_sha256`, the canonical identity of the analyzed
 MATLAB bytes, from `source_artifact_sha256`, the identity of the supplied file
 or ZIP container. Direct `mill.mat` input therefore has matching hashes, while

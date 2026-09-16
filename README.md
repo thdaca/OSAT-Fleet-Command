@@ -78,7 +78,9 @@ production qualification, or evidence of failure-prediction performance.
 
 `evaluate-real` never downloads data, enters the operational pipeline, fits a
 Step-05 family model, or calls Step 15. External inputs remain
-`DataOrigin.EXTERNAL_BENCHMARK`; reports are written under
+`DataOrigin.EXTERNAL_BENCHMARK`. Compatible local bytes are declared real only
+after a pinned official artifact/content identity matches. Runtime timings are
+printed by the CLI but omitted from the deterministic report written under
 `.artifacts/real_data/` only with `--report`. See
 [docs/REAL_DATA_CATALOG.md](docs/REAL_DATA_CATALOG.md) for source provenance,
 exact mappings, attempted datasets, supported metrics, and limitations.

@@ -57,6 +57,9 @@ class ExternalBenchmarkTests(unittest.TestCase):
             _write_mat(path)
             report = analyze_nasa_milling(path)
         self.assertEqual(DataOrigin.EXTERNAL_BENCHMARK.value, report["origin"])
+        self.assertFalse(report["provenance_verified"])
+        self.assertIsNone(report["real_data"])
+        self.assertIsNone(report["synthetic_data"])
         self.assertEqual(1, report["cases"])
         self.assertEqual(4, report["runs"])
         self.assertEqual(3, report["runs_with_measured_vb"])
@@ -146,6 +149,12 @@ class ExternalBenchmarkTests(unittest.TestCase):
             ):
                 analyze_nasa_milling(archive)
 
+            (root / "extra.txt").write_text("extra", encoding="utf-8")
+            with patch(
+                "osat_edge.benchmark.MAXIMUM_ARCHIVE_MEMBERS", 1
+            ), self.assertRaisesRegex(BenchmarkError, "too many files"):
+                analyze_nasa_milling(root)
+
             deepest = io.BytesIO()
             with zipfile.ZipFile(deepest, "w") as output:
                 output.write(dataset, arcname="mill.mat")
@@ -184,6 +193,8 @@ class ExternalBenchmarkTests(unittest.TestCase):
     )
     def test_optional_official_dataset_integration(self) -> None:
         report = analyze_nasa_milling(os.environ["NASA_MILLING_DATASET"])
+        self.assertTrue(report["provenance_verified"])
+        self.assertTrue(report["real_data"])
         self.assertEqual(167, report["runs"])
         self.assertEqual(16, report["cases"])
         self.assertEqual(146, report["runs_with_measured_vb"])

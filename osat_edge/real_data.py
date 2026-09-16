@@ -1,8 +1,9 @@
 """Isolated, offline evaluation of explicitly identified external real data.
 
-This module may reuse Steps 02, 07, 09, and 10 where the source semantics make
-that defensible.  It never imports or calls Step 15 and never attaches an
-external model to an operational pipeline.
+This module may reuse Step 02 statistics and the pure Step 07 numerical scorer
+where the source semantics make that defensible.  It never imports or calls
+Steps 09, 10, or 15 and never attaches an external model to an operational
+pipeline.
 """
 
 from __future__ import annotations
@@ -18,35 +19,37 @@ import re
 import time
 from typing import Any, Mapping, Sequence
 import zipfile
+from xml.etree import ElementTree as ET
 
 import numpy as np
 
-from .benchmark import BenchmarkError, analyze_nasa_milling
+from .benchmark import (
+    BenchmarkError,
+    NASA_OFFICIAL_ARCHIVE_SHA256,
+    NASA_OFFICIAL_MAT_SHA256,
+    analyze_nasa_milling,
+)
 from .common import (
     ChannelSpec,
     DataOrigin,
     EquipmentState,
-    HealthState,
     MachineIdentity,
     OperatingContext,
-    RuntimeMode,
     TelemetrySample,
     VERSION,
 )
 from .machines import StationDefinition
 from .roadmap.step02_physical_features import FeatureSet, extract_physical_features
-from .roadmap.step06_machine_history import HealthyInterval, MachineHistory
 from .roadmap.step07_machine_model import (
+    ContextModel,
+    MachineModel,
     evaluate_machine_model_numerically,
-    fit_machine_model,
 )
 from .roadmap.step08_live_telemetry import (
     BoundedTelemetryStore,
     TelemetryStatus,
     assess_telemetry,
 )
-from .roadmap.step09_health_risk import HealthEngine
-from .roadmap.step10_fault_evidence import build_fault_evidence
 
 
 DATASET_ORDER = (
@@ -134,11 +137,26 @@ KUKA_FILE = re.compile(r"collector_(?P<payload>[0-9]+)_(?P<split>[1-8])\.csv$")
 MAXIMUM_KUKA_ARCHIVE_BYTES = 512 * 1024 * 1024
 MAXIMUM_KUKA_MEMBERS = 1_000
 MAXIMUM_KUKA_MEMBER_BYTES = 8 * 1024 * 1024
+MAXIMUM_KUKA_TOTAL_BYTES = 512 * 1024 * 1024
 MAXIMUM_KUKA_ROWS_PER_FILE = 100_000
 MAXIMUM_GENERIC_ARCHIVE_BYTES = 256 * 1024 * 1024
 MAXIMUM_GENERIC_MEMBERS = 1_000
 MAXIMUM_GENERIC_MEMBER_BYTES = 64 * 1024 * 1024
 MAXIMUM_GENERIC_TOTAL_BYTES = 256 * 1024 * 1024
+
+# Identities recorded from the authoritative versioned source artifacts used
+# for the 0.2.4 release.  Schema compatibility alone never proves provenance.
+KUKA_OFFICIAL_ARCHIVE_SHA256 = "51f93e8c453dd857170698627dc1d64ef14839e5c6efdb68148d01e0100c1253"
+KUKA_OFFICIAL_ARCHIVE_MD5 = "efe9394bf2579f380832eed6d501c614"
+KUKA_OFFICIAL_CSV_SET_SHA256 = "f3af97316d3366e0ac28f299025e36f4e9eeffc58e93c231f5a1c3b9ee4eeda4"
+SECOM_OFFICIAL_ARCHIVE_SHA256 = "eea568baf3c2229096d7d294cf0b096b5502bd96d92c0b80a65b84714059be8e"
+SECOM_OFFICIAL_FILE_SET_SHA256 = "29c8312b075821292d52eb8e3e20fbe6a4943272de3aa3900c6b9b19026dd927"
+R2R_OFFICIAL_ARCHIVE_SHA256 = "3168a831e38c9388e73ba809661c282b560640ea269beba5d976340eb5e1ac16"
+FORINFPRO_OFFICIAL_MD5 = {
+    "cycle_001_machine_data.csv": "d2a7d96d133f3d7b43a5089ad4bf0b09",
+    "cycle_001_pt.csv": "40d8511c11e8e0575dc3930ddd258c19",
+    "cycle_001_us_rms.csv": "c767196cfd1b6dec0d09ed0a2dba2551",
+}
 
 
 class RealDataEvaluationError(ValueError):
@@ -157,6 +175,14 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _md5_file(path: Path) -> str:
+    digest = hashlib.md5(usedforsecurity=False)
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
 def _directory_hash(path: Path, files: Sequence[Path]) -> str:
     digest = hashlib.sha256()
     for item in sorted(files, key=lambda value: value.relative_to(path).as_posix()):
@@ -169,17 +195,69 @@ def _directory_hash(path: Path, files: Sequence[Path]) -> str:
     return digest.hexdigest()
 
 
-def _base_report(dataset_id: str, source_hash: str | None) -> dict[str, Any]:
+def _named_content_hash(items: Sequence[tuple[str, bytes]]) -> str:
+    digest = hashlib.sha256()
+    for name, content in sorted(items):
+        encoded = name.replace("\\", "/").encode("utf-8")
+        digest.update(len(encoded).to_bytes(4, "big"))
+        digest.update(encoded)
+        digest.update(content)
+    return digest.hexdigest()
+
+
+def _bounded_directory_files(
+    path: Path,
+    *,
+    maximum_members: int = MAXIMUM_GENERIC_MEMBERS,
+    maximum_file_bytes: int = MAXIMUM_GENERIC_MEMBER_BYTES,
+    maximum_total_bytes: int = MAXIMUM_GENERIC_TOTAL_BYTES,
+) -> list[Path]:
+    if not path.is_dir():
+        raise RealDataEvaluationError("Expected a dataset directory")
+    files: list[Path] = []
+    total = 0
+    for item in sorted(path.rglob("*")):
+        if item.is_symlink():
+            raise RealDataEvaluationError("Dataset directories may not contain symbolic links")
+        if not item.is_file():
+            continue
+        files.append(item)
+        if len(files) > maximum_members:
+            raise RealDataEvaluationError("Dataset directory contains too many files")
+        size = item.stat().st_size
+        if size > maximum_file_bytes:
+            raise RealDataEvaluationError("Dataset directory file exceeds the size limit")
+        total += size
+        if total > maximum_total_bytes:
+            raise RealDataEvaluationError("Dataset directory exceeds the total size limit")
+    return files
+
+
+def _base_report(
+    dataset_id: str,
+    source_hash: str | None,
+    *,
+    provenance_verified: bool = False,
+    provenance_method: str | None = None,
+) -> dict[str, Any]:
     metadata = DATASETS[dataset_id]
     return {
         "version": VERSION,
         "dataset": dataset_id,
         "title": metadata["title"],
-        "source": metadata["source"],
+        "source": metadata["source"] if provenance_verified else None,
+        "source_reference": metadata["source"],
         "source_sha256": source_hash,
         "origin": DataOrigin.EXTERNAL_BENCHMARK.value,
-        "real_data": True,
-        "synthetic_data": False,
+        "real_data": True if provenance_verified else None,
+        "synthetic_data": False if provenance_verified else None,
+        "provenance_verified": provenance_verified,
+        "provenance_status": (
+            "VERIFIED_OFFICIAL_ARTIFACT"
+            if provenance_verified
+            else "UNVERIFIED_OR_NOT_EVALUATED"
+        ),
+        "provenance_method": provenance_method,
         "evidence_class": metadata["evidence_class"],
         "domain": metadata["domain"],
         "osat_plant_validation": False,
@@ -199,6 +277,40 @@ def _unavailable(dataset_id: str, reason: str) -> dict[str, Any]:
             "channel_coverage": {"mapped": 0, "total": 0, "fraction": None},
             "full_station_representation": False,
             "limitations": [reason],
+        }
+    )
+    return report
+
+
+def _rejected_invalid(dataset_id: str, source_hash: str | None, reason: str) -> dict[str, Any]:
+    report = _base_report(dataset_id, source_hash)
+    report.update(
+        {
+            "status": "REJECTED_INVALID",
+            "mapped_channels": [],
+            "channel_coverage": {"mapped": 0, "total": 0, "fraction": None},
+            "full_station_representation": False,
+            "limitations": [reason],
+        }
+    )
+    return report
+
+
+def _unverified_input(
+    dataset_id: str,
+    source_hash: str,
+    reason: str,
+    **observed: Any,
+) -> dict[str, Any]:
+    report = _base_report(dataset_id, source_hash)
+    report.update(
+        {
+            "status": "UNVERIFIED_EXTERNAL_INPUT",
+            "mapped_channels": [],
+            "channel_coverage": {"mapped": 0, "total": 0, "fraction": None},
+            "full_station_representation": False,
+            "limitations": [reason],
+            **observed,
         }
     )
     return report
@@ -253,7 +365,15 @@ def _kuka_profile(robot: str) -> tuple[MachineIdentity, StationDefinition]:
     return identity, StationDefinition(family, station_id, f"KUKA KR3 {robot}", channels)
 
 
-def _kuka_readers(path: Path) -> tuple[str, list[tuple[str, bytes]]]:
+def _canonical_kuka_name(name: str) -> str:
+    parts = name.replace("\\", "/").strip("/").split("/")
+    for index, part in enumerate(parts):
+        if part in {"Robot_R1", "Robot_R2"}:
+            return "/".join(parts[index:])
+    return "/".join(parts)
+
+
+def _kuka_readers(path: Path) -> tuple[str, str, str | None, list[tuple[str, bytes]]]:
     selected = path
     if path.is_dir():
         archives = sorted(path.glob("*.zip"))
@@ -271,6 +391,10 @@ def _kuka_readers(path: Path) -> tuple[str, list[tuple[str, bytes]]]:
                 members = [item for item in archive.infolist() if item.filename.lower().endswith(".csv")]
                 if len(archive.infolist()) > MAXIMUM_KUKA_MEMBERS or not members:
                     raise RealDataEvaluationError("KUKA archive member count is invalid")
+                if len({item.filename for item in archive.infolist()}) != len(archive.infolist()):
+                    raise RealDataEvaluationError("KUKA archive contains duplicate member names")
+                if sum(item.file_size for item in archive.infolist()) > MAXIMUM_KUKA_TOTAL_BYTES:
+                    raise RealDataEvaluationError("KUKA archive expands beyond the size limit")
                 rows: list[tuple[str, bytes]] = []
                 for member in sorted(members, key=lambda value: value.filename):
                     if member.file_size > MAXIMUM_KUKA_MEMBER_BYTES:
@@ -282,13 +406,20 @@ def _kuka_readers(path: Path) -> tuple[str, list[tuple[str, bytes]]]:
                     rows.append((member.filename, content))
         except zipfile.BadZipFile as exc:
             raise RealDataEvaluationError("KUKA ZIP is invalid") from exc
-        return _sha256_file(selected), rows
-    files = sorted(path.rglob("*.csv"))
+        canonical = [(_canonical_kuka_name(name), content) for name, content in rows]
+        return _sha256_file(selected), _named_content_hash(canonical), _md5_file(selected), rows
+    all_files = _bounded_directory_files(
+        path,
+        maximum_members=MAXIMUM_KUKA_MEMBERS,
+        maximum_file_bytes=MAXIMUM_KUKA_MEMBER_BYTES,
+        maximum_total_bytes=MAXIMUM_KUKA_TOTAL_BYTES,
+    )
+    files = [item for item in all_files if item.suffix.lower() == ".csv"]
     if not files:
         raise RealDataNotFound("KUKA CSV files not found")
-    return _directory_hash(path, files), [
-        (item.relative_to(path).as_posix(), item.read_bytes()) for item in files
-    ]
+    rows = [(item.relative_to(path).as_posix(), item.read_bytes()) for item in files]
+    canonical = [(_canonical_kuka_name(name), content) for name, content in rows]
+    return _directory_hash(path, files), _named_content_hash(canonical), None, rows
 
 
 def _parse_kuka_file(name: str, content: bytes) -> tuple[str, int, int, np.ndarray, dict[str, np.ndarray]]:
@@ -347,9 +478,13 @@ def _kuka_feature_set(
         maximum_samples_per_channel=max(len(sample_time), 3),
         maximum_context_records=1,
     )
-    start_value = float(sample_time[0])
+    # The source README declares 12 ms acquisition, while the Sample field
+    # increments by values that look like 4 ms.  Use the declaration only to
+    # construct a bounded window; timing-dependent Step 02 features are removed
+    # below and never enter the benchmark model or headline score.
+    declared_offsets = np.arange(len(sample_time), dtype=np.float64) * 0.012
     for spec in profile.channels:
-        for offset, value in zip(sample_time - start_value, channel_values[spec.name], strict=True):
+        for offset, value in zip(declared_offsets, channel_values[spec.name], strict=True):
             store.append(
                 TelemetrySample(
                     machine_id=identity.machine_id,
@@ -360,12 +495,12 @@ def _kuka_feature_set(
                     source_id=spec.source_id,
                 )
             )
-    end = logical_start + dt.timedelta(seconds=float(sample_time[-1] - start_value))
+    end = logical_start + dt.timedelta(seconds=float(declared_offsets[-1]))
     store.append_context(OperatingContext(identity.machine_id, end, EquipmentState.PROCESSING))
     duration = end - logical_start + dt.timedelta(microseconds=1)
     windows = store.windows([channel.name for channel in profile.channels], end=end, duration=duration)
     status = assess_telemetry(store, now=end, windows=windows)
-    feature_set = extract_physical_features(
+    extracted = extract_physical_features(
         identity,
         profile,
         windows,
@@ -373,101 +508,173 @@ def _kuka_feature_set(
         equipment_state=EquipmentState.PROCESSING,
         window_start=logical_start,
     )
+    feature_set = FeatureSet(
+        machine=extracted.machine,
+        timestamp=extracted.timestamp,
+        equipment_state=extracted.equipment_state,
+        window_start=extracted.window_start,
+        window_end=extracted.window_end,
+        features=tuple(feature for feature in extracted.features if feature.kind != "trend"),
+    )
     return feature_set, status
+
+
+def _fit_nominal_benchmark_model(
+    identity: MachineIdentity,
+    feature_sets: Sequence[FeatureSet],
+) -> MachineModel:
+    """Fit the unchanged Step 07 center/scale math to nominal benchmark runs.
+
+    This deliberately does not construct Step 06 ``HealthyInterval`` or
+    ``MachineHistory`` objects: the KUKA calibration runs are nominal workload
+    data, not independently confirmed healthy equipment history.
+    """
+
+    if len(feature_sets) < 12:
+        raise RealDataEvaluationError("Nominal benchmark baseline needs at least 12 runs")
+    schema = set(feature_sets[0].by_name)
+    for feature_set in feature_sets[1:]:
+        schema.intersection_update(feature_set.by_name)
+    names = tuple(name for name in feature_sets[0].by_name if name in schema)
+    if not names:
+        raise RealDataEvaluationError("Nominal benchmark runs share no usable features")
+    matrix = np.asarray(
+        [[row.by_name[name].value for name in names] for row in feature_sets],
+        dtype=np.float64,
+    )
+    if not bool(np.isfinite(matrix).all()):
+        raise RealDataEvaluationError("Nominal benchmark features must be finite")
+    center = np.median(matrix, axis=0)
+    mad = 1.4826 * np.median(np.abs(matrix - center), axis=0)
+    standard = np.std(matrix, axis=0)
+    floor = np.maximum(np.abs(center) * 1e-2, 1e-4)
+    scale = np.where(mad > floor, mad, np.where(standard > floor, standard, floor))
+    first = feature_sets[0].by_name
+    context = ContextModel(
+        equipment_state=EquipmentState.PROCESSING,
+        feature_names=names,
+        subsystems=tuple(first[name].subsystem for name in names),
+        kinds=tuple(first[name].kind for name in names),
+        center=np.asarray(center, dtype=np.float64),
+        scale=np.asarray(scale, dtype=np.float64),
+    )
+    return MachineModel(
+        machine=identity,
+        origin=DataOrigin.EXTERNAL_BENCHMARK,
+        contexts={EquipmentState.PROCESSING: context},
+        physics_parameters={},
+    )
 
 
 def _evaluate_kuka(path: Path) -> dict[str, Any]:
     started = time.perf_counter()
-    source_hash, files = _kuka_readers(path)
+    source_hash, content_hash, archive_md5, files = _kuka_readers(path)
     parsed = [_parse_kuka_file(name, content) for name, content in files]
     identities = [(robot, payload, split) for robot, payload, split, _time, _values in parsed]
     if len(identities) != len(set(identities)):
         raise RealDataEvaluationError("KUKA robot/payload/split identities must be unique")
+    archive_identity_matches = (
+        source_hash == KUKA_OFFICIAL_ARCHIVE_SHA256
+        and archive_md5 == KUKA_OFFICIAL_ARCHIVE_MD5
+    )
+    content_identity_matches = content_hash == KUKA_OFFICIAL_CSV_SET_SHA256
+    if not (archive_identity_matches or content_identity_matches):
+        return _unverified_input(
+            "kuka-kr3",
+            source_hash,
+            "The input schema is KUKA-compatible, but neither its archive identity nor its canonical CSV-set hash matches the pinned official v1 dataset.",
+            runs=len(parsed),
+            machines=len({item[0] for item in parsed}),
+            observed_compatible_channels=6,
+            canonical_content_sha256=content_hash,
+            expected_official_archive_sha256=KUKA_OFFICIAL_ARCHIVE_SHA256,
+            expected_official_archive_md5=KUKA_OFFICIAL_ARCHIVE_MD5,
+            expected_official_csv_set_sha256=KUKA_OFFICIAL_CSV_SET_SHA256,
+        )
     by_robot: dict[str, list[tuple[int, int, FeatureSet, TelemetryStatus]]] = {}
     base = dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc)
-    for index, (robot, payload, split, sample_time, channel_values) in enumerate(parsed):
+    for robot, payload, split, sample_time, channel_values in parsed:
         identity, profile = _kuka_profile(robot)
         feature_set, status = _kuka_feature_set(
             identity,
             profile,
-            base + dt.timedelta(minutes=index * 2),
+            base,
             sample_time,
             channel_values,
         )
         by_robot.setdefault(robot, []).append((payload, split, feature_set, status))
 
     machine_reports: list[dict[str, Any]] = []
-    total_states: dict[str, int] = {state.value: 0 for state in HealthState}
     latencies: list[float] = []
-    evidence_records = 0
     evaluated_windows = 0
     observable_windows = 0
     available_scores = 0
     all_scores: list[float] = []
     for robot, records in sorted(by_robot.items()):
-        identity, profile = _kuka_profile(robot)
-        training = [record for record in records if record[1] in {1, 2, 5, 6}]
-        evaluation = [record for record in records if record[1] in {3, 4, 7, 8}]
+        identity, _profile = _kuka_profile(robot)
+        training_splits = {1, 2, 3} if robot == "R1" else {5, 6, 7}
+        evaluation_splits = {4} if robot == "R1" else {8}
+        training = [record for record in records if record[1] in training_splits]
+        evaluation = [record for record in records if record[1] in evaluation_splits]
         if len(training) < 12:
             raise RealDataEvaluationError(
-                f"KUKA {robot} needs at least 12 complete D1/D2 or D5/D6 training runs"
+                f"KUKA {robot} needs at least 12 complete published-split nominal runs"
             )
         if not evaluation:
-            raise RealDataEvaluationError(f"KUKA {robot} has no held-out D3/D4 or D7/D8 runs")
+            raise RealDataEvaluationError(f"KUKA {robot} has no published-split held-out runs")
         train_sets = tuple(record[2] for record in training)
-        interval = HealthyInterval(
-            identity.machine_id,
-            min(row.window_start for row in train_sets) - dt.timedelta(microseconds=1),
-            max(row.window_end for row in train_sets) + dt.timedelta(microseconds=1),
-        )
-        model = fit_machine_model(
-            MachineHistory(identity, DataOrigin.EXTERNAL_BENCHMARK, train_sets, (interval,))
-        )
-        engine = HealthEngine(identity, profile)
+        model = _fit_nominal_benchmark_model(identity, train_sets)
         payloads: list[float] = []
-        risk_scores: list[float] = []
-        robot_states: dict[str, int] = {state.value: 0 for state in HealthState}
-        for payload, _split, feature_set, status in sorted(
-            evaluation, key=lambda item: item[2].timestamp
-        ):
+        deviation_scores: list[float] = []
+        for payload, _split, feature_set, status in sorted(evaluation, key=lambda item: item[0]):
             tick_started = time.perf_counter()
             result = evaluate_machine_model_numerically(model, identity, feature_set)
-            assessment = engine.assess(
-                status,
-                result,
-                timestamp=feature_set.timestamp,
-                runtime_mode=RuntimeMode.REAL_REPLAY,
-                equipment_state=feature_set.equipment_state,
-            )
-            evidence = build_fault_evidence(assessment)
             latencies.append(time.perf_counter() - tick_started)
             evaluated_windows += 1
             observable_windows += int(status.valid and status.observable)
             available_scores += int(result.available)
-            evidence_records += int(evidence is not None)
-            robot_states[assessment.health_state.value] += 1
-            total_states[assessment.health_state.value] += 1
             if result.available:
                 score = max(deviation.score for deviation in result.deviations)
                 payloads.append(float(payload))
-                risk_scores.append(score)
+                deviation_scores.append(score)
                 all_scores.append(score)
         machine_reports.append(
             {
                 "machine_id": identity.machine_id,
                 "training_runs": len(training),
                 "evaluation_runs": len(evaluation),
-                "split": "D1-D2 train / D3-D4 evaluate" if robot == "R1" else "D5-D6 train / D7-D8 evaluate",
-                "state_distribution": robot_states,
-                "payload_score_spearman": _spearman(payloads, risk_scores),
+                "split": (
+                    "D1-D3 nominal calibration / D4 evaluation"
+                    if robot == "R1"
+                    else "D5-D7 nominal calibration / D8 evaluation"
+                ),
+                "payload_deviation_spearman": _spearman(payloads, deviation_scores),
+                "deviation_score_distribution": {
+                    "count": len(deviation_scores),
+                    "median": float(np.median(deviation_scores)) if deviation_scores else None,
+                    "p95": _percentile(deviation_scores, 95.0),
+                    "maximum": max(deviation_scores) if deviation_scores else None,
+                },
             }
         )
 
     elapsed = time.perf_counter() - started
-    report = _base_report("kuka-kr3", source_hash)
+    report = _base_report(
+        "kuka-kr3",
+        source_hash,
+        provenance_verified=True,
+        provenance_method=(
+            "pinned official v1 archive SHA-256 and MD5"
+            if archive_identity_matches
+            else "pinned canonical official v1 CSV-set SHA-256"
+        ),
+    )
     report.update(
         {
             "status": "EXECUTED",
+            "official_version": "v1",
+            "source_archive_md5": archive_md5,
+            "canonical_content_sha256": content_hash,
             "mapped_channels": [
                 {
                     "source": source,
@@ -485,40 +692,41 @@ def _evaluate_kuka(path: Path) -> dict[str, Any]:
             },
             "full_station_representation": False,
             "station_profile": "ephemeral external_kuka_kr3; canonical STATIONS unchanged",
-            "split": "whole-file, robot-preserving predefined D-set split; no sample-level leakage",
+            "split": "published same-machine split: R1 D1-D3 to D4; R2 D5-D7 to D8; whole files preserved",
             "samples": int(sum(len(item[3]) for item in parsed)),
             "runs": len(parsed),
             "machines": len(by_robot),
             "pipeline": {
                 "bounded_store": True,
-                "step02_features": True,
+                "step02_run_statistics": True,
+                "step02_timing_features": False,
                 "step03_physics": False,
                 "step05_family_model": False,
-                "step07_exact_machine_score": True,
-                "step09_health": True,
-                "step10_evidence": True,
+                "step07_numerical_deviation": True,
+                "step09_health": False,
+                "step10_evidence": False,
                 "step15_ticket": False,
             },
+            "method_scope": "partial Step02 location/spread and pure Step07 run-level numerical reuse; not end-to-end operational inference",
+            "feature_kinds_used": ["location", "spread"],
+            "timing_dependent_features_used": False,
+            "nominal_baseline_semantics": "workload calibration only; not confirmed healthy history",
             "metrics_supported": [
-                "state and score distributions",
-                "payload/score rank association",
-                "UNKNOWN fraction",
+                "run-level deviation-score distributions",
+                "payload/deviation rank association",
                 "pipeline coverage",
                 "throughput and latency",
             ],
             "classification_metrics": None,
             "classification_metrics_reason": "The payload dataset has no health/fault labels; accuracy and confusion metrics are unsupported.",
-            "state_distribution": total_states,
-            "score_distribution": {
+            "deviation_score_distribution": {
                 "count": len(all_scores),
                 "median": float(np.median(all_scores)) if all_scores else None,
                 "p95": _percentile(all_scores, 95.0),
                 "maximum": max(all_scores) if all_scores else None,
             },
-            "unknown_fraction": total_states[HealthState.UNKNOWN.value] / evaluated_windows,
             "data_quality_coverage": observable_windows / evaluated_windows,
             "pipeline_coverage": available_scores / evaluated_windows,
-            "fault_evidence_records": evidence_records,
             "runtime": {
                 "elapsed_seconds": elapsed,
                 "windows_per_second": evaluated_windows / elapsed if elapsed > 0.0 else None,
@@ -529,8 +737,10 @@ def _evaluate_kuka(path: Path) -> dict[str, Any]:
             "limitations": [
                 "Evidence class D component/process analog; not semiconductor or OSAT validation.",
                 "The dataset contains payload variation but no fault or independently adjudicated health labels.",
-                "Baseline files are treated as nominal research calibration, not proven healthy equipment history.",
-                "The README states a 12 ms sampling period while the Sample values advance by 4 ms; source values are used as documented timestamps and the discrepancy is retained as a limitation.",
+                "Calibration files form a benchmark-only nominal baseline, not confirmed healthy equipment history.",
+                "The README states a 12 ms sampling period while Sample increments resemble 4 ms; trend features are excluded from every score until that discrepancy is resolved.",
+                "Each CSV is one independent run-level window, not an operational 60-second feature window.",
+                "Independent recordings have no asserted cross-run chronology, so Steps 09 and 10 are not run and no health-state distribution is reported.",
                 "No KUKA signal is substituted for an OSAT station channel, and no physics relation is available for this ephemeral family.",
             ],
         }
@@ -538,7 +748,7 @@ def _evaluate_kuka(path: Path) -> dict[str, Any]:
     return report
 
 
-def _zip_members(path: Path) -> tuple[str, dict[str, bytes]]:
+def _zip_members(path: Path) -> tuple[str, str, dict[str, bytes]]:
     if not path.exists():
         raise RealDataNotFound(f"Dataset path not found: {path.name}")
     selected = path
@@ -554,6 +764,8 @@ def _zip_members(path: Path) -> tuple[str, dict[str, bytes]]:
                 files = [item for item in archive.infolist() if not item.is_dir()]
                 if len(files) > MAXIMUM_GENERIC_MEMBERS:
                     raise RealDataEvaluationError("Dataset ZIP contains too many members")
+                if len({item.filename for item in files}) != len(files):
+                    raise RealDataEvaluationError("Dataset ZIP contains duplicate member names")
                 if any(item.file_size > MAXIMUM_GENERIC_MEMBER_BYTES for item in files):
                     raise RealDataEvaluationError("Dataset ZIP member exceeds the size limit")
                 if sum(item.file_size for item in files) > MAXIMUM_GENERIC_TOTAL_BYTES:
@@ -567,17 +779,21 @@ def _zip_members(path: Path) -> tuple[str, dict[str, bytes]]:
                     members[item.filename] = content
         except zipfile.BadZipFile as exc:
             raise RealDataEvaluationError("Dataset ZIP is invalid") from exc
-        return _sha256_file(selected), members
-    files = sorted(path.rglob("*")) if path.is_dir() else [path]
-    files = [item for item in files if item.is_file()]
-    return _directory_hash(path, files), {
-        item.relative_to(path).as_posix(): item.read_bytes() for item in files
-    }
+        return _sha256_file(selected), _named_content_hash(list(members.items())), members
+    if path.is_dir():
+        files = _bounded_directory_files(path)
+        members = {item.relative_to(path).as_posix(): item.read_bytes() for item in files}
+        return _directory_hash(path, files), _named_content_hash(list(members.items())), members
+    if path.stat().st_size > MAXIMUM_GENERIC_MEMBER_BYTES:
+        raise RealDataEvaluationError("Dataset file exceeds the size limit")
+    content = path.read_bytes()
+    members = {path.name: content}
+    return _sha256_file(path), _named_content_hash(list(members.items())), members
 
 
 def _evaluate_secom(path: Path) -> dict[str, Any]:
     started = time.perf_counter()
-    source_hash, members = _zip_members(path)
+    source_hash, content_hash, members = _zip_members(path)
     data_items = [(name, value) for name, value in members.items() if name.lower().endswith("secom.data")]
     label_items = [(name, value) for name, value in members.items() if name.lower().endswith("secom_labels.data")]
     if len(data_items) != 1 or len(label_items) != 1:
@@ -598,7 +814,30 @@ def _evaluate_secom(path: Path) -> dict[str, Any]:
         if not parts or parts[0] not in {"-1", "1"}:
             raise RealDataEvaluationError("SECOM labels must be -1 or 1")
         labels.append(int(parts[0]))
-    report = _base_report("uci-secom", source_hash)
+    verified = (
+        source_hash == SECOM_OFFICIAL_ARCHIVE_SHA256
+        or content_hash == SECOM_OFFICIAL_FILE_SET_SHA256
+    )
+    if not verified:
+        return _unverified_input(
+            "uci-secom",
+            source_hash,
+            "The files are SECOM-compatible, but neither the source archive nor canonical file-set hash matches the pinned official dataset.",
+            samples=len(data_lines),
+            observed_variable_count=next(iter(widths)),
+            observed_label_counts={"pass": labels.count(-1), "fail": labels.count(1)},
+            canonical_content_sha256=content_hash,
+        )
+    report = _base_report(
+        "uci-secom",
+        source_hash,
+        provenance_verified=True,
+        provenance_method=(
+            "pinned official archive SHA-256"
+            if source_hash == SECOM_OFFICIAL_ARCHIVE_SHA256
+            else "pinned canonical official file-set SHA-256"
+        ),
+    )
     report.update(
         {
             "status": "INSPECTED_NOT_EXECUTABLE",
@@ -622,9 +861,142 @@ def _evaluate_secom(path: Path) -> dict[str, Any]:
     return report
 
 
+def _xlsx_first_row(content: bytes) -> tuple[str, ...]:
+    namespace = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    try:
+        with zipfile.ZipFile(io.BytesIO(content)) as workbook:
+            files = [item for item in workbook.infolist() if not item.is_dir()]
+            if len(files) > MAXIMUM_GENERIC_MEMBERS:
+                raise RealDataEvaluationError("XLSX contains too many members")
+            if any(item.file_size > MAXIMUM_GENERIC_MEMBER_BYTES for item in files):
+                raise RealDataEvaluationError("XLSX member exceeds the size limit")
+            if sum(item.file_size for item in files) > MAXIMUM_GENERIC_TOTAL_BYTES:
+                raise RealDataEvaluationError("XLSX expands beyond the size limit")
+
+            shared: list[str] = []
+            if "xl/sharedStrings.xml" in workbook.namelist():
+                shared_root = ET.fromstring(workbook.read("xl/sharedStrings.xml"))
+                for item in shared_root.findall(f"{{{namespace}}}si"):
+                    shared.append(
+                        "".join(node.text or "" for node in item.iter(f"{{{namespace}}}t"))
+                    )
+            sheet = ET.fromstring(workbook.read("xl/worksheets/sheet1.xml"))
+    except (zipfile.BadZipFile, KeyError, ET.ParseError) as exc:
+        raise RealDataEvaluationError("R2R workbook is invalid or lacks sheet1") from exc
+    first_row = sheet.find(f".//{{{namespace}}}sheetData/{{{namespace}}}row")
+    if first_row is None:
+        raise RealDataEvaluationError("R2R workbook has no header row")
+    values: list[str] = []
+    for cell in first_row.findall(f"{{{namespace}}}c"):
+        cell_type = cell.get("t")
+        raw = cell.find(f"{{{namespace}}}v")
+        value = "" if raw is None else raw.text or ""
+        if cell_type == "s" and value:
+            try:
+                value = shared[int(value)]
+            except (IndexError, ValueError) as exc:
+                raise RealDataEvaluationError("R2R workbook has an invalid shared string") from exc
+        elif cell_type == "inlineStr":
+            value = "".join(
+                node.text or "" for node in cell.iter(f"{{{namespace}}}t")
+            )
+        if value.strip():
+            values.append(value.strip())
+    return tuple(values)
+
+
+def _evaluate_r2r(path: Path) -> dict[str, Any]:
+    started = time.perf_counter()
+    source_hash, _content_hash, members = _zip_members(path)
+    if source_hash != R2R_OFFICIAL_ARCHIVE_SHA256:
+        return _unverified_input(
+            "r2r-web-tension",
+            source_hash,
+            "The local artifact does not match the pinned public Mendeley Data v2 dataset.zip SHA-256.",
+            files=len(members),
+            expected_official_archive_sha256=R2R_OFFICIAL_ARCHIVE_SHA256,
+        )
+    aggregate = [
+        content
+        for name, content in members.items()
+        if name.replace("\\", "/").endswith("dataset/dataset.xlsx")
+    ]
+    sensor_items = [
+        (name, content)
+        for name, content in members.items()
+        if "/sensor_data/" in name.replace("\\", "/") and name.lower().endswith(".xlsx")
+    ]
+    if len(aggregate) != 1 or not sensor_items:
+        raise RealDataEvaluationError("Official R2R archive lacks its aggregate or sensor workbooks")
+    aggregate_header = _xlsx_first_row(aggregate[0])
+    sensor_headers = {_xlsx_first_row(content) for _name, content in sensor_items}
+    if len(sensor_headers) != 1:
+        raise RealDataEvaluationError("R2R sensor workbooks do not share one source schema")
+    sensor_header = next(iter(sensor_headers))
+    mapped = (
+        ("Film Tension #1 (kg)", "film_tension_1", "kg"),
+        ("Film Tension #2 (kg)", "film_tension_2", "kg"),
+        ("Film Tension #3 (kg)", "film_tension_3", "kg"),
+        ("Web Current Speed (mm/sec)", "web_speed", "mm/sec"),
+    )
+    missing = sorted(source for source, _target, _unit in mapped if source not in sensor_header)
+    if missing:
+        raise RealDataEvaluationError(
+            f"R2R exact physical source fields are missing: {', '.join(missing)}"
+        )
+    report = _base_report(
+        "r2r-web-tension",
+        source_hash,
+        provenance_verified=True,
+        provenance_method="pinned public Mendeley Data v2 dataset.zip SHA-256",
+    )
+    report.update(
+        {
+            "status": "INSPECTED_NOT_EXECUTABLE",
+            "official_version": "2",
+            "mapped_channels": [
+                {
+                    "source": source,
+                    "benchmark_channel": target,
+                    "unit": unit,
+                    "subsystem": "web_transport",
+                }
+                for source, target, unit in mapped
+            ],
+            "channel_coverage": {"mapped": 4, "total": 4, "fraction": 1.0},
+            "source_field_coverage": {
+                "mapped_physical_signals": 4,
+                "declared_named_fields": len(sensor_header),
+                "fraction": 4.0 / len(sensor_header),
+            },
+            "full_station_representation": False,
+            "runs": len(sensor_items),
+            "samples": None,
+            "machines": None,
+            "aggregate_fields": len(aggregate_header),
+            "sensor_fields": len(sensor_header),
+            "classification_metrics": None,
+            "runtime": {"elapsed_seconds": time.perf_counter() - started},
+            "limitations": [
+                "Evidence class C roll-to-roll mechanism analog; not semiconductor or OSAT validation.",
+                "The four mapped fields have explicit physical semantics and units, but the dataset provides process-setting experiments rather than equipment-health labels.",
+                "No confirmed-healthy exact-machine history or preregistered health split exists, so no Step 07/09/10 result is produced.",
+                "The workbooks are schema-inspected only; controller settings, material geometry, and derived aggregate columns are not PHM channels.",
+            ],
+        }
+    )
+    return report
+
+
 def _evaluate_forinfpro(path: Path) -> dict[str, Any]:
     started = time.perf_counter()
-    files = sorted(path.rglob("*.csv")) if path.is_dir() else [path]
+    if path.is_dir():
+        bounded = _bounded_directory_files(path)
+        files = [item for item in bounded if item.suffix.lower() == ".csv"]
+    else:
+        if path.stat().st_size > MAXIMUM_GENERIC_MEMBER_BYTES:
+            raise RealDataEvaluationError("FORinFPRO file exceeds the size limit")
+        files = [path]
     if not files or any(not item.exists() for item in files):
         raise RealDataNotFound("FORinFPRO-HIMD CSV files not found")
     schemas: list[dict[str, Any]] = []
@@ -649,10 +1021,29 @@ def _evaluate_forinfpro(path: Path) -> dict[str, Any]:
                 "rows": count,
             }
         )
-    report = _base_report("forinfpro-himd", _directory_hash(path, files) if path.is_dir() else _sha256_file(path))
+    source_hash = _directory_hash(path, files) if path.is_dir() else _sha256_file(path)
+    observed_md5 = {item.name: _md5_file(item) for item in files}
+    verified = observed_md5 == FORINFPRO_OFFICIAL_MD5
+    if not verified:
+        return _unverified_input(
+            "forinfpro-himd",
+            source_hash,
+            "The local files do not match the complete three-file MD5 manifest for official FORinFPRO-HIMD v1.",
+            files=schemas,
+            observed_file_md5=observed_md5,
+            expected_official_file_md5=FORINFPRO_OFFICIAL_MD5,
+        )
+    report = _base_report(
+        "forinfpro-himd",
+        source_hash,
+        provenance_verified=True,
+        provenance_method="complete official v1 three-file MD5 manifest",
+    )
     report.update(
         {
             "status": "INSPECTED_NOT_EXECUTABLE",
+            "official_version": "v1",
+            "official_file_md5": observed_md5,
             "mapped_channels": [],
             "channel_coverage": {
                 "mapped": 0,
@@ -685,10 +1076,32 @@ def _evaluate_nasa(path: Path) -> dict[str, Any]:
         source = analyze_nasa_milling(selected)
     except BenchmarkError as exc:
         raise RealDataEvaluationError(str(exc)) from exc
-    report = _base_report("nasa-milling", source["source_artifact_sha256"])
+    verified = (
+        source["source_artifact_sha256"] == NASA_OFFICIAL_ARCHIVE_SHA256
+        or source["mill_mat_sha256"] == NASA_OFFICIAL_MAT_SHA256
+    )
+    if not verified:
+        return _unverified_input(
+            "nasa-milling",
+            source["source_artifact_sha256"],
+            "The input is structurally compatible with NASA Milling, but neither its source artifact nor canonical mill.mat hash matches the pinned official dataset.",
+            observed_runs=source["runs"],
+            canonical_mat_sha256=source["mill_mat_sha256"],
+        )
+    report = _base_report(
+        "nasa-milling",
+        source["source_artifact_sha256"],
+        provenance_verified=True,
+        provenance_method=(
+            "pinned official archive SHA-256"
+            if source["source_artifact_sha256"] == NASA_OFFICIAL_ARCHIVE_SHA256
+            else "pinned canonical official mill.mat SHA-256"
+        ),
+    )
     report.update(
         {
             "status": "EXECUTED_DESCRIPTIVE",
+            "canonical_mat_sha256": source["mill_mat_sha256"],
             "mapped_channels": [],
             "channel_coverage": {"mapped": 0, "total": 3, "fraction": 0.0},
             "full_station_representation": False,
@@ -713,26 +1126,21 @@ def _evaluate_nasa(path: Path) -> dict[str, Any]:
 def _inspect_unmapped(dataset_id: str, path: Path) -> dict[str, Any]:
     if not path.exists():
         raise RealDataNotFound(f"Dataset path not found: {path.name}")
-    files = [path] if path.is_file() else [item for item in path.rglob("*") if item.is_file()]
+    if path.is_file():
+        if path.stat().st_size > MAXIMUM_GENERIC_ARCHIVE_BYTES:
+            raise RealDataEvaluationError("Dataset artifact exceeds the inspection size limit")
+        files = [path]
+    else:
+        files = _bounded_directory_files(path)
     if not files:
         raise RealDataNotFound("No local dataset artifact was present.")
     source_hash = _sha256_file(path) if path.is_file() else _directory_hash(path, files)
-    report = _base_report(dataset_id, source_hash)
-    report.update(
-        {
-            "status": "INSPECTED_NOT_EXECUTABLE",
-            "mapped_channels": [],
-            "channel_coverage": {"mapped": 0, "total": 0, "fraction": None},
-            "full_station_representation": False,
-            "files": len(files),
-            "classification_metrics": None,
-            "limitations": [
-                "No reviewed, semantically exact source-ID/channel/unit mapping is implemented for this dataset.",
-                "The unchanged PHM pipeline was not run; no proxy signals or labels were fabricated.",
-            ],
-        }
+    return _unverified_input(
+        dataset_id,
+        source_hash,
+        "No pinned official artifact or canonical-content identity is registered for this dataset; local bytes cannot be declared verified real data.",
+        files=len(files),
     )
-    return report
 
 
 def evaluate_real_dataset(dataset_id: str, path: str | Path) -> dict[str, Any]:
@@ -751,6 +1159,8 @@ def evaluate_real_dataset(dataset_id: str, path: str | Path) -> dict[str, Any]:
         return _evaluate_secom(selected)
     if dataset_id == "forinfpro-himd":
         return _evaluate_forinfpro(selected)
+    if dataset_id == "r2r-web-tension":
+        return _evaluate_r2r(selected)
     return _inspect_unmapped(dataset_id, selected)
 
 
@@ -766,8 +1176,10 @@ def evaluate_all_real_data(root: str | Path) -> dict[str, Any]:
             continue
         try:
             reports.append(evaluate_real_dataset(dataset_id, candidate))
-        except RealDataEvaluationError as exc:
+        except RealDataNotFound as exc:
             reports.append(_unavailable(dataset_id, str(exc)))
+        except RealDataEvaluationError as exc:
+            reports.append(_rejected_invalid(dataset_id, None, str(exc)))
     return {
         "version": VERSION,
         "origin": DataOrigin.EXTERNAL_BENCHMARK.value,
@@ -777,11 +1189,13 @@ def evaluate_all_real_data(root: str | Path) -> dict[str, Any]:
             "attempted": len(reports),
             "executed": sum(report["status"].startswith("EXECUTED") for report in reports),
             "inspected_not_executable": sum(report["status"] == "INSPECTED_NOT_EXECUTABLE" for report in reports),
+            "unverified_external_input": sum(report["status"] == "UNVERIFIED_EXTERNAL_INPUT" for report in reports),
+            "rejected_invalid": sum(report["status"] == "REJECTED_INVALID" for report in reports),
             "unavailable": sum(report["status"] == "UNAVAILABLE" for report in reports),
             "operational_tickets": 0,
         },
         "claims": [
-            "EXTERNAL REAL-DATA RESEARCH EVALUATION",
+            "EXTERNAL-DATA RESEARCH EVALUATION; REAL-DATA STATUS REQUIRES PINNED PROVENANCE",
             "NO PUBLIC DATASET RESULT IS OSAT PLANT VALIDATION",
             "NO EXTERNAL BENCHMARK HAS OPERATIONAL OR TICKET AUTHORITY",
             "NO STEP-05 FAMILY MODEL IS FIT FROM EXTERNAL DATA",
@@ -802,6 +1216,8 @@ def real_data_summary(report: Mapping[str, Any]) -> dict[str, Any]:
                     "dataset": item["dataset"],
                     "status": item["status"],
                     "evidence_class": item["evidence_class"],
+                    "real_data": item["real_data"],
+                    "provenance_verified": item["provenance_verified"],
                     "source_sha256": item["source_sha256"],
                     "channel_coverage": item["channel_coverage"],
                     "limitations": item["limitations"],
@@ -815,10 +1231,15 @@ def real_data_summary(report: Mapping[str, Any]) -> dict[str, Any]:
         "dataset",
         "status",
         "source",
+        "source_reference",
         "source_sha256",
         "origin",
         "evidence_class",
         "real_data",
+        "synthetic_data",
+        "provenance_verified",
+        "provenance_status",
+        "provenance_method",
         "mapped_channels",
         "channel_coverage",
         "full_station_representation",
@@ -829,17 +1250,32 @@ def real_data_summary(report: Mapping[str, Any]) -> dict[str, Any]:
         "metrics_supported",
         "classification_metrics",
         "continuous_metrics",
-        "state_distribution",
-        "score_distribution",
-        "unknown_fraction",
+        "method_scope",
+        "feature_kinds_used",
+        "timing_dependent_features_used",
+        "nominal_baseline_semantics",
+        "deviation_score_distribution",
         "data_quality_coverage",
         "pipeline_coverage",
-        "fault_evidence_records",
         "runtime",
         "operational_ticket_count",
         "limitations",
     )
     return {key: report[key] for key in keys if key in report}
+
+
+def deterministic_scientific_report(value: Any) -> Any:
+    """Remove machine-dependent timings from the reproducible report artifact."""
+
+    if isinstance(value, Mapping):
+        return {
+            key: deterministic_scientific_report(item)
+            for key, item in value.items()
+            if key != "runtime"
+        }
+    if isinstance(value, (list, tuple)):
+        return [deterministic_scientific_report(item) for item in value]
+    return value
 
 
 def write_real_data_report(
@@ -852,7 +1288,13 @@ def write_real_data_report(
     root.mkdir(parents=True, exist_ok=True)
     path = root / "comparison.json"
     path.write_text(
-        json.dumps(report, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
+        json.dumps(
+            deterministic_scientific_report(report),
+            indent=2,
+            sort_keys=True,
+            ensure_ascii=False,
+        )
+        + "\n",
         encoding="utf-8",
     )
     return path
