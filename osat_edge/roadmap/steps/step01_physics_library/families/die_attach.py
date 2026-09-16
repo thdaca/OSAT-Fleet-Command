@@ -20,6 +20,7 @@ from ..core.evidence import (
     _uncertainties,
 )
 from ..core.references import (
+    BESI_DIE_BONDER,
     JCGM_UNCERTAINTY,
     LEYBOLD_LEAK,
 )
@@ -51,3 +52,34 @@ DIE_ATTACH_CANDIDATE = ResearchCandidate(
     "Missing the experimental boundary conditions that define the equation.", "A valid offline isolation test could quantify leakage.", VACUUM_EXPERIMENT.objective,
     (LEYBOLD_LEAK, JCGM_UNCERTAINTY),
 )
+
+
+DIE_ATTACH_FORCE_EXPERIMENT = _experiment(
+    "Test closed-loop placement-force consistency with Z position and internal thermal state on the identified die bonder.",
+    "Within one verified bond phase, tool and thermal regime, measured force and Z trajectory should be repeatable around the commanded closed-loop profile.",
+    ("calibrated bond/placement-force reference", "bond-head Z position", "internal/bond-head temperature", "command and control-mode trace", "phase trigger"),
+    ("force command/profile", "Z trajectory", "internal temperature", "tool and material context"),
+    "Approved force/Z/temperature sweeps without production damage.",
+    ("force-sensor bias", "Z offset", "temperature-sensor bias", "tool change", "control-mode change"),
+)
+
+
+DIE_ATTACH_FORCE_CANDIDATE = ResearchCandidate(
+    "die_attach.closed_loop_force_z_temperature_consistency", "die_attach", "bond_head", RelationKind.MACHINE_FITTED, RelationStatus.RESEARCH_ONLY, EvidenceMaturity.LITERATURE_SUPPORTED,
+    "Closed-loop bond/placement-force consistency conditioned on Z position, phase, and internal temperature.", "A closed-loop die-bond head controls force along a Z trajectory; thermal and tooling state can shift the repeatable command/feedback relationship.", "Research hypothesis only: force_feedback = f_machine(force_command, Z, phase, internal_temperature, tool_context)",
+    ("z_position_error", "stage_temperature", "z_axis_current"), ("actual bond-force feedback", "force command/control mode", "actual Z position and phase", "internal/bond-head temperature semantics", "tool/material context"),
+    (EvidenceClaim("modern_bonder_force_z_thermal", "Modern die-bonder documentation specifies bond-force accuracy, bond-head Z control, bond-head thermal control, bond traces, and inline process monitoring.", ("besi_9800_tc_next",), "one modern Besi die-bonder design", "The product page does not establish DA-01 telemetry or an equipment-health relation."),),
+    (_measurement("bond_force", "actual closed-loop bond/placement-force feedback", "N", "command versus feedback, sign, control mode, phase, and calibration", missing=True), _measurement("bond_head_z", "actual bond-head Z position", "µm", "absolute/reference frame, sampling, and phase", missing=True), _measurement("internal_temperature", "bond-head or specified internal temperature", "°C", "sensor location, thermal path, and sampling", missing=True), _measurement("bond_phase", "defined placement/bond cycle phase", "state", "cycle trigger and window", missing=True)),
+    _uncertainties("force calibration", "Z calibration", "temperature location", "phase alignment"), _discrepancies("controller dynamics", "tool compliance", "material/adhesive behavior", "thermal gradients"),
+    (FaultSensitivity("bond-head/tool consistency change", ResidualDirection.MAGNITUDE_ONLY, EvidenceMaturity.HYPOTHESIS, "A physical change may alter a phase-aligned closed-loop force/Z trace, but sensitivity is unverified."),),
+    (SensorFailureMode("bond_force", "bias or gain drift", "false force/profile inconsistency", True), SensorFailureMode("bond_head_z", "offset or timing error", "false position-conditioned inconsistency", True)),
+    (ResidualFmeaEntry("bond-head/tool consistency change", "force/Z profile changes", "magnitude-only research deviation", ("temperature", "tool", "material", "control mode"), "force/Z/temperature bias", False),),
+    "OEM capability supports the measurement concept, but DA-01 lacks verified force, Z, internal-temperature, command, phase, and control-mode semantics.",
+    ("force feedback and command", "actual Z and phase", "internal-temperature path", "tool/material context"), DIE_ATTACH_FORCE_EXPERIMENT.rejection_criteria, DIE_ATTACH_FORCE_EXPERIMENT,
+    DIE_ATTACH_FORCE_EXPERIMENT.recalibration_triggers, DIE_ATTACH_FORCE_EXPERIMENT.invalidation_triggers,
+    "No real DA-01 telemetry contract for the closed-loop quantities.", "Could provide direct bond-head consistency evidence after measurement-system validation.", DIE_ATTACH_FORCE_EXPERIMENT.objective,
+    (BESI_DIE_BONDER, JCGM_UNCERTAINTY),
+)
+
+
+DIE_ATTACH_CANDIDATES = (DIE_ATTACH_CANDIDATE, DIE_ATTACH_FORCE_CANDIDATE)

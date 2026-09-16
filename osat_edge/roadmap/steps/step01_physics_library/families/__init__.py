@@ -5,13 +5,13 @@ from __future__ import annotations
 from ..core.schema import PhysicsRelation, RelationStatus, ResearchCandidate
 from .wafer_mount import WAFER_MOUNT_CANDIDATE
 from .wafer_saw import SPINDLE_RELATION, WAFER_SAW_CANDIDATE
-from .die_attach import DIE_ATTACH_CANDIDATE
-from .wire_bond import WIRE_BOND_CANDIDATE
+from .die_attach import DIE_ATTACH_CANDIDATES
+from .wire_bond import WIRE_BOND_CANDIDATES
 from .molding import MOLDING_CANDIDATE
 from .marking import MARKING_CANDIDATE
 from .trim_form import TRIM_FORM_CANDIDATE
 from .singulation import SINGULATION_CANDIDATE
-from .final_test import FINAL_TEST_CANDIDATE
+from .final_test import FINAL_TEST_CANDIDATES
 
 
 PHYSICS_RELATIONS: tuple[PhysicsRelation, ...] = (SPINDLE_RELATION,)
@@ -19,13 +19,13 @@ PHYSICS_RELATIONS: tuple[PhysicsRelation, ...] = (SPINDLE_RELATION,)
 RESEARCH_CANDIDATES: tuple[ResearchCandidate, ...] = (
     WAFER_MOUNT_CANDIDATE,
     WAFER_SAW_CANDIDATE,
-    DIE_ATTACH_CANDIDATE,
-    WIRE_BOND_CANDIDATE,
+    *DIE_ATTACH_CANDIDATES,
+    *WIRE_BOND_CANDIDATES,
     MOLDING_CANDIDATE,
     MARKING_CANDIDATE,
     TRIM_FORM_CANDIDATE,
     SINGULATION_CANDIDATE,
-    FINAL_TEST_CANDIDATE,
+    *FINAL_TEST_CANDIDATES,
 )
 
 
@@ -45,4 +45,3 @@ def research_catalog_for_family(family: str) -> tuple[PhysicsRelation | Research
     runtime = relations_for_family(family)
     candidates = tuple(candidate for candidate in RESEARCH_CANDIDATES if candidate.family == family)
     return runtime + candidates
-

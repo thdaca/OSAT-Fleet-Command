@@ -22,34 +22,33 @@ from ..core.evidence import (
 from ..core.references import (
     JCGM_UNCERTAINTY,
     KEYENCE_POWER_MONITOR,
-    LASER_OUTPUT_MODEL,
     TRUMPF_CONDITION_MONITORING,
 )
 
 
 LASER_EXPERIMENT = _experiment(
-    "Identify whether delivered optical power is predictable from drive and thermal/controller state for the actual marker architecture.",
-    "Within one verified architecture and control mode, delivered power has a repeatable current/temperature relation.",
-    ("calibrated optical power reference", "drive current", "temperature", "pulse/duty/controller state"),
-    ("power setpoint", "temperature", "duty/pulse state", "optical-path contamination"),
-    "Approved power/temperature sweeps and controlled optical attenuation.",
-    ("power-sensor gain drift", "attenuation after internal monitor", "controller-mode change"),
+    "Test commanded versus measured laser-output stability on the actual marker architecture.",
+    "Within one verified control mode, pulse regime, optical plane, and thermal state, measured output should repeat around commanded output.",
+    ("commanded laser output", "built-in measured optical output", "calibrated external optical reference", "pulse/duty/controller state", "temperature"),
+    ("commanded output", "temperature", "duty/pulse state", "optical-path condition"),
+    "Approved output-command sweeps and controlled optical attenuation.",
+    ("internal power-sensor gain drift", "attenuation after internal monitor", "controller-mode change", "external-reference drift"),
 )
 
 
 MARKING_CANDIDATE = ResearchCandidate(
-    "marking.laser_output_drive_temperature", "marking", "optical", RelationKind.MACHINE_FITTED, RelationStatus.RESEARCH_ONLY, EvidenceMaturity.LITERATURE_SUPPORTED,
-    "Delivered optical power consistency with drive, temperature, pulse, and controller state.", "Laser output can depend on drive and temperature, but the form is architecture/control-specific.", "P_delivered=f_machine(I_drive,T,pulse/duty,controller,optical path)",
-    ("delivered_laser_power", "laser_drive_current", "laser_temperature"), ("laser architecture", "junction-temperature proxy", "pulse/duty/Q-switch state", "feedback state", "reference power"),
-    (EvidenceClaim("laser_direct_monitoring", "Commercial marker/laser systems use direct power and equipment-specific monitoring for maintenance.", ("keyence_laser_power_monitor", "trumpf_laser_monitoring"), "vendor-specific laser systems", "Does not define a transferable equation or this channel's semantics."),),
-    (_measurement("delivered_laser_power", "delivered optical power at defined plane", "W", "sensor type, spectral response, sampling point"), _measurement("laser_drive_current", "architecture-specific drive current", "A", "current path and control mode"), _measurement("pulse_state", "pulse energy/duty/controller state", "state", "cycle aligned", missing=True)),
-    _uncertainties("power calibration", "current", "temperature"), _discrepancies("architecture/control", "optical-path loss", "pulse dynamics"),
+    "marking.commanded_measured_laser_output_stability", "marking", "optical", RelationKind.MACHINE_FITTED, RelationStatus.RESEARCH_ONLY, EvidenceMaturity.LITERATURE_SUPPORTED,
+    "Commanded laser output versus measured laser output stability.", "Commercial marker architectures can directly monitor optical output; a machine-specific comparison to the command is more defensible than assuming a diode-current/temperature model for an unknown source.", "Delta_P = P_measured - f_machine(P_command, pulse/duty, control_mode, temperature, optical_plane)",
+    ("delivered_laser_power", "laser_temperature", "laser_drive_current"), ("commanded laser output", "measured-output sensor definition", "laser architecture", "pulse/duty/Q-switch state", "control mode", "external optical reference"),
+    (EvidenceClaim("laser_direct_monitoring", "KEYENCE documents built-in thermopile monitoring that measures laser output during marking for maintenance; commercial systems also use equipment-specific monitoring.", ("keyence_laser_power_monitor", "trumpf_laser_monitoring"), "vendor-specific laser marker systems", "Does not define MK-01 channels, a transferable equation, or a universal limit."),),
+    (_measurement("commanded_laser_output", "controller laser-output command", "W", "command basis, pulse/duty/control mode and saturation", missing=True), _measurement("measured_laser_output", "built-in measured optical output at a defined plane", "W", "sensor type, spectral response, sampling plane and aggregation", missing=True), _measurement("external_laser_output", "calibrated reference optical output", "W", "defined plane and traceable calibration", missing=True), _measurement("pulse_state", "pulse/duty/controller state", "state", "cycle aligned", missing=True)),
+    _uncertainties("internal power-monitor calibration", "external optical reference", "temperature", "timing"), _discrepancies("architecture/control", "optical-path loss before/after monitor", "pulse dynamics"),
     (FaultSensitivity("source or optical-path degradation", ResidualDirection.NEGATIVE, EvidenceMaturity.HYPOTHESIS, "Delivered power may fall at comparable commanded/thermal state."),),
     (SensorFailureMode("delivered_laser_power", "negative gain drift or contamination", "false degradation", True),),
     (ResidualFmeaEntry("optical/source degradation", "power falls", "negative", ("controller", "temperature", "path contamination"), "power-sensor drift", False),),
-    "Actual laser architecture, control state, pulse semantics, and calibrated output plane are unknown.",
-    ("architecture/OEM review", "calibrated optical reference", "pulse/controller state"), LASER_EXPERIMENT.rejection_criteria, LASER_EXPERIMENT,
+    "Actual laser architecture, command and monitor definitions, control state, pulse semantics, and calibrated output plane are unknown; electrical-current relations remain research-only.",
+    ("command and measured-output channels", "architecture/OEM review", "calibrated optical reference", "pulse/controller state"), LASER_EXPERIMENT.rejection_criteria, LASER_EXPERIMENT,
     LASER_EXPERIMENT.recalibration_triggers, LASER_EXPERIMENT.invalidation_triggers,
-    "No verified architecture-specific measurement model.", "Could detect output consistency loss once direct measurement is metrologically defined.", LASER_EXPERIMENT.objective,
-    (KEYENCE_POWER_MONITOR, TRUMPF_CONDITION_MONITORING, LASER_OUTPUT_MODEL, JCGM_UNCERTAINTY),
+    "No verified command/output measurement pair or architecture-specific semantics.", "Could detect command-to-output consistency loss once direct measurement is metrologically defined.", LASER_EXPERIMENT.objective,
+    (KEYENCE_POWER_MONITOR, TRUMPF_CONDITION_MONITORING, JCGM_UNCERTAINTY),
 )

@@ -21,34 +21,38 @@ from ..core.evidence import (
 )
 from ..core.references import (
     BRANCA_WEB,
+    INFINEON_TAPE_TENSION,
     ISO_CONDITION_MONITORING,
     MAXON_CONSTANTS,
 )
 
 
 WEB_EXPERIMENT = _experiment(
-    "Test whether motor current adds interpretable redundancy to direct tape/web tension.",
-    "After phase, acceleration, geometry, and friction compensation, drive torque should balance a controlled change in web tension.",
-    ("calibrated tension transducer", "drive current/torque feedback", "encoder/acceleration", "roller geometry and temperature"),
-    ("tension setpoint", "speed/acceleration", "roller temperature", "web material"),
-    "Safe controlled tension changes across motion phases.",
-    ("acceleration change at fixed tension", "friction/temperature change", "current-sensor offset"),
+    "Test repeatability and drift of dicing-tape tension after mounting, with material and lamination context blocked explicitly.",
+    "A direct calibrated tension indicator should remain stable within a fixed tape/roll/lamination regime and change under controlled tension perturbations.",
+    ("calibrated direct or optical tension reference", "frame/tape identity", "lamination settings", "optional verified drive torque feedback"),
+    ("tape manufacturer/type/material", "roll identity/change", "lamination settings", "frame and temperature"),
+    "Safe controlled tension and lamination changes on approved frames.",
+    ("roll change at fixed settings", "material change at fixed settings", "sensor offset", "optional current change at fixed tension"),
 )
 
 
 WAFER_MOUNT_CANDIDATE = ResearchCandidate(
-    "wafer_mount.roller_current_web_tension", "wafer_mount", "feed", RelationKind.SEMI_EMPIRICAL, RelationStatus.RESEARCH_ONLY, EvidenceMaturity.LITERATURE_SUPPORTED,
-    "Motor-current/web-tension consistency relation for the wafer-mount feed.", "Drive torque and roller mechanics contribute to web tension, but acceleration, radius, transmission, friction, and span dynamics matter.", "T_web = f(K_t I, radii, inertia, acceleration, friction, span dynamics)",
-    ("roller_motor_current", "web_tension", "roller_temperature"), ("speed/acceleration", "torque/current semantics", "roller geometry", "transmission", "phase"),
-    (EvidenceClaim("web_dynamics", "Web tension depends on roller dynamics and nonideal roller behavior.", ("branca_2013_web_tension", "maxon_motor_constants"), "web handling", "Not wafer-mount validation."),),
-    (_measurement("roller_motor_current", "drive current/torque feedback", "A", "actual feedback basis and controller scaling"), _measurement("web_tension", "tape/web tension", "N", "sensor location, direction, span, and calibration"), _measurement("roller_speed", "roller speed/acceleration", "rad/s", "actual shaft motion", missing=True)),
-    _uncertainties("current scaling", "tension calibration", "alignment"), _discrepancies("friction", "span elasticity", "roller inertia"),
-    (FaultSensitivity("roller/feed drag", ResidualDirection.UNKNOWN, EvidenceMaturity.HYPOTHESIS, "Could change current at comparable measured tension."),),
+    "wafer_mount.dicing_tape_tension_stability", "wafer_mount", "tape_mount", RelationKind.SEMI_EMPIRICAL, RelationStatus.RESEARCH_ONLY, EvidenceMaturity.LITERATURE_SUPPORTED,
+    "Direct dicing-tape tension stability and drift within a documented mounting regime.", "Mounted-tape tension depends on tape material, frame deformation/stretch, lamination/roller settings, environment, and time; a direct tension indicator can be trended only within that context.", "Delta_T = T_direct - T_regime_baseline (research only; no universal threshold)",
+    ("web_tension", "roller_temperature", "roller_motor_current"), ("direct per-frame tension semantics", "tape maker/type/material", "roll identity", "lamination settings", "frame identity", "time since lamination"),
+    (
+        EvidenceClaim("mounted_tape_tension", "An Infineon wafer-mounter patent discloses per-tape tension monitoring and identifies tape properties, roll changes, stretching, rollers, lamination, and frame deformation as relevant context.", ("infineon_dicing_tape_tension",), "wafer-mount dicing tape", "Patent disclosure is not independent validation or a health threshold."),
+        EvidenceClaim("web_dynamics", "Web tension depends on roller dynamics and nonideal roller behavior.", ("branca_2013_web_tension",), "web handling", "Not wafer-mount validation."),
+    ),
+    (_measurement("web_tension", "direct dicing-tape tension indicator", "N", "method, axis/location, frame state, calibration, and per-frame timing"), _measurement("roller_motor_current", "optional drive feedback", "A", "actual torque/current semantics and controller scaling; never assumed to equal tension"), _measurement("lamination_context", "tape/roll/frame/settings context", "state", "pseudonymous reviewed categories", missing=True)),
+    _uncertainties("tension reference", "frame positioning", "temperature and time"), _discrepancies("anisotropic tape behavior", "lamination mechanics", "material/roll variation"),
+    (FaultSensitivity("tension stability or drift", ResidualDirection.MAGNITUDE_ONLY, EvidenceMaturity.LITERATURE_SUPPORTED, "Direct per-frame tension may drift within a fixed, verified regime."),),
     (SensorFailureMode("web_tension", "zero/scale drift", "apparent current-tension inconsistency", True),),
-    (ResidualFmeaEntry("feed drag", "current increases", "condition dependent", ("acceleration", "temperature"), "current/tension bias", False),),
-    "Direct tension exists, but mechanical and phase semantics are absent; a generic regression would not be a controlled torque balance.",
-    ("encoder/phase", "verified torque feedback", "roller geometry/configuration"), WEB_EXPERIMENT.rejection_criteria, WEB_EXPERIMENT,
+    (ResidualFmeaEntry("tape-tension drift", "direct tension changes within regime", "magnitude drift", ("tape material", "roll change", "lamination settings", "frame", "temperature/time"), "tension-sensor drift", False),),
+    "The current repository lacks per-frame measurement semantics and the tape/roll/lamination context required to interpret drift; motor current is not tension without verified drive semantics.",
+    ("direct per-frame tension method", "tape/roll/frame context", "lamination settings", "optional verified torque feedback"), WEB_EXPERIMENT.rejection_criteria, WEB_EXPERIMENT,
     WEB_EXPERIMENT.recalibration_triggers, WEB_EXPERIMENT.invalidation_triggers,
-    "Missing motion phase, geometry, and verified current/torque semantics.", "Could provide analytical redundancy for a direct tension sensor.", WEB_EXPERIMENT.objective,
-    (BRANCA_WEB, MAXON_CONSTANTS, ISO_CONDITION_MONITORING),
+    "Missing direct measurement semantics and configuration context; optional motor feedback has unverified torque/current meaning.", "Could provide controlled stability/drift evidence for the actual mounted tape without treating process variation as equipment health.", WEB_EXPERIMENT.objective,
+    (INFINEON_TAPE_TENSION, BRANCA_WEB, MAXON_CONSTANTS, ISO_CONDITION_MONITORING),
 )

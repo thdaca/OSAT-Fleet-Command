@@ -46,6 +46,19 @@ class EvidenceMaturity(str, Enum):
     PROSPECTIVE_PILOT_VALIDATED = "PROSPECTIVE_PILOT_VALIDATED"
 
 
+class ResearchEvidenceTier(str, Enum):
+    """Research-source access tier; deliberately separate from ``DataOrigin``.
+
+    These labels describe what evidence exists or may be requested.  They do
+    not authorize runtime ingestion, health scoring, or an OSAT provenance
+    claim for any bytes.
+    """
+
+    PUBLISHED_REAL_OSAT_STUDY = "PUBLISHED_REAL_OSAT_STUDY"
+    REQUESTABLE_REAL_OSAT_DATA = "REQUESTABLE_REAL_OSAT_DATA"
+    EXECUTED_REAL_OSAT_DATA = "EXECUTED_REAL_OSAT_DATA"
+
+
 class ReferenceType(str, Enum):
     STANDARD = "STANDARD"
     METROLOGY_GUIDE = "METROLOGY_GUIDE"
@@ -57,6 +70,9 @@ class ReferenceType(str, Enum):
     MANUFACTURER_APPLICATION_NOTE = "MANUFACTURER_APPLICATION_NOTE"
     GOVERNMENT_TECHNICAL = "GOVERNMENT_TECHNICAL"
     PREPRINT = "PREPRINT"
+    ACADEMIC_THESIS = "ACADEMIC_THESIS"
+    DATASET_REPOSITORY = "DATASET_REPOSITORY"
+    CORPORATE_REPORT = "CORPORATE_REPORT"
 
 
 class MeasurementStatus(str, Enum):
@@ -419,4 +435,3 @@ class ResearchCandidate:
     @property
     def target_sensitivities(self) -> tuple[FaultSensitivity, ...]:
         return self.target_fault_sensitivities
-

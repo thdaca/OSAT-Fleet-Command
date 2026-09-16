@@ -129,6 +129,133 @@ BRANCA_WEB = _reference(
     "branca_2013_web_tension", "C. Branca, P. R. Pagilla, and K. N. Reid, Governing equations for web tension and web velocity in the presence of nonideal rollers, ASME JDSMC 135(1) (2013) 011018.", "10.1115/1.4007974", ReferenceType.PEER_REVIEWED_PRIMARY, 2013,
     "Web tension/velocity dynamics depend on roller mechanics and nonideal effects.", "Not specific to wafer-mount tape handling and requires machine parameters absent here.")
 
+INFINEON_TAPE_TENSION = _reference(
+    "infineon_dicing_tape_tension",
+    "W. Leitgeb, D. Brunner, and L. Ferlan, Method and device for monitoring a dicing tape tension, Infineon Technologies AG.",
+    "EP3705862B1 / US20200286795A1",
+    ReferenceType.PATENT,
+    2020,
+    "Wafer-mounter tape tension can be monitored per tape; tape maker/type/properties, roll changes, stretching, rollers, lamination, and frame deformation affect the result.",
+    "Patent disclosure, not an independent validation study; it does not identify roller motor current as tension.",
+)
+DISCO_DAD3660 = _reference(
+    "disco_dad3660",
+    "DISCO Corporation, DAD3660 Automatic Dicing Saw product information.",
+    "https://www.disco.co.jp/jp/products/dicer/dad3660.html",
+    ReferenceType.OEM_TECHNICAL,
+    2026,
+    "The DAD3660 supports package singulation and exposes spindle-current monitoring as a condition-monitor function.",
+    "Product capability does not define current acquisition semantics, prove fault specificity, or identify WS-01/SG-01 hardware.",
+)
+BESI_DIE_BONDER = _reference(
+    "besi_9800_tc_next",
+    "Besi, 9800 TC next product information, next-generation die attach for chiplet and interposer packages.",
+    "https://www.besi.com/products-technology/product-details/product/9800-tc-next/",
+    ReferenceType.OEM_TECHNICAL,
+    2026,
+    "A modern die bonder specifies bond-force accuracy, bond-head Z control, bond-head thermal control, bond traces, and inline process monitoring.",
+    "Vendor/model-specific capability; it does not establish DA-01 channels, units, sampling, or health meaning.",
+)
+PTI_WIRE_BOND = _reference(
+    "pti_wire_bond_2026",
+    "C. T. Wu, S. H. Li, and C. S. Tsou, Integrating FDC and Machine Learning for Enhanced Anomaly Detection in WB Bonding Joint Quality, Computer Modeling in Engineering & Sciences 88(1) (2026) 96.",
+    "10.32604/cmc.2026.078762",
+    ReferenceType.PEER_REVIEWED_PRIMARY,
+    2026,
+    "A real Powertech OSAT wire-bond study reports the named production-machine fields and production inspection feedback.",
+    "Company-confidential data are requestable but not public; field names omit engineering units and do not make machine-computed USG Impedance a derived electrical impedance.",
+)
+BESI_FICO_MOLDING = _reference(
+    "besi_fico_molding_line",
+    "Besi, Fico Molding Line product information.",
+    "https://www.besi.com/products-technology/product-details/product/fico-molding-line/",
+    ReferenceType.OEM_TECHNICAL,
+    2026,
+    "Semiconductor transfer-molding equipment exposes dynamic/active clamp-force control, dynamic transfer-pressure control, multi-zone temperature control, and cavity vacuum.",
+    "Vendor/model-specific capabilities do not define MO-01 telemetry semantics or validate a health residual.",
+)
+GALLANT_TRIM_FORM = _reference(
+    "gallant_trim_form",
+    "Gallant Micro Machining Co., SP Series trim/form equipment product information.",
+    "https://www.gmmcorp.com.tw/en/trim-form",
+    ReferenceType.OEM_TECHNICAL,
+    2026,
+    "Semiconductor trim/form equipment is offered with an electric cam servo and stated tonnage capability.",
+    "A product specification does not expose motor/control semantics or map drive current to punch force.",
+)
+TAIJIN_TRIM_FORM = _reference(
+    "taijin_trim_form",
+    "Guangdong Taijin Semiconductor Technology, Auto Trim/Form System product information.",
+    "https://www.dgtj168.com/en/sys-pd/1.html",
+    ReferenceType.OEM_TECHNICAL,
+    2026,
+    "A semiconductor trim/form system is described with servo-motor punch capability of 3-5 ton and package-specific tooling scope.",
+    "Vendor specification only; it does not establish TF-01 drive feedback, force metrology, or tooling-health sensitivity.",
+)
+FINAL_TEST_HANDLER = _reference(
+    "roy_2026_final_test_handler",
+    "L. A. A. Roy, J. S. B. Beh, C. K. Yeo, and S. Regunathan, Process-aware graph-temporal framework for equipment prognostics with multimodal data at semiconductor final test, Computers & Industrial Engineering 214 (2026) 111872.",
+    "10.1016/j.cie.2026.111872",
+    ReferenceType.PEER_REVIEWED_PRIMARY,
+    2026,
+    "A real semiconductor final-test study combines upstream test-handler motor signatures with downstream DUT electrical-test readouts for equipment fault detection/prognostics.",
+    "The publication is strong domain evidence but supplies no transferable physical equation or FT-01 measurement semantics.",
+)
+ST_AWFD = _reference(
+    "st_awfd",
+    "STMicroelectronics, ST Dataset for Automatic Wafer Fault Detection (ST-AWFD), official GitHub repository.",
+    "https://github.com/STMicroelectronics/ST-AWFD",
+    ReferenceType.DATASET_REPOSITORY,
+    2021,
+    "Real semiconductor production sequences with normal/abnormal labels: D1 has 602108 rows/5105 MaterialIDs and D2 has 126795 rows/1157 MaterialIDs.",
+    "Feature columns are normalized and lack physical names/units, so they cannot map to Step01 physical variables.",
+)
+TUHH_DAD3350 = _reference(
+    "tuhh_dad3350_2026",
+    "L. Rennpferdt, S. Bohne, and H. K. Trieu, Optical Profilometer Dataset for Diced Surfaces Obtained with Wafer Dicing Machine at Varying Feed Velocities.",
+    "10.15480/882.15763",
+    ReferenceType.DATASET_REPOSITORY,
+    2026,
+    "Open raw optical-profilometer measurements from fused-silica wafers diced on a DISCO DAD3350 at varying feed velocities.",
+    "Target-process/surface evidence, not machine-health validation or spindle telemetry.",
+)
+CHDL = _reference(
+    "chdl_2025",
+    "X. Xie et al., DIFFUMA: High-Fidelity Spatio-Temporal Video Prediction via Dual-Path Mamba and Diffusion Enhancement; introduces the Chip Dicing Lane Dataset.",
+    "arXiv:2507.06738",
+    ReferenceType.PREPRINT,
+    2025,
+    "Public temporal image evidence from semiconductor wafer dicing.",
+    "Process imagery only; no vision/deep-learning subsystem is added and it does not validate equipment health.",
+)
+AMKOR_ATEP = _reference(
+    "amkor_atep_2022",
+    "T. N. da C. Fernandes, Implementação de manutenção preditiva numa indústria de semicondutores, ISEP master's dissertation.",
+    "hdl:10400.22/20698",
+    ReferenceType.ACADEMIC_THESIS,
+    2022,
+    "Published real-OSAT monitoring of ATEP/Amkor Portugal liquid-ring vacuum pumps, including an observed post-deployment failure and two-year maintenance history.",
+    "Auxiliary, noncanonical equipment; the public artifact is a thesis, not raw executable time-series data.",
+)
+ASE_WIRE_BOND_AOI = _reference(
+    "ase_wire_bond_aoi_2025",
+    "C.-C. Hsu, AOI-Based Defect Detection in the Wire Bonding Process, National Sun Yat-sen University thesis record.",
+    "etd-0609125-111038",
+    ReferenceType.ACADEMIC_THESIS,
+    2025,
+    "Genuine ASE-provided wire-bond process/inspection evidence with 455 labeled samples.",
+    "Process/AOI evidence only; no public raw download or equipment-health telemetry was identified.",
+)
+UTAC_WAFER_SAW = _reference(
+    "utac_wafer_saw_2023",
+    "UTAC Group, Sustainability Report 2023.",
+    "https://utacgroup.com/wp-content/uploads/2025/04/UTAC_Sustainability_Report_2023.pdf",
+    ReferenceType.CORPORATE_REPORT,
+    2023,
+    "Real-OSAT industrial-practice evidence describing DISCO wafer saws, machine logs, FDC/data mining, predictive alerts, and maintenance.",
+    "Corporate practice evidence; no public telemetry or executable dataset is supplied.",
+)
+
 
 RESEARCH_REFERENCES: tuple[ResearchReference, ...] = (
     ISO_DIAGNOSTICS, ISO_CONDITION_MONITORING, ISO_MEASUREMENT_MANAGEMENT,
@@ -143,5 +270,8 @@ RESEARCH_REFERENCES: tuple[ResearchReference, ...] = (
     LIU_WAFER_PROBE, KEYENCE_POWER_MONITOR, TRUMPF_CONDITION_MONITORING,
     WIRE_BOND_IMPEDANCE, WIRE_BOND_PIEZO, MOLDING_MONITOR,
     MOLDING_PROCESS, LASER_OUTPUT_MODEL, LEYBOLD_LEAK, BRANCA_WEB,
+    INFINEON_TAPE_TENSION, DISCO_DAD3660, BESI_DIE_BONDER,
+    PTI_WIRE_BOND, BESI_FICO_MOLDING, GALLANT_TRIM_FORM,
+    TAIJIN_TRIM_FORM, FINAL_TEST_HANDLER, ST_AWFD, TUHH_DAD3350,
+    CHDL, AMKOR_ATEP, ASE_WIRE_BOND_AOI, UTAC_WAFER_SAW,
 )
-

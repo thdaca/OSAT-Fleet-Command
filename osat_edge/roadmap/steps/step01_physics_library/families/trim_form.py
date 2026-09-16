@@ -20,34 +20,39 @@ from ..core.evidence import (
     _uncertainties,
 )
 from ..core.references import (
+    GALLANT_TRIM_FORM,
     ISO_CONDITION_MONITORING,
     MAXON_CONSTANTS,
+    TAIJIN_TRIM_FORM,
 )
 
 
 PRESS_EXPERIMENT = _experiment(
-    "Map press drive torque to punch force by stroke phase and separate tool degradation from dynamics.",
-    "With known torque constant, transmission, phase, and acceleration, current-derived torque predicts measured punch force.",
-    ("calibrated punch force", "drive current/torque", "stroke encoder", "mechanism geometry", "high-rate synchronization"),
-    ("stroke phase", "speed/acceleration", "tool condition", "material"),
-    "Approved force and tool-condition sweeps across stroke phases.",
+    "Test stroke-aligned servo load/torque/force profile consistency and separate tooling change from motion dynamics.",
+    "Within fixed package geometry, tooling, drive mode, and stroke conditions, measured servo-load and reference-force profiles should be repeatable by stroke position.",
+    ("servo load/torque feedback", "calibrated punch force", "stroke encoder", "drive/control semantics", "tool and package geometry identity", "high-rate synchronization"),
+    ("stroke phase", "speed/acceleration", "tool condition", "package geometry/material"),
+    "Approved load, package-geometry, and tool-condition sweeps across stroke phases.",
     ("acceleration change", "current offset", "friction/temperature change"),
 )
 
 
 TRIM_FORM_CANDIDATE = ResearchCandidate(
-    "trim_form.motor_current_punch_force", "trim_form", "press", RelationKind.SEMI_EMPIRICAL, RelationStatus.RESEARCH_ONLY, EvidenceMaturity.LITERATURE_SUPPORTED,
-    "Stroke-resolved drive-torque to punch-force consistency.", "Motor current can map to torque, then linkage/transmission and phase map torque to force after dynamics/losses.", "F(θ)=K_t I G mechanical_advantage(θ)-inertia/friction",
-    ("punch_force", "press_motor_current", "die_vibration", "die_temperature"), ("torque constant", "transmission/linkage", "stroke phase", "acceleration", "loss model"),
-    (EvidenceClaim("motor_to_force", "Motor current can map to torque but force requires the intervening mechanism and state.", ("maxon_motor_constants",), "motor mechanics", "No press-specific parameters are available."),),
-    (_measurement("punch_force", "actual punch force", "kN", "load-cell location and dynamic calibration"), _measurement("press_motor_current", "actual drive current/torque feedback", "A", "feedback definition and phase"), _measurement("stroke_phase", "press angle/position/acceleration", "rad", "encoder-derived actual state", missing=True)),
-    _uncertainties("force", "current", "phase/alignment"), _discrepancies("linkage/inertia", "friction", "tool/material effects"),
+    "trim_form.stroke_aligned_servo_load_profile_consistency", "trim_form", "press", RelationKind.SEMI_EMPIRICAL, RelationStatus.RESEARCH_ONLY, EvidenceMaturity.LITERATURE_SUPPORTED,
+    "Stroke-aligned servo load/torque/force profile consistency.", "Semiconductor trim/form machines use electric/servo cam presses; a phase-aligned servo-load profile may carry tooling information only when drive semantics, mechanism, package geometry, and reference force are known.", "Research hypothesis only: L_servo(theta) and F_reference(theta) are compared within one machine/tool/package regime",
+    ("punch_force", "press_motor_current", "die_vibration", "die_temperature"), ("servo load/torque semantics", "stroke position/velocity/acceleration", "transmission/linkage", "package geometry", "tooling identity/condition", "reference force"),
+    (
+        EvidenceClaim("semiconductor_servo_cam", "Semiconductor trim/form OEM information describes electric cam servo equipment and 3-5 ton-class servo punch capability.", ("gallant_trim_form", "taijin_trim_form"), "semiconductor trim/form equipment capability", "Product specifications do not define TF-01 feedback channels or health sensitivity."),
+        EvidenceClaim("motor_to_force", "Motor current can map to torque only under documented motor/drive assumptions; punch force also requires the intervening mechanism and state.", ("maxon_motor_constants",), "motor mechanics", "No press-specific parameters are available."),
+    ),
+    (_measurement("servo_load_or_torque", "actual servo load or torque feedback", "N*m", "feedback definition, scaling, control mode, limits and filtering", missing=True), _measurement("punch_force", "reference punch force", "kN", "load-cell location, bandwidth and dynamic calibration"), _measurement("stroke_position", "actual stroke angle/position", "rad", "encoder reference, direction, velocity/acceleration and trigger", missing=True), _measurement("tool_package_context", "tooling and package-geometry context", "state", "stable pseudonymous identifiers and change record", missing=True)),
+    _uncertainties("servo load/torque scaling", "force reference", "stroke position/alignment"), _discrepancies("linkage/inertia", "friction", "tool/package/material effects"),
     (FaultSensitivity("tool wear/damage", ResidualDirection.UNKNOWN, EvidenceMaturity.HYPOTHESIS, "May change phase-specific force/current relationship."),),
     (SensorFailureMode("punch_force", "gain drift", "false consistency change", True),),
     (ResidualFmeaEntry("tool condition change", "force/current waveform changes", "condition dependent", ("material", "phase", "friction"), "force/current gain drift", False),),
-    "Current and force cannot be related without stroke phase, mechanism, and dynamic terms.",
-    ("stroke encoder", "verified torque feedback", "mechanism configuration", "high-rate alignment"), PRESS_EXPERIMENT.rejection_criteria, PRESS_EXPERIMENT,
+    "Motor current is not punch force without drive semantics; the comparison also requires stroke phase, mechanism, package geometry, tooling condition, and dynamic terms.",
+    ("stroke encoder", "verified servo load/torque feedback", "reference force", "mechanism configuration", "tool/package context", "high-rate alignment"), PRESS_EXPERIMENT.rejection_criteria, PRESS_EXPERIMENT,
     PRESS_EXPERIMENT.recalibration_triggers, PRESS_EXPERIMENT.invalidation_triggers,
-    "Missing phase-resolved mechanism and drive semantics.", "Could provide redundant tooling/load evidence after a controlled mechanics study.", PRESS_EXPERIMENT.objective,
-    (MAXON_CONSTANTS, ISO_CONDITION_MONITORING),
+    "Missing phase-resolved mechanism, tool/package context, reference force, and drive semantics.", "Could provide redundant tooling/load evidence after a controlled mechanics study.", PRESS_EXPERIMENT.objective,
+    (GALLANT_TRIM_FORM, TAIJIN_TRIM_FORM, MAXON_CONSTANTS, ISO_CONDITION_MONITORING),
 )

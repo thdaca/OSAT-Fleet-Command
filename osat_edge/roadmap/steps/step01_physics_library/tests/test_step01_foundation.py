@@ -42,6 +42,7 @@ EXPECTED_PUBLIC_API = (
     "RelationFit",
     "RelationKind",
     "RelationStatus",
+    "ResearchEvidenceTier",
     "ResearchCandidate",
     "ResearchReference",
     "ResidualDiagnostics",
@@ -84,22 +85,25 @@ EXPECTED_FAMILIES = (
 )
 
 EXPECTED_CANDIDATE_IDS = (
-    "wafer_mount.roller_current_web_tension",
+    "wafer_mount.dicing_tape_tension_stability",
     "wafer_saw.coolant_hydraulic_resistance",
     "die_attach.nozzle_vacuum_leak_rate",
+    "die_attach.closed_loop_force_z_temperature_consistency",
     "wire_bond.ultrasonic_input_impedance",
-    "molding.clamp_cavity_force_balance",
-    "marking.laser_output_drive_temperature",
-    "trim_form.motor_current_punch_force",
+    "wire_bond.ultrasonic_generator_electrical_load_consistency",
+    "molding.clamp_transfer_temperature_consistency",
+    "marking.commanded_measured_laser_output_stability",
+    "trim_form.stroke_aligned_servo_load_profile_consistency",
     "singulation.spindle_current_speed_residual",
     "final_test.contact_resistance",
+    "final_test.handler_motor_signature_consistency",
 )
 
 EXPECTED_RECORD_HASHES = {
-    "relations": "0b54bd0714688764c71f524ddd9e0ccecac6449771ad9894c44f8844dec98fda",
-    "candidates": "710e08aabacec1f5ae727481d5a75dce8ad93a99deeefeac3d3995fba65e5ab7",
-    "references": "02adbf8cc380b24bde3aa23945b19465bd0b88179d8038d362743ed8e163f809",
-    "readiness": "48ecf564e801cf3e8b0b5e54f5aa4783ccb5e68b0c1ef81985aed317b6850ebd",
+    "relations": "e151f9eb7a530cdb4f32231b354f24ca1c39c7d543e872707910689b9c098f83",
+    "candidates": "7faa134a19bd481b5c710340881d66a001d8cc3f32ed5f8823f6311126bc9430",
+    "references": "d1cc5e68249a01a3d07e9154bb572774edc14beac41579727e8a3023fafbbcdf",
+    "readiness": "742e14e5ee64e4b5d4b182713b0d1d8cfb07dd43a9009ff0f8b897ccab28cc02",
 }
 
 
@@ -181,22 +185,31 @@ class Step01FoundationCompatibilityTests(unittest.TestCase):
         self.assertTrue(hasattr(research_tools, "deterministic_factorial_design"))
 
         experiment_names = {
-            "wafer_mount": "WEB_EXPERIMENT",
-            "wafer_saw": "COOLANT_EXPERIMENT",
-            "die_attach": "VACUUM_EXPERIMENT",
-            "wire_bond": "WIRE_EXPERIMENT",
-            "molding": "MOLD_EXPERIMENT",
-            "marking": "LASER_EXPERIMENT",
-            "trim_form": "PRESS_EXPERIMENT",
-            "singulation": "SINGULATION_EXPERIMENT",
-            "final_test": "CONTACT_EXPERIMENT",
+            "wafer_mount": ("WEB_EXPERIMENT",),
+            "wafer_saw": ("COOLANT_EXPERIMENT",),
+            "die_attach": ("VACUUM_EXPERIMENT", "DIE_ATTACH_FORCE_EXPERIMENT"),
+            "wire_bond": ("WIRE_EXPERIMENT", "WIRE_ELECTRICAL_EXPERIMENT"),
+            "molding": ("MOLD_EXPERIMENT",),
+            "marking": ("LASER_EXPERIMENT",),
+            "trim_form": ("PRESS_EXPERIMENT",),
+            "singulation": ("SINGULATION_EXPERIMENT",),
+            "final_test": ("CONTACT_EXPERIMENT", "HANDLER_EXPERIMENT"),
         }
-        candidates = {candidate.family: candidate for candidate in physics.RESEARCH_CANDIDATES}
-        for family, experiment_name in experiment_names.items():
+        candidates = {
+            family: tuple(
+                candidate for candidate in physics.RESEARCH_CANDIDATES
+                if candidate.family == family
+            )
+            for family in EXPECTED_FAMILIES
+        }
+        for family, names in experiment_names.items():
             module = importlib.import_module(
                 f"osat_edge.roadmap.steps.step01_physics_library.families.{family}"
             )
-            self.assertIs(candidates[family].experiment_plan, getattr(module, experiment_name))
+            self.assertEqual(
+                tuple(candidate.experiment_plan for candidate in candidates[family]),
+                tuple(getattr(module, name) for name in names),
+            )
 
     def test_family_and_record_ids_are_frozen(self) -> None:
         self.assertEqual(physics.ALL_MACHINE_FAMILIES, EXPECTED_FAMILIES)
@@ -336,7 +349,7 @@ import osat_edge.roadmap.steps.step01_physics_library.step01_physics_library
         self.assertEqual(
             catalogs,
             (
-                ("wafer_mount", ("wafer_mount.roller_current_web_tension",)),
+                ("wafer_mount", ("wafer_mount.dicing_tape_tension_stability",)),
                 (
                     "wafer_saw",
                     (
@@ -344,13 +357,13 @@ import osat_edge.roadmap.steps.step01_physics_library.step01_physics_library
                         "wafer_saw.coolant_hydraulic_resistance",
                     ),
                 ),
-                ("die_attach", ("die_attach.nozzle_vacuum_leak_rate",)),
-                ("wire_bond", ("wire_bond.ultrasonic_input_impedance",)),
-                ("molding", ("molding.clamp_cavity_force_balance",)),
-                ("marking", ("marking.laser_output_drive_temperature",)),
-                ("trim_form", ("trim_form.motor_current_punch_force",)),
+                ("die_attach", ("die_attach.nozzle_vacuum_leak_rate", "die_attach.closed_loop_force_z_temperature_consistency")),
+                ("wire_bond", ("wire_bond.ultrasonic_input_impedance", "wire_bond.ultrasonic_generator_electrical_load_consistency")),
+                ("molding", ("molding.clamp_transfer_temperature_consistency",)),
+                ("marking", ("marking.commanded_measured_laser_output_stability",)),
+                ("trim_form", ("trim_form.stroke_aligned_servo_load_profile_consistency",)),
                 ("singulation", ("singulation.spindle_current_speed_residual",)),
-                ("final_test", ("final_test.contact_resistance",)),
+                ("final_test", ("final_test.contact_resistance", "final_test.handler_motor_signature_consistency")),
             ),
         )
 

@@ -105,7 +105,7 @@ verification only. It does not increase physical-evidence maturity.
 ## D. Search strategy and review date
 
 The original structured review searches were performed through 2026-08-31; a
-narrow dicing-evidence update was completed on 2026-09-03. Preference was given to official
+narrow named-source evidence update was completed on 2026-09-04. Preference was given to official
 standards pages, BIPM/JCGM and NIST publications, DOI landing pages or publisher
 records, OEM documentation, and the original patent record. Search concepts
 included:
@@ -371,23 +371,34 @@ executable relation from being declared `BENCH_VALIDATED` or higher without an
 independently verified validation-evidence record. No present relation has such
 a record.
 
+The separate research-source access tiers are
+`PUBLISHED_REAL_OSAT_STUDY`, `REQUESTABLE_REAL_OSAT_DATA`, and
+`EXECUTED_REAL_OSAT_DATA`. They classify research evidence only and are not
+operational `DataOrigin` values. See `EVIDENCE_CATALOG.md`; no Step01 source is
+currently classified as executed real-OSAT data.
+
 ## P. Machine-family research review
+
+The concise summaries below are backed by one owned dossier per family in the
+matching subdirectory (`wafer_mount/` through `final_test/`). Those dossiers own
+the detailed variables, confounders, identifiability, calibration, uncertainty,
+falsification, experiment, source-quality, maturity, and status records.
 
 ### Wafer mount
 
-Candidate: roller-current/web-tension consistency. Literature supports that web
-tension and velocity depend on roller dynamics and nonideal behavior; motor
-current can relate to torque under bounded assumptions. The repository lacks
-verified drive semantics, roller geometry, transmission, motion phase,
-acceleration, and friction state. Status: `RESEARCH_ONLY`,
-`LITERATURE_SUPPORTED`.
+Candidate: direct dicing-tape tension stability/drift within documented tape,
+roll, frame, and lamination context. Infineon EP3705862B1 / US20200286795A1
+supports per-tape tension monitoring and identifies material/roll/lamination
+context. Roller motor current is not treated as tension without verified drive
+semantics. Status: `RESEARCH_ONLY`, `LITERATURE_SUPPORTED`.
 
 ### Wafer saw
 
-Active: exact-machine speed-conditioned spindle current. A dicing-saw patent
-uses spindle feedback current as a load signal, and dicing research establishes
-coupled force/vibration/fracture dynamics. This supports a bounded research
-proxy, not force inference or diagnosis. Status: `RUNTIME_RESEARCH`,
+Active: exact-machine **electromechanical spindle-load consistency residual**.
+DISCO explicitly exposes DAD3660 spindle current for condition monitoring, and
+dicing research establishes coupled process dynamics. Feed/cutting state,
+blade/tool, material, and coolant/water drag are explicit confounders. The
+unchanged relation is not cutting force. Status: `RUNTIME_RESEARCH`,
 `LITERATURE_SUPPORTED`.
 
 Wang et al. (2026) additionally report 4H-SiC wafer-dicing experiments at five
@@ -409,6 +420,11 @@ isolated volume, valve and pump isolation, timed pressure data, and thermal
 conditions. Running vacuum alone cannot identify leakage. Status: `REJECTED`,
 `LITERATURE_SUPPORTED` as a test method but not as a runtime relation.
 
+Candidate: closed-loop bond/placement-force consistency conditioned on Z,
+phase, internal/bond-head temperature, control mode, and tool/material context.
+Modern Besi documentation supports the measurement concept, not DA-01
+semantics. Status: `RESEARCH_ONLY`, `LITERATURE_SUPPORTED`.
+
 ### Wire bond
 
 Candidate: ultrasonic input impedance. Published work uses voltage plus current,
@@ -416,34 +432,40 @@ phase/harmonics, and bond-cycle timing or dedicated vibration. Present channels
 cannot reconstruct that measurement. Status: `REJECTED`,
 `LITERATURE_SUPPORTED`.
 
+Candidate: ultrasonic-generator electrical-load consistency during a defined
+bond phase. The PTI real-OSAT study supplies actual production field names but
+not units or raw public records. Machine-computed USG Impedance is not assumed
+to be derived impedance. Status: `RESEARCH_ONLY`, `LITERATURE_SUPPORTED`.
+
 ### Molding
 
-Candidate: clamp/cavity force balance. Transfer-molding literature supports
-cavity pressure, temperature, phase, material, and cure context. Hydraulic
-pressure is not actual clamp force without geometry and losses. Status:
+Candidate: clamp-force / transfer-pressure / mold-temperature consistency.
+Besi/Fico documents active/dynamic clamp-force and transfer-pressure control,
+multi-zone temperature, and cavity vacuum. MO-01 semantics are unverified. Status:
 `RESEARCH_ONLY`, `LITERATURE_SUPPORTED`.
 
 ### Laser marking
 
-Candidate: delivered-power/drive/temperature consistency. KEYENCE documents a
-built-in thermopile power monitor in some marker products, and TRUMPF documents
-equipment-specific laser condition monitoring. Neither supplies a transferable
-equation for the unknown marker architecture. Status: `RESEARCH_ONLY`,
-`LITERATURE_SUPPORTED`.
+Candidate: commanded versus measured laser-output stability. KEYENCE documents
+built-in thermopile output monitoring during marking. Electrical-current models
+remain research-only until source architecture and telemetry are known. Status:
+`RESEARCH_ONLY`, `LITERATURE_SUPPORTED`.
 
 ### Trim / form
 
-Candidate: motor-current/punch-force consistency. Torque/current does not map to
-force without torque constant, transmission, linkage, stroke phase, inertia,
-and friction. Status: `RESEARCH_ONLY`, `LITERATURE_SUPPORTED` at the motor-law
-level only.
+Candidate: stroke-aligned servo load/torque/force profile consistency. Relevant
+semiconductor OEM sources document electric/servo cam equipment and 3-5 ton
+punch capability. Package geometry, tooling, drive semantics, kinematics, and
+reference force remain mandatory. Status: `RESEARCH_ONLY`,
+`LITERATURE_SUPPORTED`.
 
 ### Singulation
 
-Candidate: speed-conditioned spindle current. Shared channel names and broad
-cutting similarity do not show that wafer-dicing evidence transfers to the
-singulation station. Direct evidence on actual singulation mechanics is needed.
-Status: `RESEARCH_ONLY`, `HYPOTHESIS`.
+Candidate: SG-specific electromechanical spindle-load consistency. DISCO DAD3660
+documents package singulation and spindle-current condition monitoring, but
+SG-01 still requires its own telemetry review, fit, envelope, and validation.
+WS parameters are never shared. Status: `RESEARCH_ONLY`,
+`LITERATURE_SUPPORTED`.
 
 ### Final test
 
@@ -452,6 +474,12 @@ offset control, current reversal, settling, and contact-local measurement.
 Liu et al. show that contact condition matters in wafer-probe testing, but wafer
 probes are not final-test sockets. Repository channel names do not prove the
 measurement topology. Status: `RESEARCH_ONLY`, `LITERATURE_SUPPORTED`.
+
+Candidate: test-handler motor-signature consistency. DOI
+10.1016/j.cie.2026.111872 supplies strong real-semiconductor final-test evidence
+using handler motor signatures and downstream DUT electrical results. No
+equation is created until motor/current/position/velocity/control semantics are
+known. Status: `RESEARCH_ONLY`, `LITERATURE_SUPPORTED`.
 
 ## Q. Active runtime research relation
 
@@ -486,13 +514,16 @@ life, causal diagnosis, a safety alarm, or an authoritative maintenance action.
 
 The following remain visible but are not returned to Step 03:
 
-- wafer-mount roller-current/web-tension consistency;
+- wafer-mount dicing-tape tension stability;
 - wafer-saw coolant hydraulic resistance;
-- molding clamp/cavity force balance;
-- laser output/drive/temperature consistency;
-- trim/form motor-current/punch-force consistency;
+- die-attach closed-loop force/Z/temperature consistency;
+- wire-bond phase-specific ultrasonic-generator electrical-load consistency;
+- molding clamp/transfer/temperature consistency;
+- commanded/measured laser-output stability;
+- trim/form stroke-aligned servo load profile consistency;
 - singulation spindle current/speed consistency;
-- final-test contact resistance.
+- final-test contact resistance;
+- final-test handler motor-signature consistency.
 
 Research-only is not a negative scientific result. It records that the mechanism
 could have value but the present measurement/evidence boundary is insufficient
@@ -825,6 +856,40 @@ equations.
     *Micromachines* 17(2) (2026) 187.
     DOI: 10.3390/mi17020187. The public article reports current/speed
     experiments but no separate machine-readable raw trace was found.
+44. W. Leitgeb, D. Brunner, and L. Ferlan / Infineon Technologies AG.
+    *Method and device for monitoring a dicing tape tension*.
+    EP3705862B1 / US20200286795A1.
+45. DISCO Corporation. *DAD3660 Automatic Dicing Saw* product information,
+    including package singulation and spindle-current condition monitoring.
+46. Besi. *9800 TC next* product information, including bond force, bond-head Z,
+    thermal control, bond traces, and inline process monitoring.
+47. C. T. Wu, S. H. Li, and C. S. Tsou. “Integrating FDC and Machine Learning
+    for Enhanced Anomaly Detection in WB Bonding Joint Quality.” *Computer
+    Modeling in Engineering & Sciences* 88(1) (2026) 96.
+    DOI: 10.32604/cmc.2026.078762.
+48. Besi. *Fico Molding Line* product information, including active/dynamic
+    clamp force, transfer pressure, multi-zone temperature, and cavity vacuum.
+49. Gallant Micro Machining Co. *SP Series Trim & Form Equipment* product page;
+    electric cam servo and stated tonnage capability.
+50. Guangdong Taijin Semiconductor Technology. *Auto Trim/Form System* product
+    page; 3-5 ton servo-motor punch capability.
+51. L. A. A. Roy, J. S. B. Beh, C. K. Yeo, and S. Regunathan.
+    “Process-aware graph-temporal framework for equipment prognostics with
+    multimodal data at semiconductor final test.” *Computers & Industrial
+    Engineering* 214 (2026) 111872. DOI: 10.1016/j.cie.2026.111872.
+52. STMicroelectronics. *ST Dataset for Automatic Wafer Fault Detection*.
+    Official repository: https://github.com/STMicroelectronics/ST-AWFD.
+53. L. Rennpferdt, S. Bohne, and H. K. Trieu. *Optical Profilometer Dataset for
+    Diced Surfaces Obtained with Wafer Dicing Machine at Varying Feed
+    Velocities*. DOI: 10.15480/882.15763.
+54. X. Xie et al. *DIFFUMA: High-Fidelity Spatio-Temporal Video Prediction via
+    Dual-Path Mamba and Diffusion Enhancement*. arXiv:2507.06738 (CHDL).
+55. T. N. da C. Fernandes. *Implementação de manutenção preditiva numa indústria
+    de semicondutores*. ISEP master's dissertation, hdl:10400.22/20698.
+56. UTAC Group. *Sustainability Report 2023*; corporate industrial-practice
+    evidence for DISCO wafer saw logs, FDC/data mining and predictive maintenance.
+57. C.-C. Hsu. *AOI-Based Defect Detection in the Wire Bonding Process*.
+    National Sun Yat-sen University thesis record `etd-0609125-111038` (2025).
 
 This bibliography records sources actually used to bound claims. Listing a
 standard or publication does not claim compliance, endorsement, or validation
