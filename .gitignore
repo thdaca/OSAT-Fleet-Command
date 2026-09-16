@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.venv/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.gguf
+.coverage
+htmlcov/
+build/
+dist/
+

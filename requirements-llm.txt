@@ -1,0 +1,3 @@
+# Optional. The PHM path and normal tests do not require a local LLM.
+llama-cpp-python==0.3.34
+

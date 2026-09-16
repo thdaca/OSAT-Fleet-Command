@@ -1,0 +1,7 @@
+{
+  "OEM_REVIEWED_SVID_FOR_SPINDLE_CURRENT": "spindle_current",
+  "OEM_REVIEWED_SVID_FOR_SPINDLE_SPEED": "spindle_speed",
+  "OEM_REVIEWED_SVID_FOR_COOLANT_PRESSURE": "coolant_pressure",
+  "OEM_REVIEWED_SVID_FOR_COOLANT_FLOW": "coolant_flow"
+}
+

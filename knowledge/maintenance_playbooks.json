@@ -1,0 +1,72 @@
+{"chunks": [
+  {
+    "id": "fleet-observe-only",
+    "station_key": "fleet",
+    "subsystem": null,
+    "title": "Research evidence review",
+    "body": "Confirm telemetry freshness, required-channel coverage, operating state, and machine identity before interpreting equipment-health evidence. Do not treat research output as an instruction to stop equipment."
+  },
+  {
+    "id": "wafer-mount-vacuum",
+    "station_key": "wafer_mount",
+    "subsystem": "vacuum",
+    "title": "Wafer mount vacuum review",
+    "body": "For abnormal vacuum evidence, inspect approved vacuum-path condition and sensor integrity under the site's reviewed maintenance procedure."
+  },
+  {
+    "id": "wafer-saw-spindle",
+    "station_key": "wafer_saw",
+    "subsystem": "spindle",
+    "title": "Wafer saw spindle review",
+    "body": "For spindle evidence, compare current, speed, and available vibration observations. Inspect the spindle and cooling path only under the OEM and site safety procedure."
+  },
+  {
+    "id": "die-attach-motion",
+    "station_key": "die_attach",
+    "subsystem": "motion",
+    "title": "Die attach motion review",
+    "body": "For Z-axis or placement evidence, review approved current, position-error, and settle-time channels before scheduling a manual inspection."
+  },
+  {
+    "id": "wire-bond-head",
+    "station_key": "wire_bond",
+    "subsystem": "bond_head",
+    "title": "Wire bond head review",
+    "body": "For bond-head evidence, review bond force and drive-current observations and follow the approved bond-head inspection procedure."
+  },
+  {
+    "id": "molding-hydraulic",
+    "station_key": "molding",
+    "subsystem": "hydraulic",
+    "title": "Molding hydraulic review",
+    "body": "For hydraulic evidence, compare approved cavity and clamp pressure observations and follow lockout and site inspection procedures."
+  },
+  {
+    "id": "laser-optical",
+    "station_key": "marking",
+    "subsystem": "optical",
+    "title": "Laser marking optical review",
+    "body": "For optical evidence, review delivered power against approved drive-current observations and use the site's laser-safety procedure."
+  },
+  {
+    "id": "trim-form-press",
+    "station_key": "trim_form",
+    "subsystem": "press",
+    "title": "Trim and form press review",
+    "body": "For press evidence, review punch force, motor current, and available die observations before manual inspection."
+  },
+  {
+    "id": "singulation-spindle",
+    "station_key": "singulation",
+    "subsystem": "spindle",
+    "title": "Singulation spindle review",
+    "body": "For spindle evidence, compare blade vibration, spindle current, and available speed and coolant observations using approved procedures."
+  },
+  {
+    "id": "final-test-contacts",
+    "station_key": "final_test",
+    "subsystem": "contacts",
+    "title": "Final test contact review",
+    "body": "For contact evidence, review voltage-drop and current observations, then inspect the socket and contact system under the approved procedure."
+  }
+]}

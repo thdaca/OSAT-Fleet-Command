@@ -1,0 +1,32 @@
+# Student guide
+
+OSAT Fleet Command 0.2.0 is intentionally a minimum research build. Read it from `step01` to `step15`; the file names are the architecture map.
+
+## The path through the code
+
+- `common.py` contains only shared identities, modes, states, and telemetry contracts.
+- `machines.py` lists the nine machine families and the explicitly approved channels for each.
+- `roadmap/step01` through `step03` turn reviewed engineering relationships and robust telemetry statistics into evidence.
+- `roadmap/step04` and `step05` define optional learning across real machines of one family. The output is a risk score.
+- `roadmap/step06` and `step07` build a separate baseline for one installed machine using confirmed healthy history.
+- `roadmap/step08` ingests asynchronous per-channel telemetry, enforces approved source IDs, and reports validity and observability.
+- `roadmap/step09` makes subsystem-first deterministic health decisions with fixed hysteresis.
+- `roadmap/step10` creates compact structured fault evidence.
+- `roadmap/step11a` stores tickets in SQLite. `step11b` loads local reviewed manual/playbook passages.
+- `roadmap/step12` retrieves only relevant local context. `step13` optionally calls a local GGUF model. `step14` strictly validates its small JSON response.
+- `roadmap/step15` creates or updates a deterministic ticket. It refuses to do so outside simulation.
+- `pipeline.py` connects those steps with explicit control flow. `demo.py` owns all synthetic generation and injection.
+
+## Boundaries to preserve
+
+Data quality asks whether telemetry is valid. Observability asks whether enough useful telemetry exists. Health asks what condition the evidence supports. They are related but not interchangeable.
+
+Synthetic data can test and demonstrate the architecture. It is not real OSAT evidence. LIVE_EQUIPMENT is observe-only in this release; it cannot create actionable tickets. The optional RAG/LLM branch can only improve wording after deterministic evidence exists.
+
+The live/demo runtime is deliberately one machine per family in 0.2.0. Its `machines[family]` mapping is not a general plant inventory for WS-01, WS-02, and WS-03 at the same time. This does not prevent the family-data stage from learning across historical records from multiple machines of that family.
+
+Source identifiers must be explicitly reviewed and mapped to canonical health channels. Do not ingest recipes, PPIDs, wafer maps, geometry, proprietary process windows, or unknown equipment variables.
+
+## Safe first contribution
+
+Run the full suite, inspect one numbered step with its matching tests, make one narrow change, run that test file, and then run the full suite. Avoid introducing general frameworks for a requirement that appears only once.
