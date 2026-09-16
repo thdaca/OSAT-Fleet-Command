@@ -8,7 +8,7 @@ import numpy as np
 from osat_edge.common import EquipmentState
 from osat_edge.machines import STATIONS
 from osat_edge.roadmap.step01_physics_library import SLOPE, relations_for_family
-from osat_edge.roadmap.step02_physical_features import extract_physical_features, robust_slope
+from osat_edge.roadmap.step02_physical_features import Feature, extract_physical_features, robust_slope
 from osat_edge.roadmap.step03_physical_residuals import (
     align_overlapping_windows,
     calculate_physical_residuals,
@@ -35,6 +35,19 @@ class PhysicsTests(unittest.TestCase):
         )
         self.assertEqual(3, len(result.features))
         self.assertAlmostEqual(1.0, robust_slope(windows["spindle_current"]), places=1)
+
+    def test_feature_contract_rejects_blank_and_nonfinite_values(self) -> None:
+        invalid = (
+            lambda: Feature("", 1.0, "spindle", "location"),
+            lambda: Feature("current", 1.0, "", "location"),
+            lambda: Feature("current", 1.0, "spindle", ""),
+            lambda: Feature("current", np.nan, "spindle", "location"),
+            lambda: Feature("current", np.inf, "spindle", "location"),
+            lambda: Feature("current", 1.0, "spindle", "physics", ""),
+        )
+        for factory in invalid:
+            with self.subTest(factory=factory), self.assertRaises(ValueError):
+                factory()
 
     def test_alignment_uses_only_timestamp_overlap(self) -> None:
         first = window("a", "A", list(range(10)), start=0)

@@ -20,6 +20,14 @@ class Feature:
     kind: str
     relation_id: str | None = None
 
+    def __post_init__(self) -> None:
+        if not all(value.strip() for value in (self.name, self.subsystem, self.kind)):
+            raise ValueError("Feature name, subsystem, and kind are required")
+        if self.relation_id is not None and not self.relation_id.strip():
+            raise ValueError("Feature relation ID must be nonempty when provided")
+        if not np.isfinite(self.value):
+            raise ValueError("Feature value must be finite")
+
 
 @dataclass(frozen=True)
 class FeatureSet:

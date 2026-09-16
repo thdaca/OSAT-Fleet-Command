@@ -16,6 +16,7 @@ from typing import Any, Mapping
 from .common import (
     DataOrigin,
     EquipmentState,
+    HealthState,
     MachineIdentity,
     OperatingContext,
     RuntimeMode,
@@ -38,6 +39,9 @@ REFERENCE_FILES = (
     "context.csv",
     "source_mapping.json",
     "expected_checkpoints.json",
+)
+REFERENCE_DIRECTORY_FILES = frozenset(
+    (*REFERENCE_FILES, "manifest.json", "README.md")
 )
 DEFAULT_REFERENCE_DIRECTORY = (
     Path(__file__).resolve().parent.parent / "examples" / "reference_replay"
@@ -65,6 +69,32 @@ _REFERENCE_PHASES = frozenset(
         "physics_outside_calibration",
         "physics_in_domain",
         "positive_load_residual",
+    }
+)
+_MANIFEST_FIELDS = frozenset(
+    {
+        "dataset_id",
+        "schema_version",
+        "release_version",
+        "title",
+        "origin",
+        "runtime_mode",
+        "classification",
+        "production_qualified",
+        "machine",
+        "timeline",
+        "phases",
+        "files",
+        "claims",
+    }
+)
+_EXPECTED_OBSERVATION_FIELDS = frozenset(
+    {
+        "health",
+        "telemetry_valid",
+        "physics_residual_present",
+        "ticket_created_this_tick",
+        "active_ticket_count",
     }
 )
 
@@ -151,11 +181,28 @@ def _exact_string_set(value: Any, field: str, required: frozenset[str]) -> None:
         )
 
 
+def _require_exact_keys(
+    value: Mapping[str, Any], field: str, expected: frozenset[str]
+) -> None:
+    actual = set(value)
+    unknown = sorted(actual - expected)
+    missing = sorted(expected - actual)
+    if unknown:
+        raise ReferenceReplayError(
+            f"{field} has unknown fields: {', '.join(str(name) for name in unknown)}"
+        )
+    if missing:
+        raise ReferenceReplayError(
+            f"{field} is missing fields: {', '.join(str(name) for name in missing)}"
+        )
+
+
 def _validate_manifest(directory: Path) -> Mapping[str, Any]:
     path = directory / "manifest.json"
     if not path.is_file():
         raise ReferenceReplayError("Reference replay manifest.json is missing")
     manifest = _read_json(path)
+    _require_exact_keys(manifest, "manifest", _MANIFEST_FIELDS)
     dataset_id = _require_string(manifest.get("dataset_id"), "manifest.dataset_id")
     if not _DATASET_ID.fullmatch(dataset_id):
         raise ReferenceReplayError("manifest.dataset_id has an invalid format")
@@ -177,6 +224,7 @@ def _validate_manifest(directory: Path) -> Mapping[str, Any]:
         "manifest.classification",
         _REQUIRED_CLASSIFICATION,
     )
+    _require_string(manifest.get("title"), "manifest.title")
     files = manifest.get("files")
     if not isinstance(files, Mapping) or set(files) != set(REFERENCE_FILES):
         raise ReferenceReplayError("Manifest must checksum the four reference data files")
@@ -198,6 +246,11 @@ def _load_identity(
     machine = manifest.get("machine")
     if not isinstance(machine, Mapping):
         raise ReferenceReplayError("manifest.machine must be an object")
+    _require_exact_keys(
+        machine,
+        "manifest.machine",
+        frozenset({"machine_id", "family", "station_id", "name"}),
+    )
     family = _require_string(machine.get("family"), "manifest.machine.family")
     try:
         station = STATIONS[family]
@@ -222,6 +275,11 @@ def _load_mapping(
     station: StationDefinition,
 ) -> dict[str, tuple[str, str, str]]:
     value = _read_json(path)
+    _require_exact_keys(
+        value,
+        "source_mapping",
+        frozenset({"dataset_id", "schema_version", "origin", "machine_id", "mappings"}),
+    )
     if value.get("schema_version") != REFERENCE_SCHEMA_VERSION:
         raise ReferenceReplayError("Unsupported source-mapping schema_version")
     if value.get("dataset_id") != dataset_id:
@@ -239,6 +297,11 @@ def _load_mapping(
     for index, row in enumerate(rows):
         if not isinstance(row, Mapping):
             raise ReferenceReplayError(f"Mapping row {index} must be an object")
+        _require_exact_keys(
+            row,
+            f"mappings[{index}]",
+            frozenset({"canonical_channel", "source_id", "unit"}),
+        )
         source_id = _require_string(row.get("source_id"), f"mappings[{index}].source_id")
         canonical = _require_string(
             row.get("canonical_channel"), f"mappings[{index}].canonical_channel"
@@ -353,13 +416,46 @@ def _load_context(path: Path, *, identity: MachineIdentity) -> list[OperatingCon
 
 
 def _load_checkpoints(
-    path: Path, *, dataset_id: str, start: dt.datetime, end: dt.datetime
+    path: Path,
+    *,
+    dataset_id: str,
+    station: StationDefinition,
+    start: dt.datetime,
+    end: dt.datetime,
 ) -> Mapping[str, Any]:
     value = _read_json(path)
+    _require_exact_keys(
+        value,
+        "expected_checkpoints",
+        frozenset(
+            {
+                "dataset_id",
+                "schema_version",
+                "note",
+                "expected_final_state",
+                "expected_subsystem",
+                "expected_ticket_priority",
+                "checkpoints",
+            }
+        ),
+    )
     if value.get("schema_version") != REFERENCE_SCHEMA_VERSION:
         raise ReferenceReplayError("Unsupported expected-checkpoint schema_version")
     if value.get("dataset_id") != dataset_id:
         raise ReferenceReplayError("Expected checkpoints belong to another dataset")
+    _require_string(value.get("note"), "expected_checkpoints.note")
+    try:
+        HealthState(value.get("expected_final_state"))
+    except (TypeError, ValueError) as exc:
+        raise ReferenceReplayError("expected_final_state must be a valid health state") from exc
+    expected_subsystem = _require_string(
+        value.get("expected_subsystem"), "expected_subsystem"
+    )
+    station_subsystems = {channel.subsystem for channel in station.channels}
+    if expected_subsystem not in station_subsystems:
+        raise ReferenceReplayError("expected_subsystem is not present in the station profile")
+    if value.get("expected_ticket_priority") not in {"HIGH", "URGENT"}:
+        raise ReferenceReplayError("expected_ticket_priority must be HIGH or URGENT")
     rows = value.get("checkpoints")
     if not isinstance(rows, list) or not rows:
         raise ReferenceReplayError("Expected checkpoints require a nonempty list")
@@ -368,6 +464,11 @@ def _load_checkpoints(
     for index, row in enumerate(rows):
         if not isinstance(row, Mapping):
             raise ReferenceReplayError(f"Checkpoint {index} must be an object")
+        _require_exact_keys(
+            row,
+            f"checkpoints[{index}]",
+            frozenset({"name", "timestamp_utc", "expected"}),
+        )
         name = _require_string(row.get("name"), f"checkpoints[{index}].name")
         timestamp = _utc_timestamp(
             _require_string(row.get("timestamp_utc"), f"checkpoints[{index}].timestamp_utc"),
@@ -376,6 +477,35 @@ def _load_checkpoints(
         expected = row.get("expected")
         if not isinstance(expected, Mapping) or not expected:
             raise ReferenceReplayError(f"Checkpoint {name} requires expected observations")
+        unknown_expected = sorted(set(expected) - _EXPECTED_OBSERVATION_FIELDS)
+        if unknown_expected:
+            raise ReferenceReplayError(
+                f"Checkpoint {name} has unknown expected fields: "
+                + ", ".join(str(field) for field in unknown_expected)
+            )
+        if "health" in expected:
+            try:
+                HealthState(expected["health"])
+            except (TypeError, ValueError) as exc:
+                raise ReferenceReplayError(
+                    f"Checkpoint {name} expected health is invalid"
+                ) from exc
+        for field in (
+            "telemetry_valid",
+            "physics_residual_present",
+            "ticket_created_this_tick",
+        ):
+            if field in expected and type(expected[field]) is not bool:
+                raise ReferenceReplayError(
+                    f"Checkpoint {name} expected {field} must be boolean"
+                )
+        if "active_ticket_count" in expected and (
+            type(expected["active_ticket_count"]) is not int
+            or expected["active_ticket_count"] < 0
+        ):
+            raise ReferenceReplayError(
+                f"Checkpoint {name} expected active_ticket_count must be nonnegative"
+            )
         if name in names or (previous is not None and timestamp <= previous):
             raise ReferenceReplayError("Checkpoint names must be unique and timestamps increasing")
         if timestamp < start or timestamp > end:
@@ -400,6 +530,11 @@ def _validate_timeline(
     timeline = manifest.get("timeline")
     if not isinstance(timeline, Mapping):
         raise ReferenceReplayError("manifest.timeline must be an object")
+    _require_exact_keys(
+        timeline,
+        "manifest.timeline",
+        frozenset({"start_utc", "end_utc"}),
+    )
     start = _utc_timestamp(
         _require_string(timeline.get("start_utc"), "manifest.timeline.start_utc"),
         "manifest.timeline.start_utc",
@@ -421,6 +556,11 @@ def _validate_timeline(
     for index, phase in enumerate(phases):
         if not isinstance(phase, Mapping):
             raise ReferenceReplayError(f"manifest.phases[{index}] must be an object")
+        _require_exact_keys(
+            phase,
+            f"manifest.phases[{index}]",
+            frozenset({"name", "start_seconds", "end_seconds"}),
+        )
         name = _require_string(phase.get("name"), f"manifest.phases[{index}].name")
         if name not in _REFERENCE_PHASES or name in names:
             raise ReferenceReplayError("Manifest phase names must be known and unique")
@@ -448,6 +588,13 @@ def load_reference_replay(
     root = Path(directory)
     if not root.is_dir():
         raise ReferenceReplayError(f"Reference replay directory not found: {root}")
+    entries = {path.name: path for path in root.iterdir()}
+    if set(entries) != set(REFERENCE_DIRECTORY_FILES) or any(
+        not path.is_file() for path in entries.values()
+    ):
+        raise ReferenceReplayError(
+            "Reference replay directory must contain exactly the six frozen files"
+        )
     manifest = _validate_manifest(root)
     identity, station = _load_identity(manifest)
     dataset_id = str(manifest["dataset_id"])
@@ -472,6 +619,7 @@ def load_reference_replay(
     checkpoints = _load_checkpoints(
         root / "expected_checkpoints.json",
         dataset_id=dataset_id,
+        station=station,
         start=timestamps[0],
         end=timestamps[-1],
     )
@@ -587,11 +735,11 @@ def run_reference_replay(
                     residual_ticks += 1
                     if relation.value > 0.0:
                         positive_residual_ticks += 1
-                    maximum_residual = (
-                        relation.value
-                        if maximum_residual is None
-                        else max(maximum_residual, relation.value)
-                    )
+                        maximum_residual = (
+                            relation.value
+                            if maximum_residual is None
+                            else max(maximum_residual, relation.value)
+                        )
             checkpoint_name = expected_by_time.get(result.assessment.timestamp)
             ticket_created_this_tick = bool(
                 result.ticket is not None
@@ -611,6 +759,23 @@ def run_reference_replay(
         if last is None:
             raise ReferenceReplayError("Reference replay produced no pipeline result")
         tickets = list_tickets(repository)
+        expected_final = str(dataset.expected_checkpoints["expected_final_state"])
+        if last.assessment.health_state.value != expected_final:
+            raise ReferenceReplayError(
+                "Observed final health does not match expected_final_state"
+            )
+        if not tickets:
+            raise ReferenceReplayError("Expected replay ticket was not produced")
+        expected_priority = str(dataset.expected_checkpoints["expected_ticket_priority"])
+        if tickets[0].priority != expected_priority:
+            raise ReferenceReplayError(
+                "Observed ticket priority does not match expected_ticket_priority"
+            )
+        expected_subsystem = str(dataset.expected_checkpoints["expected_subsystem"])
+        if expected_subsystem not in tickets[0].suspected_subsystems:
+            raise ReferenceReplayError(
+                "Observed ticket subsystem does not match expected_subsystem"
+            )
         return {
             "version": VERSION,
             "dataset_id": dataset.manifest["dataset_id"],

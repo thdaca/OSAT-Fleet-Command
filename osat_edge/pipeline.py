@@ -22,6 +22,8 @@ from .roadmap.step08_live_telemetry import (
     FEATURE_WINDOW,
     BoundedTelemetryStore,
     NoNewTelemetry,
+    TelemetryError,
+    TelemetrySecurityError,
     TelemetrySource,
     TelemetrySourceExhausted,
     TelemetryStatus,
@@ -63,6 +65,8 @@ class MachinePipeline:
             raise ValueError("Active machine and station identity must match")
         if source.identity != identity or source.profile != station:
             raise ValueError("Telemetry source identity/profile does not match active machine")
+        if source.origin is DataOrigin.EXTERNAL_BENCHMARK:
+            raise ValueError("EXTERNAL_BENCHMARK cannot attach to the operational pipeline")
         model_policy_mode = self._model_policy_mode(source)
         if machine_model is not None:
             validate_machine_model(machine_model, identity, model_policy_mode)
@@ -115,17 +119,18 @@ class MachinePipeline:
 
     def _poll(self) -> dt.datetime:
         batch = self.source.poll()
-        self.store.append_batch(batch)
         timestamps = [sample.timestamp for sample in batch.samples]
         if batch.context is not None:
             timestamps.append(batch.context.timestamp)
         if not timestamps:
-            raise NoNewTelemetry("Telemetry source returned an empty batch")
+            raise TelemetryError("Telemetry source returned an empty batch")
+        self.store.append_batch(batch)
         return max(timestamps)
 
     def tick(self, *, wall_now: dt.datetime | None = None) -> PipelineResult | None:
         if not self.monitored:
             return None
+        ingestion_issue: str | None = None
         try:
             source_now = self._poll()
             now = (
@@ -137,6 +142,11 @@ class MachinePipeline:
             now = wall_now or dt.datetime.now(dt.timezone.utc)
         except TelemetrySourceExhausted:
             return None
+        except (TelemetryError, TelemetrySecurityError) as exc:
+            if self.source.runtime_mode is not RuntimeMode.LIVE_EQUIPMENT:
+                raise
+            now = wall_now or dt.datetime.now(dt.timezone.utc)
+            ingestion_issue = f"live ingestion rejected: {exc}"
 
         windows = self.store.windows(
             [channel.name for channel in self.station.channels],
@@ -144,6 +154,13 @@ class MachinePipeline:
             duration=FEATURE_WINDOW,
         )
         status = assess_telemetry(self.store, now=now, windows=windows)
+        if ingestion_issue is not None:
+            status = TelemetryStatus(
+                valid=False,
+                observable=False,
+                usable_channels=status.usable_channels,
+                issues=(ingestion_issue, *status.issues),
+            )
         context = self.store.latest_context(now)
         equipment_state = (
             context.equipment_state if context is not None else EquipmentState.UNKNOWN

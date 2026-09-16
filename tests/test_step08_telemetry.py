@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 import unittest
+from dataclasses import replace
 
 import numpy as np
 
@@ -12,6 +13,7 @@ from osat_edge.roadmap.step08_live_telemetry import (
     NoNewTelemetry,
     QueuedTelemetrySource,
     ReplayTelemetrySource,
+    MAXIMUM_SECS_VARIABLES,
     SecsGemAdapter,
     TelemetryBatch,
     TelemetryError,
@@ -89,6 +91,8 @@ class TelemetryTests(unittest.TestCase):
         live = QueuedTelemetrySource(self.machine, self.station)
         with self.assertRaises(NoNewTelemetry):
             live.poll()
+        with self.assertRaisesRegex(TelemetryError, "must contain"):
+            live.submit(())
         batch = TelemetryBatch((self.sample("spindle_current", 0),))
         replay = ReplayTelemetrySource(
             self.machine, self.station, (batch,), origin=DataOrigin.REAL_OSAT
@@ -96,6 +100,13 @@ class TelemetryTests(unittest.TestCase):
         self.assertEqual(batch, replay.poll())
         with self.assertRaises(TelemetrySourceExhausted):
             replay.poll()
+        with self.assertRaisesRegex(ValueError, "must not be empty"):
+            ReplayTelemetrySource(
+                self.machine,
+                self.station,
+                (TelemetryBatch(()),),
+                origin=DataOrigin.REAL_OSAT,
+            )
 
     def test_store_and_queue_capacities_must_be_positive(self) -> None:
         for sample_capacity, context_capacity in ((0, 1), (1, 0)):
@@ -117,6 +128,31 @@ class TelemetryTests(unittest.TestCase):
         source.submit((self.sample("spindle_current", 0),))
         with self.assertRaisesRegex(TelemetryError, "queue is full"):
             source.submit((self.sample("spindle_current", 1),))
+
+    def test_live_source_rejects_future_samples_and_context_before_queueing(self) -> None:
+        source = QueuedTelemetrySource(self.machine, self.station)
+        received_at = dt.datetime.now(dt.timezone.utc)
+        spec = self.station.channels[0]
+        future = received_at + dt.timedelta(hours=1)
+        sample = TelemetrySample(
+            self.machine.machine_id,
+            spec.name,
+            future,
+            1.0,
+            spec.unit,
+            spec.source_id,
+        )
+        with self.assertRaisesRegex(TelemetryError, "future-clock tolerance"):
+            source.submit((sample,))
+        with self.assertRaises(NoNewTelemetry):
+            source.poll()
+        context = OperatingContext(
+            self.machine.machine_id, future, EquipmentState.PROCESSING
+        )
+        with self.assertRaisesRegex(TelemetryError, "future-clock tolerance"):
+            source.submit((), context=context)
+        with self.assertRaises(NoNewTelemetry):
+            source.poll()
 
     def test_rejected_batch_commits_nothing(self) -> None:
         good = self.sample("spindle_current", 0)
@@ -165,10 +201,41 @@ class TelemetryTests(unittest.TestCase):
 
     def test_secs_adapter_requires_explicit_stream_and_function(self) -> None:
         adapter = SecsGemAdapter(self.machine, self.station)
-        with self.assertRaisesRegex(ValueError, "stream and function"):
+        with self.assertRaisesRegex(ValueError, "payload keys"):
             adapter.parse({"function": 11, "variables": []}, received_at=NOW)
-        with self.assertRaisesRegex(ValueError, "stream and function"):
+        with self.assertRaisesRegex(ValueError, "payload keys"):
             adapter.parse({"stream": 6, "variables": []}, received_at=NOW)
+
+    def test_secs_adapter_enforces_exact_bounded_s6f11_schema(self) -> None:
+        adapter = SecsGemAdapter(self.machine, self.station)
+        valid = {
+            "stream": 6,
+            "function": 11,
+            "variables": [{"id": "WS-SV-01", "value": 2.5}],
+        }
+        mutations = (
+            ({**valid, "lot_id": "SECRET-LOT"}, "payload keys"),
+            ({**valid, "stream": 6.9}, "exact integers"),
+            ({**valid, "function": 11.2}, "exact integers"),
+            ({**valid, "variables": []}, "1 to"),
+            (
+                {**valid, "variables": [{"id": "WS-SV-01", "value": 2.5, "customer": "X"}]},
+                "exactly id and value",
+            ),
+            (
+                {
+                    **valid,
+                    "variables": [
+                        {"id": "WS-SV-01", "value": 2.5}
+                        for _ in range(MAXIMUM_SECS_VARIABLES + 1)
+                    ],
+                },
+                "1 to",
+            ),
+        )
+        for payload, message in mutations:
+            with self.subTest(message=message), self.assertRaisesRegex(ValueError, message):
+                adapter.parse(payload, received_at=NOW)
 
     def test_secs_adapter_rejects_conflicting_source_remap(self) -> None:
         with self.assertRaisesRegex(TelemetrySecurityError, "already approved"):
@@ -212,6 +279,14 @@ class TelemetryTests(unittest.TestCase):
 
 
 class ChannelWindowTests(unittest.TestCase):
+    def test_channel_specs_require_finite_timing(self) -> None:
+        spec = STATIONS["wafer_saw"].channels[0]
+        for period, stale in ((np.nan, 10.0), (np.inf, np.inf), (1.0, np.nan)):
+            with self.subTest(period=period, stale=stale), self.assertRaisesRegex(
+                ValueError, "timing"
+            ):
+                replace(spec, period_seconds=period, stale_seconds=stale)
+
     def test_nonfinite_window_data_are_rejected(self) -> None:
         for timestamps, values in (
             ([0.0, np.nan], [1.0, 2.0]),

@@ -27,10 +27,14 @@ pipeline never reads an expected health value to make a decision.
 The SHA-256 values provide checksum/integrity verification for the frozen
 files. They are not signatures, authentication, or proof of data origin.
 
-The loader fails closed on missing or malformed files, unsupported IDs or
-schema versions, bad checksums, wrong machine/family/station, unknown source
-IDs, mismatched units, non-finite values, non-UTC timestamps, duplicates,
-non-increasing per-channel time, and invalid equipment states.
+The loader requires exactly these six files and exact JSON object schemas; it
+rejects extra files and unknown structural fields. It also fails closed on
+missing or malformed files, unsupported IDs or schema versions, bad checksums,
+wrong machine/family/station, unknown source IDs, mismatched units, non-finite
+values, non-UTC timestamps, duplicates, non-increasing per-channel time, and
+invalid equipment states. The top-level expected final health, subsystem, and
+ticket priority are compared only after the operational replay has finished;
+they never enter feature extraction, scoring, or health inference.
 
 ## Run
 

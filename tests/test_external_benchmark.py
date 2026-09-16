@@ -6,7 +6,9 @@ import json
 import os
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 from scipy.io import savemat
@@ -97,6 +99,64 @@ class ExternalBenchmarkTests(unittest.TestCase):
             self.assertEqual(output, write_benchmark_report(report, output))
             stored = json.loads(output.read_text(encoding="utf-8"))
         self.assertEqual(4, len(stored["run_summaries"]))
+
+    def test_canonical_mat_hash_is_stable_across_direct_and_zip_input(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            dataset = root / "mill.mat"
+            archive = root / "dataset.zip"
+            _write_mat(dataset)
+            with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as output:
+                output.write(dataset, arcname="nested/mill.mat")
+            direct = analyze_nasa_milling(dataset)
+            zipped = analyze_nasa_milling(archive)
+            serialized = json.dumps(zipped)
+        self.assertEqual(direct["mill_mat_sha256"], zipped["mill_mat_sha256"])
+        self.assertEqual(
+            direct["mill_mat_sha256"], direct["source_artifact_sha256"]
+        )
+        self.assertNotEqual(
+            zipped["mill_mat_sha256"], zipped["source_artifact_sha256"]
+        )
+        self.assertEqual("mill.mat", direct["requested_dataset"])
+        self.assertEqual("mill.mat", direct["selected_mat_source"])
+        self.assertEqual("dataset.zip", zipped["requested_dataset"])
+        self.assertEqual("dataset.zip!nested/mill.mat", zipped["selected_mat_source"])
+        self.assertNotIn(str(root.resolve()), serialized)
+
+    def test_dataset_resource_limits_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            dataset = root / "mill.mat"
+            archive = root / "dataset.zip"
+            _write_mat(dataset)
+            with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as output:
+                output.write(dataset, arcname="mill.mat")
+
+            with patch("osat_edge.benchmark.MAXIMUM_RECORDS", 3), self.assertRaisesRegex(
+                BenchmarkError, "too many records"
+            ):
+                analyze_nasa_milling(dataset)
+            with patch(
+                "osat_edge.benchmark.MAXIMUM_SIGNAL_SAMPLES", 2
+            ), self.assertRaisesRegex(BenchmarkError, "signal-length"):
+                analyze_nasa_milling(dataset)
+            with patch("osat_edge.benchmark.MAXIMUM_MAT_BYTES", 1), self.assertRaisesRegex(
+                BenchmarkError, "member exceeds"
+            ):
+                analyze_nasa_milling(archive)
+
+            deepest = io.BytesIO()
+            with zipfile.ZipFile(deepest, "w") as output:
+                output.write(dataset, arcname="mill.mat")
+            middle = io.BytesIO()
+            with zipfile.ZipFile(middle, "w") as output:
+                output.writestr("deeper.zip", deepest.getvalue())
+            over_nested = root / "over-nested.zip"
+            with zipfile.ZipFile(over_nested, "w") as output:
+                output.writestr("middle.zip", middle.getvalue())
+            with self.assertRaisesRegex(BenchmarkError, "nesting"):
+                analyze_nasa_milling(over_nested)
 
     def test_benchmark_module_is_isolated_from_osat_inference(self) -> None:
         source = (Path(__file__).resolve().parents[1] / "osat_edge" / "benchmark.py").read_text(

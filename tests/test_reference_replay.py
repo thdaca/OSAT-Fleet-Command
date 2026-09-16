@@ -130,6 +130,7 @@ class ReferenceReplayTests(unittest.TestCase):
         self.assertFalse(abstains["physics_residual_present"])
         self.assertTrue(resumes["physics_residual_present"])
         self.assertGreater(self.report["physics_abstention_ticks"], 0)
+        self.assertGreater(self.report["maximum_positive_residual_a"], 0.0)
 
     def test_expected_results_do_not_control_inference(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -193,6 +194,107 @@ class ReferenceReplayTests(unittest.TestCase):
                 path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
                 with self.assertRaisesRegex(ReferenceReplayError, message):
                     load_reference_replay(fixture)
+
+    def test_json_objects_reject_unknown_structural_fields(self) -> None:
+        mutations = (
+            (
+                "manifest.json",
+                lambda value: value.update(real_osat_validation=True),
+                "manifest has unknown fields",
+                False,
+            ),
+            (
+                "manifest.json",
+                lambda value: value["machine"].update(lot_id="SECRET"),
+                "manifest.machine has unknown fields",
+                False,
+            ),
+            (
+                "manifest.json",
+                lambda value: value["timeline"].update(customer="SECRET"),
+                "manifest.timeline has unknown fields",
+                False,
+            ),
+            (
+                "manifest.json",
+                lambda value: value["phases"][0].update(process_window="SECRET"),
+                r"manifest.phases\[0\] has unknown fields",
+                False,
+            ),
+            (
+                "source_mapping.json",
+                lambda value: value.update(real_osat_validation=True),
+                "source_mapping has unknown fields",
+                True,
+            ),
+            (
+                "source_mapping.json",
+                lambda value: value["mappings"][0].update(lot_id="SECRET"),
+                r"mappings\[0\] has unknown fields",
+                True,
+            ),
+            (
+                "expected_checkpoints.json",
+                lambda value: value.update(customer="SECRET"),
+                "expected_checkpoints has unknown fields",
+                True,
+            ),
+            (
+                "expected_checkpoints.json",
+                lambda value: value["checkpoints"][0].update(lot_id="SECRET"),
+                r"checkpoints\[0\] has unknown fields",
+                True,
+            ),
+            (
+                "expected_checkpoints.json",
+                lambda value: value["checkpoints"][0]["expected"].update(
+                    real_osat_validation=True
+                ),
+                "unknown expected fields",
+                True,
+            ),
+        )
+        for filename, mutate, message, refresh in mutations:
+            with self.subTest(message=message), tempfile.TemporaryDirectory() as directory:
+                fixture = self._copy_fixture(directory)
+                path = fixture / filename
+                value = json.loads(path.read_text(encoding="utf-8"))
+                mutate(value)
+                path.write_text(
+                    json.dumps(value, indent=2, sort_keys=True) + "\n",
+                    encoding="utf-8",
+                )
+                if refresh:
+                    self._refresh_checksum(fixture, filename)
+                with self.assertRaisesRegex(ReferenceReplayError, message):
+                    load_reference_replay(fixture)
+
+    def test_reference_directory_rejects_unexpected_files(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = self._copy_fixture(directory)
+            (fixture / "secret_recipe.txt").write_text("SECRET", encoding="utf-8")
+            with self.assertRaisesRegex(ReferenceReplayError, "exactly the six"):
+                load_reference_replay(fixture)
+
+    def test_top_level_expected_summary_is_checked_after_replay(self) -> None:
+        mutations = (
+            ("expected_final_state", "NORMAL"),
+            ("expected_subsystem", "cooling"),
+            ("expected_ticket_priority", "HIGH"),
+        )
+        for field, replacement in mutations:
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as directory:
+                fixture = self._copy_fixture(directory)
+                path = fixture / "expected_checkpoints.json"
+                value = json.loads(path.read_text(encoding="utf-8"))
+                value[field] = replacement
+                path.write_text(
+                    json.dumps(value, indent=2, sort_keys=True) + "\n",
+                    encoding="utf-8",
+                )
+                self._refresh_checksum(fixture, path.name)
+                with self.assertRaisesRegex(ReferenceReplayError, field):
+                    run_reference_replay(fixture)
 
     def test_csv_rows_reject_surplus_and_missing_values(self) -> None:
         for filename, surplus, message in (

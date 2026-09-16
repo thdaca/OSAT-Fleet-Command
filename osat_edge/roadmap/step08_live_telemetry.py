@@ -24,6 +24,8 @@ from ..machines import StationDefinition
 
 FEATURE_WINDOW = dt.timedelta(seconds=60)
 MAXIMUM_CONTEXT_AGE = dt.timedelta(seconds=30)
+MAXIMUM_LIVE_FUTURE_SKEW = dt.timedelta(seconds=5)
+MAXIMUM_SECS_VARIABLES = 256
 
 
 class TelemetryError(ValueError):
@@ -86,6 +88,15 @@ class QueuedTelemetrySource:
         context: OperatingContext | None = None,
     ) -> None:
         batch = TelemetryBatch(tuple(samples), context)
+        if not batch.samples and batch.context is None:
+            raise TelemetryError("Live telemetry batches must contain samples or context")
+        latest_allowed = dt.datetime.now(dt.timezone.utc) + MAXIMUM_LIVE_FUTURE_SKEW
+        if any(sample.timestamp > latest_allowed for sample in batch.samples):
+            raise TelemetryError("Live telemetry timestamp exceeds the future-clock tolerance")
+        if batch.context is not None and batch.context.timestamp > latest_allowed:
+            raise TelemetryError(
+                "Live operating-context timestamp exceeds the future-clock tolerance"
+            )
         with self._lock:
             if len(self._batches) >= self._maximum_queued_batches:
                 raise TelemetryError("Live telemetry input queue is full")
@@ -109,16 +120,17 @@ class ReplayTelemetrySource:
         *,
         origin: DataOrigin,
     ) -> None:
-        if (
-            identity.family != profile.family
-            or identity.station_id != profile.station_id
-            or not batches
-        ):
+        replay_batches = tuple(batches)
+        if identity.family != profile.family or identity.station_id != profile.station_id:
             raise ValueError("Replay requires matching identity/profile and telemetry")
+        if not replay_batches:
+            raise ValueError("Replay requires matching identity/profile and telemetry")
+        if any(not batch.samples and batch.context is None for batch in replay_batches):
+            raise ValueError("Replay telemetry batches must not be empty")
         self.identity = identity
         self.profile = profile
         self.origin = origin
-        self._batches = tuple(batches)
+        self._batches = replay_batches
         self._position = 0
 
     def poll(self) -> TelemetryBatch:
@@ -410,21 +422,35 @@ class SecsGemAdapter:
 
     def parse(self, payload: Mapping[str, Any], *, received_at: dt.datetime) -> tuple[TelemetrySample, ...]:
         _reject_process_ip(payload)
-        if "stream" not in payload or "function" not in payload:
-            raise ValueError("SECS/GEM stream and function are required")
-        if int(payload["stream"]) != 6 or int(payload["function"]) != 11:
+        if set(payload) != {"stream", "function", "variables"}:
+            raise ValueError(
+                "S6F11 payload keys must be exactly stream, function, and variables"
+            )
+        if type(payload["stream"]) is not int or type(payload["function"]) is not int:
+            raise ValueError("SECS/GEM stream and function must be exact integers")
+        if payload["stream"] != 6 or payload["function"] != 11:
             raise ValueError("Only SECS/GEM S6F11 reports are accepted")
-        variables = payload.get("variables", ())
-        if not isinstance(variables, (list, tuple)):
-            raise ValueError("S6F11 variables must be a list")
+        variables = payload["variables"]
+        if not isinstance(variables, list):
+            raise ValueError("S6F11 variables must be a JSON list")
+        if not variables or len(variables) > MAXIMUM_SECS_VARIABLES:
+            raise ValueError(
+                f"S6F11 variables must contain 1 to {MAXIMUM_SECS_VARIABLES} entries"
+            )
         timestamp = utc(received_at)
         samples: list[TelemetrySample] = []
         unknown: list[str] = []
         resolved_channels: set[str] = set()
         for item in variables:
-            if not isinstance(item, Mapping) or "id" not in item or "value" not in item:
-                raise ValueError("Each status variable requires id and value")
-            source_id = str(item["id"])
+            if not isinstance(item, Mapping) or set(item) != {"id", "value"}:
+                raise ValueError("Each status variable must contain exactly id and value")
+            if not isinstance(item["id"], str) or not item["id"].strip():
+                raise ValueError("Each status variable ID must be a nonempty string")
+            if isinstance(item["value"], bool) or not isinstance(
+                item["value"], (int, float)
+            ):
+                raise ValueError("Each status variable value must be numeric")
+            source_id = item["id"]
             canonical = self._mapping.get(source_id)
             if canonical is None:
                 unknown.append(source_id)

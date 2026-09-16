@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import tempfile
+import threading
 import unittest
 from dataclasses import replace
 from pathlib import Path
@@ -175,6 +176,55 @@ class MaintenanceTests(unittest.TestCase):
                 with self.subTest(mode=mode):
                     self.assertIsNone(create_or_update_ticket(repository, evidence, deterministic_fallback(evidence, ())))
             self.assertEqual([], repository.list_tickets())
+
+    def test_repository_query_limits_are_positive_and_bounded(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repository = MaintenanceRepository(Path(directory) / "tickets.sqlite")
+            for limit in (-1, 0, 1_001, True):
+                with self.subTest(limit=limit), self.assertRaisesRegex(
+                    ValueError, "Query limit"
+                ):
+                    repository.list_tickets(limit=limit)
+                with self.subTest(prior_limit=limit), self.assertRaisesRegex(
+                    ValueError, "Query limit"
+                ):
+                    repository.prior_context("TEST-WS-01", limit=limit)
+
+    def test_repository_revision_changes_before_write_lock_is_released(self) -> None:
+        class PausingLock:
+            def __init__(self) -> None:
+                self.lock = threading.RLock()
+                self.released = threading.Event()
+                self.proceed = threading.Event()
+
+            def __enter__(self):
+                self.lock.acquire()
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                self.lock.release()
+                self.released.set()
+                self.proceed.wait(timeout=5)
+
+        with tempfile.TemporaryDirectory() as directory:
+            repository = MaintenanceRepository(Path(directory) / "tickets.sqlite")
+            lock = PausingLock()
+            repository._lock = lock
+            payload = {
+                "ticket_id": "T-1",
+                "machine_id": "TEST-WS-01",
+                "status": "OPEN",
+                "priority": "HIGH",
+                "created_utc": NOW.isoformat(),
+                "updated_utc": NOW.isoformat(),
+            }
+            worker = threading.Thread(target=repository.save, args=(payload,))
+            worker.start()
+            self.assertTrue(lock.released.wait(timeout=5))
+            self.assertEqual(1, repository.revision)
+            lock.proceed.set()
+            worker.join(timeout=5)
+            self.assertFalse(worker.is_alive())
 
 
 if __name__ == "__main__":

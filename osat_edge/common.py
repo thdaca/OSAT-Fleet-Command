@@ -86,7 +86,12 @@ class ChannelSpec:
     def __post_init__(self) -> None:
         if not all(value.strip() for value in (self.name, self.unit, self.subsystem, self.source_id)):
             raise ValueError("Channel name, unit, subsystem, and source ID are required")
-        if self.period_seconds <= 0 or self.stale_seconds < self.period_seconds:
+        if (
+            not np.isfinite(self.period_seconds)
+            or not np.isfinite(self.stale_seconds)
+            or self.period_seconds <= 0
+            or self.stale_seconds < self.period_seconds
+        ):
             raise ValueError("Channel timing must be positive and ordered")
 
 

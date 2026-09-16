@@ -37,7 +37,13 @@ REQUIRED_FIELDS = (
     "AE_spindle",
 )
 ANALYZED_SIGNALS = ("smcAC", "smcDC", "vib_spindle")
-MAXIMUM_MAT_BYTES = 250 * 1024 * 1024
+MAXIMUM_MAT_BYTES = 128 * 1024 * 1024
+MAXIMUM_SOURCE_ARTIFACT_BYTES = 256 * 1024 * 1024
+MAXIMUM_ARCHIVE_MEMBERS = 100
+MAXIMUM_ARCHIVE_NESTING = 1
+MAXIMUM_RECORDS = 10_000
+MAXIMUM_SIGNAL_SAMPLES = 1_000_000
+MAXIMUM_TOTAL_ANALYZED_SIGNAL_SAMPLES = 20_000_000
 
 
 class BenchmarkError(ValueError):
@@ -71,16 +77,26 @@ def _single_member(archive: zipfile.ZipFile, suffix: str) -> zipfile.ZipInfo | N
     return matches[0] if matches else None
 
 
+def _validate_archive(archive: zipfile.ZipFile, *, nesting: int) -> None:
+    if nesting > MAXIMUM_ARCHIVE_NESTING:
+        raise BenchmarkError("Dataset archive nesting exceeds the analysis limit")
+    if len(archive.infolist()) > MAXIMUM_ARCHIVE_MEMBERS:
+        raise BenchmarkError("Dataset archive contains too many members")
+
+
 def _member_bytes(archive: zipfile.ZipFile, member: zipfile.ZipInfo) -> bytes:
     if member.file_size > MAXIMUM_MAT_BYTES:
         raise BenchmarkError("Dataset archive member exceeds the analysis size limit")
-    value = archive.read(member)
+    with archive.open(member) as stream:
+        value = stream.read(MAXIMUM_MAT_BYTES + 1)
+    if len(value) > MAXIMUM_MAT_BYTES:
+        raise BenchmarkError("Dataset archive member exceeds the analysis size limit")
     if len(value) != member.file_size:
-        raise BenchmarkError("Dataset archive member is truncated")
+        raise BenchmarkError("Dataset archive member size does not match its metadata")
     return value
 
 
-def _mat_source(path: Path) -> tuple[str | io.BytesIO, str, str]:
+def _mat_source(path: Path) -> tuple[str | io.BytesIO, str, str, str, str]:
     if not path.exists():
         raise BenchmarkDatasetNotFound("NASA MILLING DATASET NOT FOUND")
     if path.is_dir():
@@ -88,33 +104,59 @@ def _mat_source(path: Path) -> tuple[str | io.BytesIO, str, str]:
         if len(matches) != 1:
             raise BenchmarkError("Dataset directory must contain exactly one mill.mat")
         selected = matches[0]
-        return str(selected), _sha256_file(selected), str(selected.resolve())
+        if selected.stat().st_size > MAXIMUM_MAT_BYTES:
+            raise BenchmarkError("MATLAB dataset exceeds the analysis size limit")
+        mill_hash = _sha256_file(selected)
+        return (
+            str(selected),
+            mill_hash,
+            mill_hash,
+            path.name or ".",
+            selected.relative_to(path).as_posix(),
+        )
     if path.suffix.lower() == ".mat":
         if path.stat().st_size > MAXIMUM_MAT_BYTES:
             raise BenchmarkError("MATLAB dataset exceeds the analysis size limit")
-        return str(path), _sha256_file(path), str(path.resolve())
+        mill_hash = _sha256_file(path)
+        return str(path), mill_hash, mill_hash, path.name, path.name
     if path.suffix.lower() != ".zip":
         raise BenchmarkError("Dataset path must be mill.mat, an extracted directory, or a ZIP")
+    if path.stat().st_size > MAXIMUM_SOURCE_ARTIFACT_BYTES:
+        raise BenchmarkError("Dataset source artifact exceeds the analysis size limit")
     package_hash = _sha256_file(path)
     try:
         with zipfile.ZipFile(path) as outer:
+            _validate_archive(outer, nesting=0)
             mat = _single_member(outer, ".mat")
             if mat is not None:
                 value = _member_bytes(outer, mat)
-                return io.BytesIO(value), package_hash, f"{path.resolve()}!{mat.filename}"
+                return (
+                    io.BytesIO(value),
+                    _sha256_bytes(value),
+                    package_hash,
+                    path.name,
+                    f"{path.name}!{mat.filename}",
+                )
             nested = _single_member(outer, ".zip")
             if nested is None:
                 raise BenchmarkError("Dataset ZIP contains no mill.mat or nested ZIP")
             nested_value = _member_bytes(outer, nested)
         with zipfile.ZipFile(io.BytesIO(nested_value)) as inner:
+            _validate_archive(inner, nesting=1)
             mat = _single_member(inner, ".mat")
             if mat is None:
+                if _single_member(inner, ".zip") is not None:
+                    raise BenchmarkError(
+                        "Dataset archive nesting exceeds the analysis limit"
+                    )
                 raise BenchmarkError("Nested dataset ZIP contains no mill.mat")
             value = _member_bytes(inner, mat)
             return (
                 io.BytesIO(value),
+                _sha256_bytes(value),
                 package_hash,
-                f"{path.resolve()}!{nested.filename}!{mat.filename}",
+                path.name,
+                f"{path.name}!{nested.filename}!{mat.filename}",
             )
     except zipfile.BadZipFile as exc:
         raise BenchmarkError("Dataset ZIP is invalid") from exc
@@ -134,6 +176,8 @@ def _load_records(source: str | io.BytesIO) -> np.ndarray:
     records = np.asarray(value.get("mill"), dtype=object).reshape(-1)
     if not len(records):
         raise BenchmarkError("MATLAB data must contain a nonempty 'mill' struct array")
+    if len(records) > MAXIMUM_RECORDS:
+        raise BenchmarkError("MATLAB data contains too many records")
     fields = tuple(getattr(records[0], "_fieldnames", ()) or ())
     if not set(REQUIRED_FIELDS).issubset(fields):
         missing = sorted(set(REQUIRED_FIELDS) - set(fields))
@@ -157,7 +201,10 @@ def _number(value: Any, field: str, *, integer: bool = False) -> float | int:
 
 
 def _signal(value: Any, field: str) -> np.ndarray:
-    signal = np.asarray(value, dtype=np.float64).reshape(-1)
+    raw = np.asarray(value)
+    if raw.size > MAXIMUM_SIGNAL_SAMPLES:
+        raise BenchmarkError(f"{field} exceeds the signal-length limit")
+    signal = np.asarray(raw, dtype=np.float64).reshape(-1)
     if signal.size == 0 or not bool(np.isfinite(signal).all()):
         raise BenchmarkError(f"{field} must be a nonempty finite signal")
     return signal
@@ -282,9 +329,16 @@ def analyze_nasa_milling(dataset: str | Path) -> dict[str, Any]:
     """Parse the official artifact and compute simple per-run descriptive summaries."""
 
     requested = Path(dataset)
-    source, local_hash, selected_source = _mat_source(requested)
+    (
+        source,
+        mill_mat_hash,
+        source_artifact_hash,
+        requested_identity,
+        selected_source,
+    ) = _mat_source(requested)
     records = _load_records(source)
     rows: list[dict[str, Any]] = []
+    total_analyzed_signal_samples = 0
     for index, record in enumerate(records):
         case = int(_number(record.case, f"mill[{index}].case", integer=True))
         run = int(_number(record.run, f"mill[{index}].run", integer=True))
@@ -302,7 +356,13 @@ def analyze_nasa_milling(dataset: str | Path) -> dict[str, Any]:
         material = int(_number(record.material, f"mill[{index}].material", integer=True))
         if doc <= 0.0 or feed <= 0.0 or material not in {1, 2}:
             raise BenchmarkError("NASA operating-condition values are outside documented codes")
-        signals = {name: _signal_summary(_signal(getattr(record, name), name)) for name in ANALYZED_SIGNALS}
+        signals: dict[str, dict[str, float | int]] = {}
+        for name in ANALYZED_SIGNALS:
+            signal = _signal(getattr(record, name), name)
+            total_analyzed_signal_samples += int(signal.size)
+            if total_analyzed_signal_samples > MAXIMUM_TOTAL_ANALYZED_SIGNAL_SAMPLES:
+                raise BenchmarkError("Dataset exceeds the total analyzed-sample limit")
+            signals[name] = _signal_summary(signal)
         sample_counts = {summary["samples"] for summary in signals.values()}
         if len(sample_counts) != 1:
             raise BenchmarkError("Analyzed signals in a run must have equal sample counts")
@@ -333,9 +393,10 @@ def analyze_nasa_milling(dataset: str | Path) -> dict[str, Any]:
         "osat_data": False,
         "plant_validation": False,
         "production_qualified": False,
-        "requested_dataset": str(requested),
+        "requested_dataset": requested_identity,
         "selected_mat_source": selected_source,
-        "local_dataset_sha256": local_hash,
+        "mill_mat_sha256": mill_mat_hash,
+        "source_artifact_sha256": source_artifact_hash,
         "cases": len({row["case"] for row in rows}),
         "runs": len(rows),
         "runs_with_measured_vb": measured,
@@ -383,7 +444,8 @@ def benchmark_summary(report: Mapping[str, Any]) -> dict[str, Any]:
         "osat_data",
         "plant_validation",
         "production_qualified",
-        "local_dataset_sha256",
+        "mill_mat_sha256",
+        "source_artifact_sha256",
         "cases",
         "runs",
         "runs_with_measured_vb",

@@ -28,6 +28,14 @@ Pass `--output path\report.json` only when a full per-run JSON report is wanted.
 Without it, the command writes no report artifact and prints a concise summary.
 Missing input exits cleanly with `NASA MILLING DATASET NOT FOUND`.
 
+The report separates `mill_mat_sha256`, the canonical identity of the analyzed
+MATLAB bytes, from `source_artifact_sha256`, the identity of the supplied file
+or ZIP container. Direct `mill.mat` input therefore has matching hashes, while
+ZIP input retains a stable content hash and a separate archive hash. Dataset
+and selected-source labels contain only filenames/member identities, not
+absolute workstation paths. Parsing is bounded by explicit artifact, archive
+member/nesting, record-count, per-signal, and total analyzed-sample limits.
+
 ## Verified official structure and semantics
 
 The supplied `Readme.pdf` documents a MATLAB `mill` struct array with fields
@@ -64,7 +72,7 @@ even within-condition associations remain observational.
 
 ## Verified local result for 0.2.3
 
-The official archive checked during release work had SHA-256
+The official source archive checked during release work had SHA-256
 `bdba8d52ec1a1baab24c2be58480e6ac62508c8cc1f8219f47ebde8fc9ebc474`.
 It contained 167 runs across 16 cases and eight depth/feed/material
 combinations; 146 runs had finite `VB` values. The pooled Spearman association

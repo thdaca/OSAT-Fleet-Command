@@ -203,6 +203,109 @@ class PipelineDemoTests(unittest.TestCase):
             self.assertIsNone(pipeline.tick())
             self.assertIs(previous, pipeline.last_result)
 
+    def test_malformed_live_batch_fails_closed_and_runtime_continues(self) -> None:
+        machine = identity()
+        station = STATIONS["wafer_saw"]
+        source = QueuedTelemetrySource(machine, station)
+        spec = station.channels[0]
+        source.submit(
+            (
+                TelemetrySample(
+                    machine.machine_id,
+                    spec.name,
+                    NOW,
+                    1.0,
+                    "WRONG",
+                    spec.source_id,
+                ),
+            )
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            pipeline = MachinePipeline(
+                identity=machine,
+                station=station,
+                source=source,
+                repository=MaintenanceRepository(Path(directory) / "live.sqlite"),
+            )
+            rejected = pipeline.tick(wall_now=NOW)
+            self.assertIsNotNone(rejected)
+            self.assertFalse(rejected.telemetry_status.valid)
+            self.assertFalse(rejected.telemetry_status.observable)
+            self.assertIs(HealthState.UNKNOWN, rejected.assessment.health_state)
+            self.assertTrue(
+                any(
+                    issue.startswith("live ingestion rejected:")
+                    for issue in rejected.telemetry_status.issues
+                )
+            )
+            self.assertIsNone(pipeline.store.latest(spec.name))
+
+            samples = []
+            for second in range(3):
+                for required in station.channels:
+                    if required.required:
+                        samples.append(
+                            TelemetrySample(
+                                machine.machine_id,
+                                required.name,
+                                NOW + dt.timedelta(seconds=second),
+                                20_000.0 if required.unit == "RPM" else 1.0,
+                                required.unit,
+                                required.source_id,
+                            )
+                        )
+            source.submit(
+                samples,
+                context=OperatingContext(
+                    machine.machine_id,
+                    NOW + dt.timedelta(seconds=2),
+                    EquipmentState.PROCESSING,
+                ),
+            )
+            recovered = pipeline.tick(wall_now=NOW + dt.timedelta(seconds=2))
+        self.assertIsNotNone(recovered)
+        self.assertTrue(recovered.telemetry_status.valid)
+        self.assertTrue(recovered.telemetry_status.observable)
+        self.assertFalse(
+            any(
+                issue.startswith("live ingestion rejected:")
+                for issue in recovered.telemetry_status.issues
+            )
+        )
+
+    def test_external_benchmark_origin_cannot_attach_to_operational_pipeline(self) -> None:
+        machine = identity()
+        station = STATIONS["wafer_saw"]
+        spec = station.channels[0]
+        source = ReplayTelemetrySource(
+            machine,
+            station,
+            (
+                TelemetryBatch(
+                    (
+                        TelemetrySample(
+                            machine.machine_id,
+                            spec.name,
+                            NOW,
+                            1.0,
+                            spec.unit,
+                            spec.source_id,
+                        ),
+                    )
+                ),
+            ),
+            origin=DataOrigin.EXTERNAL_BENCHMARK,
+        )
+        with tempfile.TemporaryDirectory() as directory, self.assertRaisesRegex(
+            ValueError, "EXTERNAL_BENCHMARK"
+        ):
+            MachinePipeline(
+                identity=machine,
+                station=station,
+                source=source,
+                repository=MaintenanceRepository(Path(directory) / "benchmark.sqlite"),
+            )
+
     def test_deterministic_ticket_exists_before_optional_llm_call(self) -> None:
         demo = create_demo_fleet()
         observed = []

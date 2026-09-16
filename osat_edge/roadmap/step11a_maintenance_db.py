@@ -12,6 +12,7 @@ from typing import Any
 
 
 ACTIVE_STATUSES = ("OPEN", "ACKNOWLEDGED", "IN_PROGRESS")
+MAXIMUM_QUERY_LIMIT = 1_000
 
 
 class MaintenanceRepository:
@@ -57,46 +58,53 @@ class MaintenanceRepository:
     def _json(payload: Mapping[str, Any]) -> str:
         return json.dumps(dict(payload), ensure_ascii=False, sort_keys=True)
 
+    @staticmethod
+    def _validate_limit(limit: int) -> None:
+        if type(limit) is not int or not 1 <= limit <= MAXIMUM_QUERY_LIMIT:
+            raise ValueError(f"Query limit must be an integer from 1 to {MAXIMUM_QUERY_LIMIT}")
+
     def save(self, payload: Mapping[str, Any]) -> None:
-        with self._lock, self._connection() as connection:
-            connection.execute(
-                """
-                INSERT INTO maintenance_ticket (
-                    ticket_id, machine_id, status, priority,
-                    created_utc, updated_utc, payload_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    payload["ticket_id"],
-                    payload["machine_id"],
-                    payload["status"],
-                    payload["priority"],
-                    payload["created_utc"],
-                    payload["updated_utc"],
-                    self._json(payload),
-                ),
-            )
-        self.revision += 1
+        with self._lock:
+            with self._connection() as connection:
+                connection.execute(
+                    """
+                    INSERT INTO maintenance_ticket (
+                        ticket_id, machine_id, status, priority,
+                        created_utc, updated_utc, payload_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        payload["ticket_id"],
+                        payload["machine_id"],
+                        payload["status"],
+                        payload["priority"],
+                        payload["created_utc"],
+                        payload["updated_utc"],
+                        self._json(payload),
+                    ),
+                )
+            self.revision += 1
 
     def update(self, payload: Mapping[str, Any]) -> None:
-        with self._lock, self._connection() as connection:
-            cursor = connection.execute(
-                """
-                UPDATE maintenance_ticket
-                SET status=?, priority=?, updated_utc=?, payload_json=?
-                WHERE ticket_id=?
-                """,
-                (
-                    payload["status"],
-                    payload["priority"],
-                    payload["updated_utc"],
-                    self._json(payload),
-                    payload["ticket_id"],
-                ),
-            )
-            if cursor.rowcount != 1:
-                raise KeyError(str(payload["ticket_id"]))
-        self.revision += 1
+        with self._lock:
+            with self._connection() as connection:
+                cursor = connection.execute(
+                    """
+                    UPDATE maintenance_ticket
+                    SET status=?, priority=?, updated_utc=?, payload_json=?
+                    WHERE ticket_id=?
+                    """,
+                    (
+                        payload["status"],
+                        payload["priority"],
+                        payload["updated_utc"],
+                        self._json(payload),
+                        payload["ticket_id"],
+                    ),
+                )
+                if cursor.rowcount != 1:
+                    raise KeyError(str(payload["ticket_id"]))
+            self.revision += 1
 
     def active_for_machine(self, machine_id: str) -> dict[str, Any] | None:
         placeholders = ",".join("?" for _ in ACTIVE_STATUSES)
@@ -110,6 +118,7 @@ class MaintenanceRepository:
         return None if row is None else json.loads(row["payload_json"])
 
     def list_tickets(self, *, limit: int = 200) -> list[dict[str, Any]]:
+        self._validate_limit(limit)
         with self._lock, self._connection() as connection:
             rows = connection.execute(
                 "SELECT payload_json FROM maintenance_ticket "
@@ -119,6 +128,7 @@ class MaintenanceRepository:
         return [json.loads(row["payload_json"]) for row in rows]
 
     def prior_context(self, machine_id: str, *, limit: int = 5) -> tuple[str, ...]:
+        self._validate_limit(limit)
         with self._lock, self._connection() as connection:
             rows = connection.execute(
                 "SELECT payload_json FROM maintenance_ticket "
