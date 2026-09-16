@@ -1,6 +1,6 @@
 # Repository rules
 
-OSAT Fleet Command 0.2.4 is a research/development student project, not production software.
+OSAT Fleet Command 0.2.5 is a research/development student project, not production software.
 
 - Keep PRE01–PRE03 in `osat_edge/roadmap/pre_steps/`, Step01–Step15 in
   `osat_edge/roadmap/steps/`, and POST01–POST04 in

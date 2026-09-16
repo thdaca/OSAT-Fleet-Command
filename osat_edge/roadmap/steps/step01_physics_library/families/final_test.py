@@ -16,16 +16,18 @@ from ..core.schema import (
     SensorFailureMode,
 )
 from ..core.evidence import (
-    CONTACT_EXPERIMENT,
+    _discrepancies,
+    _experiment,
+    _measurement,
+    _uncertainties,
+)
+from ..core.references import (
     ISO_MEASUREMENT_MANAGEMENT,
     JCGM_VIM,
     KEITHLEY_LOW_LEVEL,
     KEYSIGHT_LOW_RESISTANCE,
     LIU_WAFER_PROBE,
     NI_SOCKET_GUIDANCE,
-    _discrepancies,
-    _measurement,
-    _uncertainties,
 )
 
 
@@ -40,6 +42,16 @@ def contact_resistance_mohm_for_research(voltage_drop_mv: float, current_a: floa
     if not np.isfinite(result):
         raise ValueError("Resistance result is not finite")
     return result
+
+
+CONTACT_EXPERIMENT = _experiment(
+    "Determine whether repository voltage/current channels isolate final-test contact resistance with adequate metrology.",
+    "Four-terminal, contact-local, settled V/I with offset compensation will track controlled contact contamination/wear.",
+    ("Kelvin force/sense path", "SMU/nanovoltmeter", "current reversal/offset compensation", "contact force and temperature", "per-pin/fixture identity"),
+    ("known resistance", "contact force", "current", "temperature", "contamination/insertion count"),
+    "Approved reference resistances and controlled contact contamination/wear specimens.",
+    ("lead/relay resistance change", "DUT voltage change", "thermoelectric offset", "current-source settling"),
+)
 
 
 FINAL_TEST_CANDIDATE = ResearchCandidate(
@@ -58,4 +70,3 @@ FINAL_TEST_CANDIDATE = ResearchCandidate(
     "The measurand may include leads, relays, fixtures, and DUT voltage rather than the contact alone.", "With verified metrology, direct contact resistance could be a high-value degradation measure.", CONTACT_EXPERIMENT.objective,
     (KEITHLEY_LOW_LEVEL, KEYSIGHT_LOW_RESISTANCE, NI_SOCKET_GUIDANCE, LIU_WAFER_PROBE, JCGM_VIM, ISO_MEASUREMENT_MANAGEMENT),
 )
-

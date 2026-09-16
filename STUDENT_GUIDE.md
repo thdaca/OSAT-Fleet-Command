@@ -1,6 +1,6 @@
 # Student guide
 
-OSAT Fleet Command 0.2.4 is intentionally a minimum research build with a
+OSAT Fleet Command 0.2.5 is intentionally a minimum research build with a
 transparent industrial edge-monitoring HMI prototype. Start with
 `osat_edge/roadmap/README.md`; the file names are the architecture map.
 

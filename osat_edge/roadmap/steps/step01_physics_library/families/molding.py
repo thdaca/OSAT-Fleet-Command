@@ -14,13 +14,25 @@ from ..core.schema import (
     SensorFailureMode,
 )
 from ..core.evidence import (
+    _discrepancies,
+    _experiment,
+    _measurement,
+    _uncertainties,
+)
+from ..core.references import (
     ISO_CONDITION_MONITORING,
     MOLDING_MONITOR,
     MOLDING_PROCESS,
-    MOLD_EXPERIMENT,
-    _discrepancies,
-    _measurement,
-    _uncertainties,
+)
+
+
+MOLD_EXPERIMENT = _experiment(
+    "Test a phase-resolved clamp-force/cavity-pressure balance on an instrumented transfer mold.",
+    "Measured clamp force must exceed cavity pressure times approved projected area after characterized dynamic losses.",
+    ("actual clamp-force sensor", "cavity-pressure sensors", "position/phase", "tool/material temperature", "approved projected area"),
+    ("transfer speed", "temperature", "material state", "clamp force"),
+    "Safe pressure/force sweeps on an approved instrumented mold.",
+    ("hydraulic sensor offset", "material change", "same pressure with different projected area"),
 )
 
 
@@ -40,4 +52,3 @@ MOLDING_CANDIDATE = ResearchCandidate(
     "No actual clamp-force measurand or approved geometry context.", "Could expose force-margin consistency during controlled molding research.", MOLD_EXPERIMENT.objective,
     (MOLDING_MONITOR, MOLDING_PROCESS, ISO_CONDITION_MONITORING),
 )
-

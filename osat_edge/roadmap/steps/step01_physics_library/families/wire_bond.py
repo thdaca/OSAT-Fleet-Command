@@ -14,13 +14,25 @@ from ..core.schema import (
     SensorFailureMode,
 )
 from ..core.evidence import (
+    _discrepancies,
+    _experiment,
+    _measurement,
+    _uncertainties,
+)
+from ..core.references import (
     ISO_CONDITION_MONITORING,
     WIRE_BOND_IMPEDANCE,
     WIRE_BOND_PIEZO,
-    WIRE_EXPERIMENT,
-    _discrepancies,
-    _measurement,
-    _uncertainties,
+)
+
+
+WIRE_EXPERIMENT = _experiment(
+    "Determine whether synchronized generator impedance/vibration features respond to controlled bond-quality changes.",
+    "Transducer/contact mechanics alter voltage-current phase/impedance and vibration during defined bond phases.",
+    ("synchronized high-rate voltage/current", "phase", "bond trigger", "calibrated PZT", "destructive bond-quality reference"),
+    ("bond force", "ultrasonic power/time", "wire/pad material", "tool condition"),
+    "Approved parameter sweeps and known tool/bond conditions.",
+    ("electrical gain/phase injection", "no-contact ultrasonic cycle", "temperature change"),
 )
 
 
@@ -40,4 +52,3 @@ WIRE_BOND_CANDIDATE = ResearchCandidate(
     "Ordinary low-rate channels cannot reproduce the published measurement.", "Could support bond-interaction research with dedicated acquisition.", WIRE_EXPERIMENT.objective,
     (WIRE_BOND_IMPEDANCE, WIRE_BOND_PIEZO, ISO_CONDITION_MONITORING),
 )
-

@@ -28,10 +28,15 @@ from ..core.schema import (
     UncertaintySource,
 )
 from ..core.evidence import (
+    _discrepancies,
+    _experiment,
+    _measurement,
+    _uncertainties,
+)
+from ..core.references import (
     ASME_UNCERTAINTY,
     BRAUN_PREPRINT,
     BRYNJARSDOTTIR_OHAGAN,
-    COOLANT_EXPERIMENT,
     DENG_REVIEW,
     DICING_DYNAMICS,
     DICING_MONITOR_PATENT,
@@ -49,9 +54,6 @@ from ..core.evidence import (
     NIST_PHM,
     NIST_ROADMAP,
     RAUE_IDENTIFIABILITY,
-    _discrepancies,
-    _measurement,
-    _uncertainties,
 )
 
 MINIMUM_SPINDLE_FIT_SAMPLES = 20
@@ -276,6 +278,16 @@ SPINDLE_RELATION = PhysicsRelation(
 )
 
 
+COOLANT_EXPERIMENT = _experiment(
+    "Establish a pressure-drop/flow residual across one named coolant element.",
+    "For fixed geometry, fluid, temperature, valve, and pump state, differential pressure follows the selected regime-dependent flow law.",
+    ("differential-pressure taps", "calibrated flow and temperature", "valve/pump state", "documented branch geometry"),
+    ("flow", "temperature", "valve state", "known restriction"),
+    "Insert approved calibrated restrictions without risking cooling loss.",
+    ("supply-pressure change with branch resistance fixed", "pressure-sensor bias", "temperature/viscosity change"),
+)
+
+
 WAFER_SAW_CANDIDATE = ResearchCandidate(
     "wafer_saw.coolant_hydraulic_resistance", "wafer_saw", "cooling", RelationKind.SEMI_EMPIRICAL, RelationStatus.RESEARCH_ONLY, EvidenceMaturity.HYPOTHESIS,
     "Pressure-drop/flow residual across one defined coolant element.", "Flow through known geometry creates regime- and property-dependent head loss.", "Δp = f(Re, roughness)(L/D)ρv²/2",
@@ -292,4 +304,3 @@ WAFER_SAW_CANDIDATE = ResearchCandidate(
     "No defined pressure drop across a named element.", "Could detect coolant restriction after measurement semantics are established.", COOLANT_EXPERIMENT.objective,
     (ISO_CONDITION_MONITORING, JCGM_VIM),
 )
-

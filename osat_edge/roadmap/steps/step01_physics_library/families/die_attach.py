@@ -14,12 +14,24 @@ from ..core.schema import (
     SensorFailureMode,
 )
 from ..core.evidence import (
-    JCGM_UNCERTAINTY,
-    LEYBOLD_LEAK,
-    VACUUM_EXPERIMENT,
     _discrepancies,
+    _experiment,
     _measurement,
     _uncertainties,
+)
+from ..core.references import (
+    JCGM_UNCERTAINTY,
+    LEYBOLD_LEAK,
+)
+
+
+VACUUM_EXPERIMENT = _experiment(
+    "Validate isolated-volume pressure-rise inference for the die-attach pickup path.",
+    "With pump/valves isolated and volume known, pressure-rise rate increases with a calibrated leak.",
+    ("known volume", "valve/pump state", "calibrated pressure gauge", "reference leak", "gas temperature"),
+    ("leak rate", "volume", "temperature", "isolation duration"),
+    "Introduce approved reference leaks during a controlled non-production isolation sequence.",
+    ("outgassing/virtual-leak soak", "gauge offset", "pump still connected"),
 )
 
 
@@ -39,4 +51,3 @@ DIE_ATTACH_CANDIDATE = ResearchCandidate(
     "Missing the experimental boundary conditions that define the equation.", "A valid offline isolation test could quantify leakage.", VACUUM_EXPERIMENT.objective,
     (LEYBOLD_LEAK, JCGM_UNCERTAINTY),
 )
-

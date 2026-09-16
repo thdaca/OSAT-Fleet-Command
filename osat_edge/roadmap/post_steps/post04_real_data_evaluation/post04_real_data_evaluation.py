@@ -72,9 +72,8 @@ DATASET_ORDER = (
 )
 
 POST04_ROOT = Path(__file__).resolve().parent
-COMMITTED_EVIDENCE_PATH = (
-    POST04_ROOT / "resources" / f"{VERSION}-real-data.json"
-)
+# This is the immutable historical 0.2.4 record, not a current-release artifact.
+COMMITTED_EVIDENCE_PATH = POST04_ROOT / "resources" / "0.2.4-real-data.json"
 DEFAULT_EXTERNAL_DATA_ROOT = (
     Path(__file__).resolve().parents[4] / "benchmarks" / "_external"
 )

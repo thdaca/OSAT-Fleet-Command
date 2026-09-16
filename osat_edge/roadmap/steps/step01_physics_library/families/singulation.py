@@ -14,14 +14,26 @@ from ..core.schema import (
     SensorFailureMode,
 )
 from ..core.evidence import (
+    _discrepancies,
+    _experiment,
+    _measurement,
+    _uncertainties,
+)
+from ..core.references import (
     DICING_DYNAMICS,
     ISO_CONDITION_MONITORING,
     ISO_VIBRATION_CALIBRATION,
     ISO_VIBRATION_SCOPE,
-    SINGULATION_EXPERIMENT,
-    _discrepancies,
-    _measurement,
-    _uncertainties,
+)
+
+
+SINGULATION_EXPERIMENT = _experiment(
+    "Test whether wafer-dicing spindle-load evidence transfers to the specific singulation mechanism.",
+    "If the singulation station has equivalent drive/control/cutting mechanics, controlled added load should produce a comparable speed-conditioned current response.",
+    ("verified drive semantics", "calibrated speed/current", "feed/depth/phase", "force reference", "high-rate vibration path"),
+    ("speed", "feed/depth", "package/material", "blade state"),
+    "Controlled approved blade/load states on the actual singulation equipment.",
+    ("same current change caused by controller gain", "vibration sensor mounting change", "no-cut run"),
 )
 
 
@@ -41,4 +53,3 @@ SINGULATION_CANDIDATE = ResearchCandidate(
     "Transferability from wafer dicing has not been demonstrated.", "Could provide exact-machine load consistency if independently validated on singulation equipment.", SINGULATION_EXPERIMENT.objective,
     (DICING_DYNAMICS, ISO_CONDITION_MONITORING, ISO_VIBRATION_CALIBRATION, ISO_VIBRATION_SCOPE),
 )
-

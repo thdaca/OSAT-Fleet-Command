@@ -107,7 +107,7 @@ class SecurityPortabilityTests(unittest.TestCase):
                         {"__init__.py", f"{stage}.py"},
                         {path.name for path in (parent / stage).glob("*.py")},
                     )
-        self.assertEqual("0.2.4", VERSION)
+        self.assertEqual("0.2.5", VERSION)
 
     def test_ignored_local_root_directories_are_optional(self) -> None:
         self.assert_clean_repository_root(set(REQUIRED_ROOT_ENTRIES))

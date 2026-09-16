@@ -14,12 +14,24 @@ from ..core.schema import (
     SensorFailureMode,
 )
 from ..core.evidence import (
-    ISO_CONDITION_MONITORING,
-    MAXON_CONSTANTS,
-    PRESS_EXPERIMENT,
     _discrepancies,
+    _experiment,
     _measurement,
     _uncertainties,
+)
+from ..core.references import (
+    ISO_CONDITION_MONITORING,
+    MAXON_CONSTANTS,
+)
+
+
+PRESS_EXPERIMENT = _experiment(
+    "Map press drive torque to punch force by stroke phase and separate tool degradation from dynamics.",
+    "With known torque constant, transmission, phase, and acceleration, current-derived torque predicts measured punch force.",
+    ("calibrated punch force", "drive current/torque", "stroke encoder", "mechanism geometry", "high-rate synchronization"),
+    ("stroke phase", "speed/acceleration", "tool condition", "material"),
+    "Approved force and tool-condition sweeps across stroke phases.",
+    ("acceleration change", "current offset", "friction/temperature change"),
 )
 
 
@@ -39,4 +51,3 @@ TRIM_FORM_CANDIDATE = ResearchCandidate(
     "Missing phase-resolved mechanism and drive semantics.", "Could provide redundant tooling/load evidence after a controlled mechanics study.", PRESS_EXPERIMENT.objective,
     (MAXON_CONSTANTS, ISO_CONDITION_MONITORING),
 )
-

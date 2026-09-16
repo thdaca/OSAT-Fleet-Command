@@ -14,14 +14,26 @@ from ..core.schema import (
     SensorFailureMode,
 )
 from ..core.evidence import (
-    JCGM_UNCERTAINTY,
-    KEYENCE_POWER_MONITOR,
-    LASER_EXPERIMENT,
-    LASER_OUTPUT_MODEL,
-    TRUMPF_CONDITION_MONITORING,
     _discrepancies,
+    _experiment,
     _measurement,
     _uncertainties,
+)
+from ..core.references import (
+    JCGM_UNCERTAINTY,
+    KEYENCE_POWER_MONITOR,
+    LASER_OUTPUT_MODEL,
+    TRUMPF_CONDITION_MONITORING,
+)
+
+
+LASER_EXPERIMENT = _experiment(
+    "Identify whether delivered optical power is predictable from drive and thermal/controller state for the actual marker architecture.",
+    "Within one verified architecture and control mode, delivered power has a repeatable current/temperature relation.",
+    ("calibrated optical power reference", "drive current", "temperature", "pulse/duty/controller state"),
+    ("power setpoint", "temperature", "duty/pulse state", "optical-path contamination"),
+    "Approved power/temperature sweeps and controlled optical attenuation.",
+    ("power-sensor gain drift", "attenuation after internal monitor", "controller-mode change"),
 )
 
 
@@ -41,4 +53,3 @@ MARKING_CANDIDATE = ResearchCandidate(
     "No verified architecture-specific measurement model.", "Could detect output consistency loss once direct measurement is metrologically defined.", LASER_EXPERIMENT.objective,
     (KEYENCE_POWER_MONITOR, TRUMPF_CONDITION_MONITORING, LASER_OUTPUT_MODEL, JCGM_UNCERTAINTY),
 )
-

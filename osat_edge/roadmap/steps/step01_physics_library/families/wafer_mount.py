@@ -14,13 +14,25 @@ from ..core.schema import (
     SensorFailureMode,
 )
 from ..core.evidence import (
+    _discrepancies,
+    _experiment,
+    _measurement,
+    _uncertainties,
+)
+from ..core.references import (
     BRANCA_WEB,
     ISO_CONDITION_MONITORING,
     MAXON_CONSTANTS,
-    WEB_EXPERIMENT,
-    _discrepancies,
-    _measurement,
-    _uncertainties,
+)
+
+
+WEB_EXPERIMENT = _experiment(
+    "Test whether motor current adds interpretable redundancy to direct tape/web tension.",
+    "After phase, acceleration, geometry, and friction compensation, drive torque should balance a controlled change in web tension.",
+    ("calibrated tension transducer", "drive current/torque feedback", "encoder/acceleration", "roller geometry and temperature"),
+    ("tension setpoint", "speed/acceleration", "roller temperature", "web material"),
+    "Safe controlled tension changes across motion phases.",
+    ("acceleration change at fixed tension", "friction/temperature change", "current-sensor offset"),
 )
 
 
@@ -40,4 +52,3 @@ WAFER_MOUNT_CANDIDATE = ResearchCandidate(
     "Missing motion phase, geometry, and verified current/torque semantics.", "Could provide analytical redundancy for a direct tension sensor.", WEB_EXPERIMENT.objective,
     (BRANCA_WEB, MAXON_CONSTANTS, ISO_CONDITION_MONITORING),
 )
-

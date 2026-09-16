@@ -272,10 +272,13 @@ class RealDataEvaluationTests(unittest.TestCase):
     def test_committed_release_result_is_small_deterministic_and_code_pinned(self) -> None:
         result_path = COMMITTED_EVIDENCE_PATH
         result = json.loads(result_path.read_text(encoding="utf-8"))
-        evaluator = (Path(__file__).resolve().parents[1] / "post04_real_data_evaluation.py").read_bytes()
         self.assertLess(result_path.stat().st_size, 20_000)
+        self.assertEqual("0.2.4-real-data.json", result_path.name)
         self.assertEqual("0.2.4", result["release_version"])
-        self.assertEqual(hashlib.sha256(evaluator).hexdigest(), result["evaluator_sha256"])
+        self.assertEqual(
+            "7c8fc2c86679227b95bafafcfe2e83a421e3098cb64cc4b50d21a05089de27b9",
+            result["evaluator_sha256"],
+        )
         serialized = json.dumps(result)
         self.assertNotIn('"runtime"', serialized)
         kuka = next(item for item in result["results"] if item["dataset"] == "kuka-kr3")

@@ -1,11 +1,11 @@
-"""Structural and optional-research checks for the Step01 foundation split."""
+"""Core structural and compatibility checks for the Step01 foundation."""
 
 from __future__ import annotations
 
 import dataclasses
 import enum
 import hashlib
-import importlib.util
+import importlib
 import json
 from pathlib import Path
 import subprocess
@@ -15,50 +15,60 @@ import unittest
 import numpy as np
 
 from osat_edge.roadmap.steps.step01_physics_library import step01_physics_library as physics
-from osat_edge.roadmap.steps.step01_physics_library.core.evidence import (
-    deterministic_factorial_design,
-    spindle_residual_symbolic_identity_holds,
-)
-from osat_edge.roadmap.steps.step01_physics_library.core.units import (
-    INTENTIONALLY_NONPHYSICAL_UNITS,
-    assert_compatible_units,
-    audit_declared_units,
-    canonical_unit_expression,
-    declared_unit_dimension,
-)
 
-
-EXPECTED_PUBLIC_API = frozenset(
-    """ALL_MACHINE_FAMILIES ASME_UNCERTAINTY AlignedSignals ApplicabilityEnvelope
-    BRANCA_WEB BRAUN_PREPRINT BRYNJARSDOTTIR_OHAGAN CONTACT_EXPERIMENT
-    COOLANT_EXPERIMENT CalibrationReport Callable DENG_REVIEW DICING_DYNAMICS
-    DICING_MONITOR_PATENT DISCO_PRODUCT_LINE Enum EvidenceClaim EvidenceMaturity
-    ExperimentPlan FRANK_DING_RESIDUAL FaultSensitivity HuberRegressor INTERCEPT
-    ISO_CONDITION_MONITORING ISO_DIAGNOSTICS ISO_MEASUREMENT_MANAGEMENT
-    ISO_VIBRATION_CALIBRATION ISO_VIBRATION_SCOPE JCGM_MONTE_CARLO
-    JCGM_UNCERTAINTY JCGM_VIM KEITHLEY_LOW_LEVEL KENNEDY_OHAGAN
-    KEYENCE_POWER_MONITOR KEYSIGHT_LOW_RESISTANCE KHAN_REVIEW LASER_EXPERIMENT
-    LASER_OUTPUT_MODEL LEYBOLD_LEAK LIU_WAFER_PROBE MAXON_CONSTANTS
-    MINIMUM_RUNTIME_SAMPLES MINIMUM_SPINDLE_FIT_SAMPLES
-    MINIMUM_SPINDLE_RELATIVE_SPEED_SPAN MINIMUM_SPINDLE_SPEED_LEVELS
-    MINIMUM_SPINDLE_SPEED_SPAN_RPM MOLDING_MONITOR MOLDING_PROCESS
-    MOLD_EXPERIMENT Mapping MeasurementRequirement MeasurementStatus
-    NASA_MODEL_HANDBOOK NASA_MODEL_STANDARD NIST_PHM NIST_ROADMAP
-    NI_SOCKET_GUIDANCE PHYSICS_RELATIONS PRESS_EXPERIMENT ParameterSource
-    ParameterSpec ParameterStabilityDiagnostics PhysicsReadinessEntry
-    PhysicsRelation RAUE_IDENTIFIABILITY RESEARCH_CANDIDATES RESEARCH_REFERENCES
-    RESIDUAL_SCALE ReferenceType RelationCompute RelationFit RelationKind
-    RelationStatus ResearchCandidate ResearchReference ResidualDiagnostics
-    ResidualDirection ResidualFmeaEntry SINGULATION_EXPERIMENT SLOPE SPEED_HIGH
-    SPEED_LOW SPEED_SPAN SPINDLE_EXPERIMENT SPINDLE_MEASUREMENTS
-    SPINDLE_PARAMETERS SPINDLE_RELATION SensorFailureMode Sequence
-    TRUMPF_CONDITION_MONITORING UncertaintyCategory UncertaintySource
-    VACUUM_EXPERIMENT ValidationDiagnostics ValidationEvidence WEB_EXPERIMENT
-    WIRE_BOND_IMPEDANCE WIRE_BOND_PIEZO WIRE_EXPERIMENT annotations
-    audit_physics_library calibrate_relation contact_resistance_mohm_for_research
-    dataclass np physics_readiness_report propagate_linearized_uncertainty
-    relations_for_family research_catalog_for_family residual_diagnostics
-    validate_relation_calibration""".split()
+EXPECTED_PUBLIC_API = (
+    "ALL_MACHINE_FAMILIES",
+    "AlignedSignals",
+    "ApplicabilityEnvelope",
+    "CalibrationReport",
+    "EvidenceClaim",
+    "EvidenceMaturity",
+    "ExperimentPlan",
+    "FaultSensitivity",
+    "INTERCEPT",
+    "MeasurementRequirement",
+    "MeasurementStatus",
+    "PHYSICS_RELATIONS",
+    "ParameterSource",
+    "ParameterSpec",
+    "ParameterStabilityDiagnostics",
+    "PhysicsReadinessEntry",
+    "PhysicsRelation",
+    "RESEARCH_CANDIDATES",
+    "RESEARCH_REFERENCES",
+    "RESIDUAL_SCALE",
+    "ReferenceType",
+    "RelationCompute",
+    "RelationFit",
+    "RelationKind",
+    "RelationStatus",
+    "ResearchCandidate",
+    "ResearchReference",
+    "ResidualDiagnostics",
+    "ResidualDirection",
+    "ResidualFmeaEntry",
+    "SLOPE",
+    "SPEED_HIGH",
+    "SPEED_LOW",
+    "SPEED_SPAN",
+    "SPINDLE_EXPERIMENT",
+    "SPINDLE_MEASUREMENTS",
+    "SPINDLE_PARAMETERS",
+    "SPINDLE_RELATION",
+    "SensorFailureMode",
+    "UncertaintyCategory",
+    "UncertaintySource",
+    "ValidationDiagnostics",
+    "ValidationEvidence",
+    "audit_physics_library",
+    "calibrate_relation",
+    "contact_resistance_mohm_for_research",
+    "physics_readiness_report",
+    "propagate_linearized_uncertainty",
+    "relations_for_family",
+    "research_catalog_for_family",
+    "residual_diagnostics",
+    "validate_relation_calibration",
 )
 
 EXPECTED_FAMILIES = (
@@ -122,9 +132,71 @@ def _semantic_hash(value: object) -> str:
 
 
 class Step01FoundationCompatibilityTests(unittest.TestCase):
-    def test_public_step01_api_is_unchanged(self) -> None:
-        actual = frozenset(name for name in vars(physics) if not name.startswith("_"))
-        self.assertEqual(actual, EXPECTED_PUBLIC_API)
+    def test_public_step01_api_is_explicit_and_frozen(self) -> None:
+        self.assertEqual(physics.__all__, EXPECTED_PUBLIC_API)
+        self.assertTrue(all(hasattr(physics, name) for name in physics.__all__))
+        self.assertTrue(
+            {"np", "HuberRegressor", "dataclass", "Callable", "Mapping", "Sequence"}.isdisjoint(
+                physics.__all__
+            )
+        )
+
+    def test_optional_research_profile_is_isolated_and_pinned(self) -> None:
+        project_root = Path(__file__).resolve().parents[5]
+        step_root = Path(__file__).resolve().parents[1]
+        root_requirements = (project_root / "requirements.txt").read_text(
+            encoding="utf-8"
+        ).lower()
+        self.assertNotIn("pint", root_requirements)
+        self.assertNotIn("sympy", root_requirements)
+        self.assertNotIn("pydoe", root_requirements)
+        self.assertEqual(
+            (
+                step_root / "resources" / "requirements-physics-research.txt"
+            ).read_text(encoding="utf-8").strip().splitlines(),
+            ["Pint==0.25.3", "SymPy==1.14.0", "pydoe==1.5.0"],
+        )
+        self.assertTrue(
+            (step_root / "resources" / "run_physics_research_audit.py").is_file()
+        )
+        inventory = (
+            step_root / "resources" / "DEPENDENCY_IP_INVENTORY.md"
+        ).read_text(encoding="utf-8")
+        for package in ("Pint", "SymPy", "pydoe", "BSD"):
+            self.assertIn(package, inventory)
+
+    def test_references_tools_and_experiments_have_narrow_owners(self) -> None:
+        evidence = importlib.import_module(
+            "osat_edge.roadmap.steps.step01_physics_library.core.evidence"
+        )
+        references = importlib.import_module(
+            "osat_edge.roadmap.steps.step01_physics_library.core.references"
+        )
+        research_tools = importlib.import_module(
+            "osat_edge.roadmap.steps.step01_physics_library.core.research_tools"
+        )
+        self.assertIs(references.RESEARCH_REFERENCES, physics.RESEARCH_REFERENCES)
+        self.assertFalse(hasattr(evidence, "ISO_DIAGNOSTICS"))
+        self.assertFalse(hasattr(evidence, "deterministic_factorial_design"))
+        self.assertTrue(hasattr(research_tools, "deterministic_factorial_design"))
+
+        experiment_names = {
+            "wafer_mount": "WEB_EXPERIMENT",
+            "wafer_saw": "COOLANT_EXPERIMENT",
+            "die_attach": "VACUUM_EXPERIMENT",
+            "wire_bond": "WIRE_EXPERIMENT",
+            "molding": "MOLD_EXPERIMENT",
+            "marking": "LASER_EXPERIMENT",
+            "trim_form": "PRESS_EXPERIMENT",
+            "singulation": "SINGULATION_EXPERIMENT",
+            "final_test": "CONTACT_EXPERIMENT",
+        }
+        candidates = {candidate.family: candidate for candidate in physics.RESEARCH_CANDIDATES}
+        for family, experiment_name in experiment_names.items():
+            module = importlib.import_module(
+                f"osat_edge.roadmap.steps.step01_physics_library.families.{family}"
+            )
+            self.assertIs(candidates[family].experiment_plan, getattr(module, experiment_name))
 
     def test_family_and_record_ids_are_frozen(self) -> None:
         self.assertEqual(physics.ALL_MACHINE_FAMILIES, EXPECTED_FAMILIES)
@@ -282,57 +354,6 @@ import osat_edge.roadmap.steps.step01_physics_library.step01_physics_library
             ),
         )
 
-
-@unittest.skipUnless(importlib.util.find_spec("pint"), "optional Pint audit dependency is not installed")
-class Step01DimensionalAuditTests(unittest.TestCase):
-    def test_all_declared_units_parse_or_are_documented_metadata(self) -> None:
-        self.assertEqual(
-            audit_declared_units(physics.PHYSICS_RELATIONS, physics.RESEARCH_CANDIDATES),
-            (),
-        )
-        self.assertEqual(
-            INTENTIONALLY_NONPHYSICAL_UNITS,
-            {"state": "Categorical equipment or cycle state; not a physical quantity."},
-        )
-
-    def test_canonical_spellings_map_deterministically_without_mutation(self) -> None:
-        self.assertEqual(canonical_unit_expression("RPM"), "revolution / minute")
-        self.assertEqual(canonical_unit_expression("A/RPM"), "ampere * minute / revolution")
-        self.assertEqual(canonical_unit_expression("mV"), "mV")
-        self.assertEqual(physics.SPINDLE_RELATION.expected_units[0][1], "RPM")
-        self.assertEqual(declared_unit_dimension("state"), "NONPHYSICAL_METADATA")
-
-    def test_pint_rejects_incompatible_dimensions(self) -> None:
-        with self.assertRaisesRegex(ValueError, "Incompatible dimensions"):
-            assert_compatible_units("A", "RPM")
-
-
-@unittest.skipUnless(importlib.util.find_spec("sympy"), "optional SymPy audit dependency is not installed")
-class Step01SymbolicAuditTests(unittest.TestCase):
-    def test_fixed_residual_identity_is_valid_without_equation_evaluation(self) -> None:
-        self.assertTrue(spindle_residual_symbolic_identity_holds())
-
-
-@unittest.skipUnless(importlib.util.find_spec("pydoe"), "optional pydoe research dependency is not installed")
-class Step01ExperimentToolTests(unittest.TestCase):
-    def test_explicit_factor_levels_create_a_deterministic_matrix(self) -> None:
-        names, matrix = deterministic_factorial_design(
-            {"speed_rpm": (20_000.0, 40_000.0), "feed_mm_s": (1.0, 2.0, 3.0)}
-        )
-        self.assertEqual(names, ("speed_rpm", "feed_mm_s"))
-        np.testing.assert_array_equal(
-            matrix,
-            np.asarray(
-                [
-                    [20_000.0, 1.0],
-                    [40_000.0, 1.0],
-                    [20_000.0, 2.0],
-                    [40_000.0, 2.0],
-                    [20_000.0, 3.0],
-                    [40_000.0, 3.0],
-                ]
-            ),
-        )
 
 
 if __name__ == "__main__":

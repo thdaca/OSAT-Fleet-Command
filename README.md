@@ -1,13 +1,14 @@
-# OSAT Fleet Command 0.2.4
+# OSAT Fleet Command 0.2.5
 
 **RESEARCH / DEVELOPMENT BUILD — not production qualified**
 
-Release title: **EXTERNAL REAL-DATA EVALUATION**
+Release title: **STEP01 PHYSICS-LIBRARY FOUNDATION**
 
-Version 0.2.4 adds an isolated offline evaluator for explicitly supplied real
-external data. The 0.2.3 inference method, thresholds, canonical stations,
-demo, reference replay, UI, security boundary, and ticket authority are not
-tuned or redesigned.
+Version 0.2.5 modularizes the Step01 physics library and adds optional offline
+unit, symbolic, and experiment-design audits. The 0.2.3 inference method,
+thresholds, canonical stations, demo, reference replay, UI, security boundary,
+ticket authority, and historical 0.2.4 deterministic evidence are not tuned,
+redesigned, or relabeled.
 
 OSAT Fleet Command is a small, edge-oriented teaching and research implementation for exploring equipment-health evidence in semiconductor back-end manufacturing. It keeps deterministic health and maintenance decisions separate from optional language-model enrichment.
 
@@ -49,6 +50,16 @@ Do not install it for the normal demo or tests.
 The optional external benchmark parser is declared in
 `osat_edge/roadmap/post_steps/post03_external_benchmark/resources/requirements-benchmarks.txt`.
 The core pinned dependency file is unchanged.
+
+The optional Step01 research-audit dependencies and command are isolated in
+`osat_edge/roadmap/steps/step01_physics_library/resources/`:
+
+```powershell
+.venv\Scripts\python -m pip install -r osat_edge\roadmap\steps\step01_physics_library\resources\requirements-physics-research.txt
+.venv\Scripts\python osat_edge\roadmap\steps\step01_physics_library\resources\run_physics_research_audit.py
+```
+
+They are not required for normal edge inference or the core test suite.
 
 ## Run
 

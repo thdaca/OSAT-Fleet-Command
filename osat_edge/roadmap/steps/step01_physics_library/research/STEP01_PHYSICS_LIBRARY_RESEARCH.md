@@ -1,6 +1,6 @@
 # Step 01 Physics / Engineering Library — Maximum-Credibility Research Review
 
-Version reviewed: OSAT Fleet Command 0.2.4  
+Version reviewed: OSAT Fleet Command 0.2.5  
 Review date: 2026-09-03  
 Release class: RESEARCH / DEVELOPMENT BUILD  
 Physical validation complete: **NO**
@@ -15,6 +15,7 @@ from edge inference. Install them only when running Step01 research checks:
 
 ```text
 python -m pip install -r osat_edge/roadmap/steps/step01_physics_library/resources/requirements-physics-research.txt
+python osat_edge/roadmap/steps/step01_physics_library/resources/run_physics_research_audit.py
 ```
 
 - Pint audits declared dimensions and repository unit spellings without
@@ -24,6 +25,9 @@ python -m pip install -r osat_edge/roadmap/steps/step01_physics_library/resource
 - pydoe can translate explicitly supplied factor levels into deterministic
   design matrices. A generated design is not physical evidence and does not
   change any existing `ExperimentPlan` claim.
+
+Dependency purposes, optional status, and license families are recorded in
+`resources/DEPENDENCY_IP_INVENTORY.md`.
 
 ## A. Executive summary
 
@@ -655,7 +659,7 @@ pilot, production qualification, calibrated failure probabilities, validated
 universal thresholds, OEM-signed physics library, causal diagnostic proof,
 production cybersecurity certification, or validated failure-reduction result.
 
-Live-equipment operation in 0.2.4 remains observe-only and research-only.
+Live-equipment operation in 0.2.5 remains observe-only and research-only.
 Physical residuals may contribute research evidence only after the existing
 telemetry quality, observability, identity, and provenance gates permit it.
 They do not authorize maintenance tickets or machine actions. The deterministic
