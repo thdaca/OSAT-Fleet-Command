@@ -44,6 +44,29 @@ DEFAULT_REFERENCE_DIRECTORY = (
 )
 _DATASET_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{2,79}$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
+_REQUIRED_CLAIMS = frozenset(
+    {
+        "SYNTHETIC REFERENCE REPLAY",
+        "NOT REAL OSAT DATA",
+        "NOT PLANT VALIDATION",
+        "NOT PRODUCTION QUALIFICATION",
+    }
+)
+_REQUIRED_CLASSIFICATION = frozenset(
+    {"FROZEN", "EDUCATIONAL", "PIPELINE-REFERENCE DATA"}
+)
+_REFERENCE_PHASES = frozenset(
+    {
+        "healthy_stable",
+        "healthy_variation",
+        "optional_missing",
+        "required_stale",
+        "recovery",
+        "physics_outside_calibration",
+        "physics_in_domain",
+        "positive_load_residual",
+    }
+)
 
 
 class ReferenceReplayError(ValueError):
@@ -116,6 +139,18 @@ def _file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _exact_string_set(value: Any, field: str, required: frozenset[str]) -> None:
+    if (
+        not isinstance(value, list)
+        or any(not isinstance(item, str) or not item.strip() for item in value)
+        or len(value) != len(set(value))
+        or set(value) != set(required)
+    ):
+        raise ReferenceReplayError(
+            f"{field} must contain exactly: {', '.join(sorted(required))}"
+        )
+
+
 def _validate_manifest(directory: Path) -> Mapping[str, Any]:
     path = directory / "manifest.json"
     if not path.is_file():
@@ -134,6 +169,14 @@ def _validate_manifest(directory: Path) -> Mapping[str, Any]:
         raise ReferenceReplayError("Reference replay origin must be SYNTHETIC")
     if manifest.get("runtime_mode") != RuntimeMode.REAL_REPLAY.value:
         raise ReferenceReplayError("Reference replay runtime_mode must be REAL_REPLAY")
+    if manifest.get("production_qualified") is not False:
+        raise ReferenceReplayError("Reference replay production_qualified must be false")
+    _exact_string_set(manifest.get("claims"), "manifest.claims", _REQUIRED_CLAIMS)
+    _exact_string_set(
+        manifest.get("classification"),
+        "manifest.classification",
+        _REQUIRED_CLASSIFICATION,
+    )
     files = manifest.get("files")
     if not isinstance(files, Mapping) or set(files) != set(REFERENCE_FILES):
         raise ReferenceReplayError("Manifest must checksum the four reference data files")
@@ -223,7 +266,17 @@ def _csv_rows(path: Path, expected_columns: list[str]) -> list[dict[str, str]]:
                 raise ReferenceReplayError(
                     f"{path.name} columns must be {','.join(expected_columns)}"
                 )
-            rows = list(reader)
+            rows = []
+            for row_number, row in enumerate(reader, start=2):
+                if None in row:
+                    raise ReferenceReplayError(
+                        f"{path.name} row {row_number} has surplus fields"
+                    )
+                if any(row.get(column) is None for column in expected_columns):
+                    raise ReferenceReplayError(
+                        f"{path.name} row {row_number} has missing fields"
+                    )
+                rows.append({column: str(row[column]) for column in expected_columns})
     except (OSError, UnicodeError, csv.Error) as exc:
         raise ReferenceReplayError(f"Cannot read valid CSV from {path.name}") from exc
     if not rows:
@@ -332,6 +385,63 @@ def _load_checkpoints(
     return value
 
 
+def _phase_seconds(value: Any, field: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ReferenceReplayError(f"{field} must be a finite number")
+    result = float(value)
+    if not math.isfinite(result):
+        raise ReferenceReplayError(f"{field} must be a finite number")
+    return result
+
+
+def _validate_timeline(
+    manifest: Mapping[str, Any], timestamps: list[dt.datetime]
+) -> None:
+    timeline = manifest.get("timeline")
+    if not isinstance(timeline, Mapping):
+        raise ReferenceReplayError("manifest.timeline must be an object")
+    start = _utc_timestamp(
+        _require_string(timeline.get("start_utc"), "manifest.timeline.start_utc"),
+        "manifest.timeline.start_utc",
+    )
+    end = _utc_timestamp(
+        _require_string(timeline.get("end_utc"), "manifest.timeline.end_utc"),
+        "manifest.timeline.end_utc",
+    )
+    if start != timestamps[0] or end != timestamps[-1]:
+        raise ReferenceReplayError(
+            "Manifest timeline must match the first and last actual records"
+        )
+    duration = (end - start).total_seconds()
+    phases = manifest.get("phases")
+    if not isinstance(phases, list) or not phases:
+        raise ReferenceReplayError("manifest.phases must be a nonempty list")
+    names: set[str] = set()
+    previous_start = -math.inf
+    for index, phase in enumerate(phases):
+        if not isinstance(phase, Mapping):
+            raise ReferenceReplayError(f"manifest.phases[{index}] must be an object")
+        name = _require_string(phase.get("name"), f"manifest.phases[{index}].name")
+        if name not in _REFERENCE_PHASES or name in names:
+            raise ReferenceReplayError("Manifest phase names must be known and unique")
+        phase_start = _phase_seconds(
+            phase.get("start_seconds"), f"manifest.phases[{index}].start_seconds"
+        )
+        phase_end = _phase_seconds(
+            phase.get("end_seconds"), f"manifest.phases[{index}].end_seconds"
+        )
+        if not 0.0 <= phase_start <= phase_end <= duration:
+            raise ReferenceReplayError(
+                f"Manifest phase {name} must lie inside the dataset interval"
+            )
+        if phase_start < previous_start:
+            raise ReferenceReplayError("Manifest phases must be ordered by start time")
+        names.add(name)
+        previous_start = phase_start
+    if names != set(_REFERENCE_PHASES):
+        raise ReferenceReplayError("Manifest must describe every reference phase exactly once")
+
+
 def load_reference_replay(
     directory: str | Path = DEFAULT_REFERENCE_DIRECTORY,
 ) -> ReferenceReplayDataset:
@@ -358,6 +468,7 @@ def load_reference_replay(
     timestamps = sorted(set(samples_by_time) | set(context_by_time))
     if not timestamps:
         raise ReferenceReplayError("Reference replay contains no timestamped records")
+    _validate_timeline(manifest, timestamps)
     checkpoints = _load_checkpoints(
         root / "expected_checkpoints.json",
         dataset_id=dataset_id,
@@ -389,7 +500,12 @@ def load_reference_replay(
     )
 
 
-def _checkpoint_observation(result: PipelineResult) -> dict[str, Any]:
+def _checkpoint_observation(
+    result: PipelineResult,
+    *,
+    ticket_created_this_tick: bool,
+    active_ticket_count: int,
+) -> dict[str, Any]:
     relation_name = "spindle.electromechanical_load_residual_a.median"
     residual = None
     if result.feature_set is not None:
@@ -402,7 +518,8 @@ def _checkpoint_observation(result: PipelineResult) -> dict[str, Any]:
         "observable": result.telemetry_status.observable,
         "physics_residual_present": residual is not None,
         "physics_residual_a": residual,
-        "ticket_created": result.ticket is not None,
+        "ticket_created_this_tick": ticket_created_this_tick,
+        "active_ticket_count": active_ticket_count,
     }
 
 
@@ -445,6 +562,7 @@ def run_reference_replay(
     maximum_residual: float | None = None
     last: PipelineResult | None = None
     tick_count = 0
+    known_ticket_ids: set[str] = set()
     try:
         while True:
             result = pipeline.tick()
@@ -475,8 +593,21 @@ def run_reference_replay(
                         else max(maximum_residual, relation.value)
                     )
             checkpoint_name = expected_by_time.get(result.assessment.timestamp)
+            ticket_created_this_tick = bool(
+                result.ticket is not None
+                and result.ticket.ticket_id not in known_ticket_ids
+            )
+            if result.ticket is not None:
+                known_ticket_ids.add(result.ticket.ticket_id)
             if checkpoint_name is not None:
-                checkpoints[checkpoint_name] = _checkpoint_observation(result)
+                checkpoints[checkpoint_name] = _checkpoint_observation(
+                    result,
+                    ticket_created_this_tick=ticket_created_this_tick,
+                    active_ticket_count=int(
+                        repository.active_for_machine(dataset.identity.machine_id)
+                        is not None
+                    ),
+                )
         if last is None:
             raise ReferenceReplayError("Reference replay produced no pipeline result")
         tickets = list_tickets(repository)
@@ -490,7 +621,12 @@ def run_reference_replay(
             "family": dataset.identity.family,
             "station_id": dataset.identity.station_id,
             "telemetry_rows": dataset.telemetry_rows,
+            "input_telemetry_rows": dataset.telemetry_rows,
+            "accepted_telemetry_rows": dataset.telemetry_rows,
+            "rejected_telemetry_rows": 0,
             "context_rows": dataset.context_rows,
+            "accepted_context_rows": dataset.context_rows,
+            "rejected_context_rows": 0,
             "ticks": tick_count,
             "valid_ticks": valid_ticks,
             "invalid_ticks": invalid_ticks,

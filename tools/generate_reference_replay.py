@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import csv
 import datetime as dt
 import hashlib
@@ -41,11 +42,15 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _text(path: Path, value: str) -> None:
+    """Write UTF-8 with LF bytes on every supported platform."""
+
+    with path.open("w", encoding="utf-8", newline="\n") as stream:
+        stream.write(value)
+
+
 def _json(path: Path, value: object) -> None:
-    path.write_text(
-        json.dumps(value, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
+    _text(path, json.dumps(value, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
 
 
 def _healthy_value(channel: str, unit: str, seconds: float) -> float:
@@ -60,8 +65,9 @@ def _healthy_value(channel: str, unit: str, seconds: float) -> float:
     return value
 
 
-def generate() -> None:
-    OUTPUT.mkdir(parents=True, exist_ok=True)
+def generate(output_directory: str | Path = OUTPUT) -> None:
+    output = Path(output_directory)
+    output.mkdir(parents=True, exist_ok=True)
     station = STATIONS["wafer_saw"]
     identity = _demo_identity(station)
     model = _fit_demo_model(identity, station)
@@ -84,7 +90,7 @@ def generate() -> None:
             for spec in station.channels
         ],
     }
-    _json(OUTPUT / "source_mapping.json", mapping)
+    _json(output / "source_mapping.json", mapping)
 
     contexts = [
         {
@@ -94,9 +100,11 @@ def generate() -> None:
         }
         for second in range(251)
     ]
-    with (OUTPUT / "context.csv").open("w", encoding="utf-8", newline="") as stream:
+    with (output / "context.csv").open("w", encoding="utf-8", newline="") as stream:
         writer = csv.DictWriter(
-            stream, fieldnames=["timestamp_utc", "machine_id", "equipment_state"]
+            stream,
+            fieldnames=["timestamp_utc", "machine_id", "equipment_state"],
+            lineterminator="\n",
         )
         writer.writeheader()
         writer.writerows(contexts)
@@ -138,10 +146,11 @@ def generate() -> None:
             row["source_id"],
         )
     )
-    with (OUTPUT / "telemetry.csv").open("w", encoding="utf-8", newline="") as stream:
+    with (output / "telemetry.csv").open("w", encoding="utf-8", newline="") as stream:
         writer = csv.DictWriter(
             stream,
             fieldnames=["timestamp_utc", "machine_id", "source_id", "value", "unit"],
+            lineterminator="\n",
         )
         writer.writeheader()
         writer.writerows(telemetry)
@@ -161,11 +170,11 @@ def generate() -> None:
             {"name": "physics_abstains", "timestamp_utc": _timestamp(170), "expected": {"physics_residual_present": False}},
             {"name": "physics_resumes", "timestamp_utc": _timestamp(180), "expected": {"physics_residual_present": True}},
             {"name": "watch", "timestamp_utc": _timestamp(235), "expected": {"health": "WATCH"}},
-            {"name": "degraded_ticket", "timestamp_utc": _timestamp(240), "expected": {"health": "DEGRADED", "ticket_created": True}},
-            {"name": "critical_ticket", "timestamp_utc": _timestamp(250), "expected": {"health": "CRITICAL", "ticket_count": 1}},
+            {"name": "degraded_ticket", "timestamp_utc": _timestamp(240), "expected": {"health": "DEGRADED", "ticket_created_this_tick": True, "active_ticket_count": 1}},
+            {"name": "critical_ticket", "timestamp_utc": _timestamp(250), "expected": {"health": "CRITICAL", "ticket_created_this_tick": False, "active_ticket_count": 1}},
         ],
     }
-    _json(OUTPUT / "expected_checkpoints.json", checkpoints)
+    _json(output / "expected_checkpoints.json", checkpoints)
     readme = f"""# Frozen synthetic reference replay
 
 Dataset ID: `{DATASET_ID}`  
@@ -200,7 +209,7 @@ Regenerate only when intentionally revising the frozen artifact:
 .venv\\Scripts\\python tools\\generate_reference_replay.py
 ```
 """
-    (OUTPUT / "README.md").write_text(readme, encoding="utf-8")
+    _text(output / "README.md", readme)
 
     manifest = {
         "dataset_id": DATASET_ID,
@@ -229,7 +238,7 @@ Regenerate only when intentionally revising the frozen artifact:
             {"name": "positive_load_residual", "start_seconds": 185, "end_seconds": 250},
         ],
         "files": {
-            name: _sha256(OUTPUT / name)
+            name: _sha256(output / name)
             for name in (
                 "telemetry.csv",
                 "context.csv",
@@ -244,8 +253,14 @@ Regenerate only when intentionally revising the frozen artifact:
             "NOT PRODUCTION QUALIFICATION",
         ],
     }
-    _json(OUTPUT / "manifest.json", manifest)
+    _json(output / "manifest.json", manifest)
 
 
 if __name__ == "__main__":
-    generate()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--output",
+        default=OUTPUT,
+        help="Directory to receive the complete generated reference fixture",
+    )
+    generate(parser.parse_args().output)

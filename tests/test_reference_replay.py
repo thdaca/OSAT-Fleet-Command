@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -61,6 +63,34 @@ class ReferenceReplayTests(unittest.TestCase):
         )
         self.assertEqual("osat-reference-fleet-001", self.dataset.manifest["dataset_id"])
 
+    def test_generator_is_byte_reproducible_with_lf_on_this_platform(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as directory:
+            temporary = Path(directory)
+            committed = temporary / "committed"
+            generated = temporary / "generated"
+            shutil.copytree(DEFAULT_REFERENCE_DIRECTORY, committed)
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(root / "tools" / "generate_reference_replay.py"),
+                    "--output",
+                    str(generated),
+                ],
+                cwd=root,
+                check=True,
+            )
+            self.assertEqual(
+                {path.name for path in committed.iterdir()},
+                {path.name for path in generated.iterdir()},
+            )
+            for expected in committed.iterdir():
+                with self.subTest(file=expected.name):
+                    expected_bytes = expected.read_bytes()
+                    self.assertEqual(expected_bytes, (generated / expected.name).read_bytes())
+                    self.assertNotIn(b"\r\n", expected_bytes)
+                    self.assertIn(b"\n", expected_bytes)
+
     def test_runtime_mode_and_data_origin_are_independent(self) -> None:
         self.assertIs(RuntimeMode.REAL_REPLAY, self.dataset.source.runtime_mode)
         self.assertIs(DataOrigin.SYNTHETIC, self.dataset.source.origin)
@@ -76,12 +106,16 @@ class ReferenceReplayTests(unittest.TestCase):
         for name, fields in expected.items():
             with self.subTest(checkpoint=name):
                 for key, value in fields.items():
-                    if key != "ticket_count":
-                        self.assertEqual(value, observed[name][key])
+                    self.assertEqual(value, observed[name][key])
         self.assertEqual(1, len(self.report["tickets"]))
         self.assertTrue(self.report["tickets"][0]["demo_only"])
         self.assertEqual("URGENT", self.report["tickets"][0]["priority"])
         self.assertEqual("CRITICAL", self.report["final_health"])
+        self.assertEqual(1509, self.report["input_telemetry_rows"])
+        self.assertEqual(1509, self.report["accepted_telemetry_rows"])
+        self.assertEqual(0, self.report["rejected_telemetry_rows"])
+        self.assertEqual(251, self.report["accepted_context_rows"])
+        self.assertEqual(0, self.report["rejected_context_rows"])
         self.assertTrue(
             {"NORMAL", "WATCH", "DEGRADED", "CRITICAL", "UNKNOWN"}
             .issubset(self.report["health_counts"])
@@ -115,6 +149,71 @@ class ReferenceReplayTests(unittest.TestCase):
             path.write_text(path.read_text(encoding="utf-8") + "\n", encoding="utf-8")
             with self.assertRaisesRegex(ReferenceReplayError, "Checksum mismatch"):
                 load_reference_replay(fixture)
+
+    def test_manifest_claims_and_classification_are_internally_consistent(self) -> None:
+        mutations = (
+            (lambda value: value.update(production_qualified=True), "production_qualified"),
+            (
+                lambda value: value.update(claims=["REAL OSAT DATA", "PLANT VALIDATION"]),
+                "manifest.claims",
+            ),
+            (lambda value: value.update(classification=["FROZEN"]), "classification"),
+        )
+        for mutate, message in mutations:
+            with self.subTest(message=message), tempfile.TemporaryDirectory() as directory:
+                fixture = self._copy_fixture(directory)
+                path = fixture / "manifest.json"
+                value = json.loads(path.read_text(encoding="utf-8"))
+                mutate(value)
+                path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+                with self.assertRaisesRegex(ReferenceReplayError, message):
+                    load_reference_replay(fixture)
+
+    def test_manifest_timeline_and_phases_match_actual_records(self) -> None:
+        mutations = (
+            (
+                lambda value: value["timeline"].update(start_utc="2026-02-02T14:00:01Z"),
+                "timeline",
+            ),
+            (
+                lambda value: value["phases"][0].update(end_seconds=251),
+                "inside the dataset interval",
+            ),
+            (
+                lambda value: value["phases"][1].update(name="healthy_stable"),
+                "known and unique",
+            ),
+        )
+        for mutate, message in mutations:
+            with self.subTest(message=message), tempfile.TemporaryDirectory() as directory:
+                fixture = self._copy_fixture(directory)
+                path = fixture / "manifest.json"
+                value = json.loads(path.read_text(encoding="utf-8"))
+                mutate(value)
+                path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+                with self.assertRaisesRegex(ReferenceReplayError, message):
+                    load_reference_replay(fixture)
+
+    def test_csv_rows_reject_surplus_and_missing_values(self) -> None:
+        for filename, surplus, message in (
+            ("telemetry.csv", True, "surplus fields"),
+            ("telemetry.csv", False, "missing fields"),
+            ("context.csv", True, "surplus fields"),
+            ("context.csv", False, "missing fields"),
+        ):
+            with self.subTest(file=filename, surplus=surplus), tempfile.TemporaryDirectory() as directory:
+                fixture = self._copy_fixture(directory)
+                path = fixture / filename
+                lines = path.read_text(encoding="utf-8").splitlines()
+                lines[1] = (
+                    f"{lines[1]},SECRET_PROCESS_IP"
+                    if surplus
+                    else ",".join(lines[1].split(",")[:-1])
+                )
+                path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+                self._refresh_checksum(fixture, filename)
+                with self.assertRaisesRegex(ReferenceReplayError, message):
+                    load_reference_replay(fixture)
 
     def test_fail_closed_schema_and_data_validation(self) -> None:
         mutations = (

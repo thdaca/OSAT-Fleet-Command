@@ -54,16 +54,18 @@
     },
     {
       "expected": {
+        "active_ticket_count": 1,
         "health": "DEGRADED",
-        "ticket_created": true
+        "ticket_created_this_tick": true
       },
       "name": "degraded_ticket",
       "timestamp_utc": "2026-02-02T14:04:00Z"
     },
     {
       "expected": {
+        "active_ticket_count": 1,
         "health": "CRITICAL",
-        "ticket_count": 1
+        "ticket_created_this_tick": false
       },
       "name": "critical_ticket",
       "timestamp_utc": "2026-02-02T14:04:10Z"

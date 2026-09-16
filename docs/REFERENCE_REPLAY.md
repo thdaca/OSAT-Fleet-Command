@@ -13,7 +13,7 @@ This is a **SYNTHETIC REFERENCE REPLAY** and a development-only pipeline
 demonstration. It is not real OSAT data, plant validation, production
 qualification, or evidence of failure-prediction performance.
 
-## Files and trust boundary
+## Files and integrity boundary
 
 `manifest.json` fixes the dataset identity, release schema, provenance,
 machine identity, phase descriptions, and SHA-256 checksums. It does not hash
@@ -23,6 +23,9 @@ columns: timestamp, machine, external source ID, value, and unit.
 explicitly maps each external fixture ID to one approved canonical channel.
 `expected_checkpoints.json` documents reviewed expectations for tests; the
 pipeline never reads an expected health value to make a decision.
+
+The SHA-256 values provide checksum/integrity verification for the frozen
+files. They are not signatures, authentication, or proof of data origin.
 
 The loader fails closed on missing or malformed files, unsupported IDs or
 schema versions, bad checksums, wrong machine/family/station, unknown source
@@ -47,7 +50,10 @@ synthetic research calibration.
 ## Actual frozen trace
 
 The checked-in artifact has 1,509 telemetry rows, 251 context rows, and 494
-asynchronous replay ticks. On the accepted 0.2.3 code it produces:
+asynchronous replay ticks. All 1,509 telemetry rows and 251 context rows are
+accepted; zero are rejected. Because loading is fail-closed, an invalid fixture
+produces an error rather than partial ingestion. On the accepted 0.2.3 code it
+produces:
 
 - initial `UNKNOWN` while the 60-second feature window matures, then `NORMAL`;
 - optional spindle-vibration absence while required telemetry remains valid;
@@ -89,7 +95,8 @@ evidence, and the deterministic maintenance branch creates ticket
 `WS-01-20260202T140400000000` with HIGH priority and `demo_only: true`. The
 later CRITICAL transition updates that same ticket to URGENT. The original
 fault evidence retains `runtime_mode: REAL_REPLAY`; the ticket is authorized
-only because the validated input origin is `SYNTHETIC`.
+only because this checksum-verified frozen synthetic fixture is explicitly
+eligible for demo-only ticket generation.
 
 ## Intentional regeneration
 

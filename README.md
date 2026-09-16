@@ -4,8 +4,9 @@
 
 Release title: **REFERENCE DATA & EXTERNAL BENCHMARK**
 
-Version 0.2.3 adds a frozen synthetic reference replay and an isolated external
-NASA Milling benchmark. The scientific and inference stages remain unchanged.
+Version 0.2.3 adds reference-data and benchmark capabilities while preserving
+the predictive architecture; it also carries forward the final correctness
+fixes from the 0.2.2 hardening pass.
 
 OSAT Fleet Command is a small, edge-oriented teaching and research implementation for exploring equipment-health evidence in semiconductor back-end manufacturing. It keeps deterministic health and maintenance decisions separate from optional language-model enrichment.
 
