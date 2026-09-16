@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 
-from osat_edge.common import DataOrigin, HealthState
+from osat_edge.common import DataOrigin, HealthState, VERSION
 from osat_edge.demo import create_demo_fleet, run_demo
 from osat_edge.pipeline import MachinePipeline
 from osat_edge.roadmap.step05_family_model import FamilyModel
@@ -30,6 +30,14 @@ class PipelineDemoTests(unittest.TestCase):
         states = {machine.last_result.assessment.health_state.value for machine in self.demo.pipeline.machines.values()}
         self.assertEqual({"NORMAL"}, states)
         self.assertEqual([], self.demo.pipeline.repository.list_tickets())
+
+    def test_result_exposes_the_status_and_features_used_by_inference(self) -> None:
+        result = self.demo.pipeline.machines["wafer_saw"].last_result
+        self.assertIsNotNone(result)
+        self.assertTrue(result.telemetry_status.valid)
+        self.assertTrue(result.telemetry_status.observable)
+        self.assertIsNotNone(result.feature_set)
+        self.assertEqual("DEMO-WS-01", result.feature_set.machine.machine_id)
 
     def test_disconnect_stops_current_assessment_but_keeps_last_results(self) -> None:
         previous = self.demo.pipeline.machines["wafer_saw"].last_result
@@ -67,6 +75,7 @@ class PipelineDemoTests(unittest.TestCase):
 
     def test_public_demo_reaches_localized_critical_and_one_urgent_ticket(self) -> None:
         result = run_demo()
+        self.assertEqual(VERSION, result["version"])
         self.assertEqual("CRITICAL", result["states"]["wafer_saw"])
         self.assertEqual(["spindle"], result["ws01_subsystems"])
         self.assertEqual(1, len(result["tickets"]))

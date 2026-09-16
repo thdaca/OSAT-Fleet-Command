@@ -1,4 +1,4 @@
-"""Minimal command line for the student-facing 0.2.0 build."""
+"""Minimal command line for the student-facing current research build."""
 
 from __future__ import annotations
 

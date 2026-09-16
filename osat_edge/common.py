@@ -9,7 +9,7 @@ from enum import Enum
 import numpy as np
 
 
-VERSION = "0.2.1"
+VERSION = "0.2.2"
 RELEASE_CLASS = "RESEARCH / DEVELOPMENT"
 
 

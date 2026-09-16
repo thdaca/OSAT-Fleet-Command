@@ -17,6 +17,8 @@ from .common import (
     OperatingContext,
     RuntimeMode,
     TelemetrySample,
+    RELEASE_CLASS,
+    VERSION,
 )
 from .machines import STATIONS, StationDefinition
 from .pipeline import FleetPipeline, MachinePipeline, PipelineResult
@@ -270,8 +272,8 @@ def run_demo() -> dict[str, object]:
             results.update(demo.tick())
         tickets = list_tickets(demo.pipeline.repository)
         return {
-            "version": "0.2.0",
-            "release": "RESEARCH / DEVELOPMENT",
+            "version": VERSION,
+            "release": RELEASE_CLASS,
             "production_qualified": False,
             "machines": len(demo.pipeline.machines),
             "states": {

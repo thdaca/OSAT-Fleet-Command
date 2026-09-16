@@ -1,6 +1,8 @@
 # Student guide
 
-OSAT Fleet Command 0.2.0 is intentionally a minimum research build. Read it from `step01` to `step15`; the file names are the architecture map.
+OSAT Fleet Command 0.2.2 is intentionally a minimum research build with a
+transparent industrial edge-monitoring HMI prototype. Read it from `step01` to
+`step15`; the file names are the architecture map.
 
 ## The path through the code
 
@@ -23,9 +25,19 @@ Data quality asks whether telemetry is valid. Observability asks whether enough 
 
 Synthetic data can test and demonstrate the architecture. It is not real OSAT evidence. LIVE_EQUIPMENT is observe-only in this release; it cannot create actionable tickets. The optional RAG/LLM branch can only improve wording after deterministic evidence exists.
 
-The live/demo runtime is deliberately one machine per family in 0.2.0. Its `machines[family]` mapping is not a general plant inventory for WS-01, WS-02, and WS-03 at the same time. This does not prevent the family-data stage from learning across historical records from multiple machines of that family.
+The live/demo runtime is deliberately one machine per family in 0.2.2. Its `machines[family]` mapping is not a general plant inventory for WS-01, WS-02, and WS-03 at the same time. This does not prevent the family-data stage from learning across historical records from multiple machines of that family.
 
 Source identifiers must be explicitly reviewed and mapped to canonical health channels. Do not ingest recipes, PPIDs, wafer maps, geometry, proprietary process windows, or unknown equipment variables.
+
+## Reading the HMI
+
+Use **FLEET** for situational awareness, **MACHINE** for current telemetry and
+subsystem evidence, **PHYSICS** for Step-01 credibility and rejected-relation
+research, **MAINTENANCE** for downstream tickets, and **SYSTEM** for runtime,
+security, and authority facts. Phosphor amber is neutral; strong colors identify
+abnormal conditions, always with explicit text. The design is informed by
+industrial HMI, alarm-display, OT-security, and accessibility guidance; it has
+not undergone a formal conformance assessment.
 
 ## Safe first contribution
 

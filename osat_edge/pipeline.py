@@ -24,6 +24,7 @@ from .roadmap.step08_live_telemetry import (
     NoNewTelemetry,
     TelemetrySource,
     TelemetrySourceExhausted,
+    TelemetryStatus,
     assess_telemetry,
 )
 from .roadmap.step09_health_risk import HealthAssessment, HealthEngine
@@ -41,6 +42,8 @@ class PipelineResult:
     assessment: HealthAssessment
     fault_evidence: FaultEvidence | None
     ticket: MaintenanceTicket | None
+    telemetry_status: TelemetryStatus
+    feature_set: FeatureSet | None
 
 
 class MachinePipeline:
@@ -189,7 +192,13 @@ class MachinePipeline:
             ticket = create_or_update_ticket(
                 self.repository, fault_evidence, enrichment
             )
-        result = PipelineResult(assessment, fault_evidence, ticket)
+        result = PipelineResult(
+            assessment=assessment,
+            fault_evidence=fault_evidence,
+            ticket=ticket,
+            telemetry_status=status,
+            feature_set=feature_set,
+        )
         self.last_result = result
         return result
 

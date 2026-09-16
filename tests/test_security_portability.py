@@ -21,7 +21,7 @@ class SecurityPortabilityTests(unittest.TestCase):
         }
         present = {path.name for path in (ROOT / "osat_edge").glob("*.py")}
         self.assertTrue(old.isdisjoint(present))
-        self.assertEqual("0.2.0", VERSION)
+        self.assertEqual("0.2.2", VERSION)
 
     def test_source_uses_no_eval_or_hard_coded_unix_temp_path(self) -> None:
         source = "\n".join(path.read_text(encoding="utf-8") for path in (ROOT / "osat_edge").rglob("*.py"))

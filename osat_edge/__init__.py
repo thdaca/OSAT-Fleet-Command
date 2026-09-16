@@ -1,4 +1,4 @@
-"""OSAT Fleet Command 0.2.0 student research platform."""
+"""OSAT Fleet Command student research platform."""
 
 from .common import (
     DataOrigin,

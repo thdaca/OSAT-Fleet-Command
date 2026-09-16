@@ -1,750 +1,796 @@
-# Step 01 Physics / Engineering Library Research Review
-
-## 1. Purpose
-
-Step 01 turns engineering knowledge into small executable claims. Its purpose is
-not to maximize feature count. Its purpose is to decide, before a quantity can
-influence the PHM path, whether the mechanism, measurements, units, operating
-envelope, hidden variables, uncertainty, and falsification experiment are
-defensible.
-
-This document is the research basis for OSAT Fleet Command 0.2.1. The build is a
-research/development teaching system. It is not production qualified, does not
-claim causal diagnosis, and has not been validated on a real OSAT fleet. A
-relation marked `RUNTIME` is approved only for the existing research runtime and
-inside its stated conditions. That status is not an OEM endorsement or a claim
-that the relation is plant-ready.
-
-The central educational principle is:
-
-> A physics relation is an executable scientific claim, not merely an algebraic
-> feature.
-
-Rejected relations are therefore a positive result. They show where literature
-suggests a useful mechanism but current telemetry does not measure the variables
-needed to execute it honestly.
-
-## 2. Research method
-
-### 2.1 Review type and date
-
-This was a **structured engineering literature review**, not a formal systematic
-review. Searches were performed on 2026-08-31. The review was bounded to the nine
-machine families and the telemetry already approved in `machines.py`.
-
-### 2.2 Sources consulted
-
-Search and verification used:
-
-- publisher records and abstracts at ScienceDirect;
-- arXiv metadata and full preprint records;
-- ISO's official standards catalog;
-- BIPM/JCGM official metrology guides;
-- ASME's official VVUQ catalog;
-- NASA's official standards catalog and public handbook;
-- Google Patents for the full dicing-saw patent record;
-- NIST/NBS measurement references;
-- manufacturer technical documentation from NI, Keysight, Texas Instruments,
-  and Leybold;
-- the U.S. Army Corps of Engineers publication library;
-- Fraunhofer publication records for semiconductor transfer molding; and
-- DOI/publisher metadata for the cited wire-bond, laser, dicing, and molding
-  studies.
-
-Example search strings included:
-
-- `physics informed machine learning prognostics health management review`;
-- `wafer dicing spindle current load monitoring`;
-- `wafer dicing vibration force coupled dynamics`;
-- `motor torque constant current Kt application note`;
-- `ultrasonic wire bonding electrical impedance monitoring`;
-- `wire bonding ultrasonic generator voltage current harmonics`;
-- `laser diode optical output current temperature model`;
-- `IC test socket contact resistance degradation`;
-- `low resistance measurement current floor four wire thermal EMF`;
-- `transfer molding semiconductor cavity pressure in situ monitoring`;
-- `vacuum leak rate pressure rise volume`; and
-- `Darcy Weisbach pressure drop flow friction factor hydraulic diameter`.
-
-### 2.3 Inclusion and exclusion rules
-
-Sources were preferred in this order: standards and metrology guidance,
-peer-reviewed primary studies, peer-reviewed reviews, official manufacturer or
-equipment documentation, semiconductor application notes, patents, then
-recognized technical references. A runtime mechanism needed a primary,
-first-principles, or authoritative equipment basis; a review alone was not
-treated as equipment validation.
-
-Sources were included only when their title, organization/authors where
-practical, year, and DOI/standard/patent/document identifier could be checked.
-Random blogs, marketing claims, unsourced summaries, forum anecdotes, and
-AI-generated text were excluded. No source was used to infer a proprietary
-recipe, wafer map, customer process window, or confidential OEM constant.
-
-Several relevant articles were available only through publisher metadata and
-abstracts. In particular, the 2026 dicing-dynamics article and some conference
-records were not treated as if their full derivations had been reviewed. The
-code cites only the limited proposition visible in the verified record. Current
-commercial ADT/DISCO service manuals were not located in a legally accessible,
-public form and are not represented as reviewed evidence.
-
-### 2.4 Decision process
-
-For each family the review followed the same sequence:
-
-1. enumerate the approved channels and units;
-2. identify a plausible mechanism;
-3. locate evidence for the mechanism;
-4. map every equation variable to a measured channel;
-5. identify unmeasured dominant variables and measurement-semantic ambiguity;
-6. classify parameters as universal, machine-fitted, assumed, or unknown;
-7. define operating limits, numerical guards, uncertainty sources, and a
-   falsification experiment; and
-8. mark the claim `RUNTIME`, `RESEARCH_ONLY`, or `REJECTED`.
-
-The review did not score papers or claim exhaustive coverage. A future release
-should repeat the search with institutionally licensed databases and an
-equipment expert for each family.
-
-## 3. Physics-informed PHM state of the art
-
-Deng et al. organize physics-informed PHM by the form of knowledge and the point
-where it is introduced. Li et al. group physics-informed data-driven RUL work
-into physical-model/data fusion, stochastic degradation models, and PIML.
-Braun, Raible, and Huber review 212 studies using observational, inductive,
-learning, and hybrid biases. Taken together, the literature shows several broad
-integration patterns:
+# Step 01 Physics / Engineering Library — Maximum-Credibility Research Review
+
+Version reviewed: OSAT Fleet Command 0.2.1  
+Review date: 2026-08-31  
+Release class: RESEARCH / DEVELOPMENT BUILD  
+Physical validation complete: **NO**
+
+Review type: structured engineering literature and model-credibility review;
+this is not represented as a formal systematic review.
+
+## A. Executive summary
+
+Step 01 is an auditable registry of engineering claims, not an equation
+collection and not a claim of plant validation. This pass deliberately leaves
+only one relation on the runtime research path:
+
+- `spindle.current_speed_residual`, for the `wafer_saw` family only.
+
+That relation is **LITERATURE_SUPPORTED**, not bench validated. It produces an
+exact-machine, speed-conditioned current residual only inside its calibrated
+speed range. It must not be interpreted as force, failure probability, causal
+diagnosis, or a universal spindle-health limit.
+
+Two earlier runtime ideas were demoted:
+
+- The singulation spindle relation is research-only because evidence from
+  wafer dicing does not establish transferability to a different mechanism.
+- Final-test contact resistance is research-only because channel names and
+  units do not establish Kelvin sensing, contact isolation, settling, offset
+  compensation, or exclusion of relay, lead, fixture, and DUT voltage.
+
+Every machine family remains represented in the research catalog. Every record
+states the required measurand, measurement method, evidence claim, missing
+instrumentation, uncertainty and model-discrepancy sources, expected direction,
+sensor failure modes, residual FMEA, falsification path, and a controlled
+experiment. No present relation is claimed to have completed physical
+validation.
+
+## B. Physics is not an equation
+
+Writing a dimensionally correct equation does not establish that repository
+channels measure the variables in that equation. A defensible physical
+residual requires all of the following:
+
+- a mechanism tied to a named subsystem;
+- a precisely defined measurand and sensor path;
+- units, sign, timing, bandwidth, location, and operating-state semantics;
+- identifiable parameters under adequate excitation;
+- an applicability envelope and an explicit refusal to extrapolate;
+- controlled sensitivity to a target fault or degradation mechanism;
+- bounded response to nuisance variables and negative controls;
+- separation of measurement uncertainty from model-form discrepancy;
+- a plan to detect sensor faults that can mimic degradation;
+- held-out physical evidence appropriate to the intended use.
+
+Ohm's law, motor torque constants, pressure-rise relations, and force balances
+can all be correct while a proposed telemetry residual is invalid. For example,
+`V/I` has resistance units, but it is not contact resistance unless `V` is the
+contact-local voltage and `I` is the corresponding current under a valid
+measurement procedure.
+
+## C. Review methodology
+
+The review used a claim-by-claim process:
+
+1. Inspect the current machine profiles and canonical channels.
+2. State the smallest proposed mechanism without adding unobserved variables.
+3. Identify the exact measurands needed for the mechanism.
+4. Search standards, metrology guidance, peer-reviewed work, OEM technical
+   material, patents, and application notes for evidence and scope limits.
+5. Record what each source supports and what it does not support.
+6. Test dimensional meaning, sign, timing, bandwidth, location, and path.
+7. Identify structural and practical identifiability limitations.
+8. Separate measurement uncertainty, parameter uncertainty, operating
+   variability, alignment error, and model discrepancy.
+9. Enumerate target sensitivities, cross-sensitivities, sensor faults, and
+   falsification tests.
+10. Assign the conservative evidence maturity and lifecycle status.
+11. Permit Step 03 execution only for `RUNTIME_RESEARCH` records.
+
+This review verifies software behavior using synthetic arrays. That is software
+verification only. It does not increase physical-evidence maturity.
+
+## D. Search strategy and review date
+
+Searches were performed through 2026-08-31. Preference was given to official
+standards pages, BIPM/JCGM and NIST publications, DOI landing pages or publisher
+records, OEM documentation, and the original patent record. Search concepts
+included:
+
+- physics-informed PHM and system health management;
+- diagnostic residual robustness and model discrepancy;
+- structural and practical parameter identifiability;
+- measurement uncertainty, traceability, and calibration;
+- dicing spindle current, speed, load, force, and vibration;
+- dicing-saw spindle power and operating-speed scope;
+- Kelvin/four-wire contact-resistance measurement and wafer-probe contact;
+- web-tension roller dynamics;
+- vacuum pressure-rise leak testing;
+- wire-bond generator voltage/current impedance;
+- transfer-molding cavity pressure and force;
+- laser-marker optical power and condition monitoring;
+- motor torque/current and mechanism-to-force mapping.
+
+Sources that could not be verified sufficiently were not used as support.
+Preprints, patents, vendor application material, and vendor service pages are
+labelled as such; they are not presented as independent validation.
+
+## E. Source hierarchy and evidence boundaries
+
+The library records a source type because different sources support different
+claims.
+
+1. Standards and metrology guides support terminology, measurement practice,
+   condition-monitoring process, and applicability boundaries. They do not
+   automatically validate an equipment relation.
+2. Peer-reviewed primary research may support a mechanism within its actual
+   apparatus, population, and operating conditions. Transfer must be proven.
+3. Peer-reviewed reviews support research context and known limitations; they
+   do not calibrate an OSAT machine.
+4. OEM technical documents can establish product capabilities and operating
+   scope, but not a universal physical relationship.
+5. Manufacturer application notes can provide useful measurement practice,
+   but must be checked against the actual instrument and topology.
+6. Patents show that an implementation or idea was disclosed. They are not
+   performance validation.
+7. Preprints are provisional and must be identified as such.
+
+SEMI E10, E58, and E116 provide relevant equipment state/performance context:
+E10-0422 is current for RAM and utilization; E58-0703 is an older/inactive
+automated RAM standard; E116 covers equipment performance tracking. None of
+them makes the Step 01 residuals physically valid, and this project does not
+claim compliance.
+
+## F. Credibility framework
+
+Each executable relation and research candidate carries:
+
+- `EvidenceClaim`: the precise supported statement, references, scope, and
+  limitation;
+- `MeasurementRequirement`: measurand, unit, method, path, semantics, sign,
+  timing, bandwidth, calibration, traceability, resolution, and present status;
+- `ParameterSpec`: interpretation, unit, source, domain, excitation,
+  identifiability, and recalibration triggers;
+- separate measurement-uncertainty and model-discrepancy records;
+- directional target-fault sensitivities and cross-sensitivities;
+- sensor failure modes and residual FMEA;
+- an experiment plan with negative controls, DOE, held-out validation,
+  acceptance, rejection, recalibration, invalidation, and safety requirements.
+
+The lifecycle states are `CANDIDATE`, `RESEARCH_ONLY`, `RUNTIME_RESEARCH`,
+`INVALIDATED`, and `REJECTED`. Lifecycle status answers whether software may
+execute a claim. Evidence maturity answers what physical evidence supports it.
+The two concepts are intentionally separate.
+
+The library audit rejects internally incomplete records, unknown reference
+keys, fitted parameters without `ParameterSpec`, model-discrepancy entries
+mislabelled as measurement uncertainty, and non-runtime records leaked through
+`relations_for_family`.
+
+## G. Metrology and measurement semantics
+
+JCGM 200 defines the vocabulary needed to distinguish a channel label from a
+measurand. JCGM 100 provides a framework for measurement models and uncertainty
+propagation. ISO 10012 addresses measurement-management systems. ISO 17359 asks
+condition-monitoring programs to define technique, accuracy, operating
+conditions, acquisition rate, and measurement locations. ISO 16063-21 covers
+comparison calibration of vibration transducers.
+
+For every current repository channel used or considered by Step 01, the most
+defensible status is generally:
+
+`AVAILABLE_BUT_SEMANTICS_UNVERIFIED`
+
+The repository supplies canonical names and units, but does not establish a
+traceable sensor path, calibration certificate, bandwidth, controller filtering,
+or contact/fixture topology. Missing contextual variables are marked `MISSING`.
+No current channel is upgraded to
+`AVAILABLE_AND_SEMANTICALLY_SUPPORTED` merely because tests can construct a
+matching array.
+
+High-value semantic checks include:
+
+- actual versus commanded spindle speed;
+- phase, RMS, DC-bus, or controller-estimated current;
+- time interval and filtering represented by each sample;
+- pressure reference and sensor location;
+- flow branch and direction;
+- force sensor location and dynamic response;
+- optical measurement plane and spectral response;
+- Kelvin force/sense topology and contact-path isolation.
+
+## H. Identifiability
+
+Raue et al. distinguish structural from practical identifiability. A familiar
+equation may be structurally meaningful but its parameters remain practically
+unidentifiable when excitation or measurement coverage is weak.
+
+For the active spindle relation, constant speed cannot identify slope and
+intercept. Calibration therefore requires at least 20 finite physical samples,
+at least six distinct speed levels, and a robust speed span of at least 100 RPM
+or 0.2% of median speed, whichever is greater. Those are software guards for a
+research fit, not sufficient physical-validation criteria.
+
+The other candidates have larger identifiability gaps:
+
+- web tension needs motion phase, inertia, geometry, transmission, and friction;
+- hydraulic resistance needs a defined pressure drop and geometry;
+- vacuum leak rate needs a known isolated volume and valve/pump state;
+- wire-bond impedance needs voltage, current, phase, and bond timing;
+- clamp force balance needs actual force and approved projected area;
+- laser output needs architecture, pulse, controller, and measurement-plane state;
+- punch force needs stroke phase and mechanism parameters;
+- contact resistance needs contact-isolated measurement topology.
+
+## I. Applicability envelopes and extrapolation
+
+The spindle fit records the 2.5th and 97.5th percentiles of healthy calibration
+speed as inclusive applicability boundaries. Runtime computation discards
+samples outside those boundaries. If fewer than three valid in-range samples
+remain, it emits no physical feature.
+
+This is refusal, not clipping and not extrapolation. The speed envelope is only
+one dimension. Controller configuration, current semantics, blade/material,
+feed, cut depth, coolant, temperature, and cycle phase also define the real
+domain and remain research blockers until observed and validated.
+
+No ISO 20816 vibration alarm is used. ISO 20816-3:2022 covers industrial
+machinery above 15 kW and operating from 120 to 30,000 r/min. DISCO publicly
+lists dicing-saw spindle examples around 1.8 kW and 60,000 min⁻¹. That mismatch
+is an explicit example of why a published standard threshold cannot be copied
+outside its stated machinery scope.
+
+## J. Model discrepancy
+
+Kennedy and O'Hagan treat model inadequacy as distinct from uncertain fitted
+parameters. Brynjarsdóttir and O'Hagan show that ignoring discrepancy can bias
+physical parameter inference and make uncertainty look too small.
+
+For the spindle relation, model discrepancy includes omitted feed, depth,
+material, blade state, coolant, acceleration, controller behavior, thermal
+effects, and possible nonlinearity. These are not current-sensor uncertainty.
+They can shift the residual even if both sensors are perfectly calibrated.
+
+Every candidate records analogous omitted physics. The software does not invent
+a discrepancy distribution or combine it into a false confidence interval.
+
+## K. Uncertainty framework
+
+The code separates five categories:
+
+- measurement uncertainty;
+- parameter uncertainty;
+- time/alignment uncertainty;
+- operating-condition variability;
+- model discrepancy.
+
+An optional helper implements scalar linear propagation:
+
+`u_y² = J Σ Jᵀ`
+
+It validates dimensions, finiteness, symmetry, and positive semidefiniteness.
+It returns no uncertainty unless the caller supplies an actual Jacobian and
+covariance. The project presently has no traceable plant-sensor uncertainty
+budgets, so it does not fabricate distributions, coverage factors, or confidence
+levels.
+
+## L. Robust residual construction and diagnostics
+
+The active relation fits a Huber regression after centering/scaling speed for
+numerical conditioning. It returns parameters in physical units:
+
+- current-speed slope in A/RPM;
+- current intercept in A;
+- healthy residual scale in A;
+- calibrated speed span, lower bound, and upper bound in RPM.
+
+Residual output is the median of aligned, finite, physically plausible,
+in-envelope sample residuals. This protects against a minority of gross
+outliers but does not make the relation fault-specific.
+
+Offline diagnostics report:
+
+- residual median and MAD;
+- chronological first-half/second-half drift;
+- dependence on a supplied conditioning variable;
+- lag-one and maximum short-lag autocorrelation;
+- finite output fraction;
+- fraction outside the applicability envelope;
+- deterministic chronological-block parameter stability.
+
+Chronological blocks are used instead of bootstrap resampling because the main
+question is stability over acquisition order, not a synthetic IID sampling
+distribution.
+
+## M. Fault sensitivity versus specificity
+
+Sensitivity means a target perturbation moves a residual detectably. Specificity
+means other causes do not create the same movement. The active spindle relation
+has a literature-supported expectation that added load may increase reported
+current at comparable speed. Blade wear/clogging sensitivity remains a
+hypothesis.
+
+A positive spindle residual can also result from feed/depth/material changes,
+coolant behavior, acceleration, drive/control changes, temperature, current
+offset, speed bias, or alignment error. The relation therefore cannot localize
+cause and must not be described as causal blade diagnosis.
+
+Each residual FMEA records `can_localize_cause=False` under present evidence.
+Localization requires additional independent measurements or controlled
+evidence—not more assertive labels.
+
+## N. Sensor failure modes and negative controls
+
+Sensor faults can mimic physical degradation:
+
+- positive current offset can mimic extra spindle load;
+- negative speed bias can produce an apparent positive current residual;
+- stale or stuck speed/current can suppress or create residuals;
+- pressure or flow bias can mimic hydraulic restriction;
+- voltage offset or current-scale error can mimic high contact resistance;
+- optical-power sensor drift can mimic laser degradation;
+- force/current gain drift can mimic tooling changes.
+
+Experiment plans therefore include negative controls such as injected sensor
+offsets, independently measured references, no-cut/no-contact cycles, fixed-load
+speed changes, fixed-resistance lead/relay changes, and thermal repeats. A
+residual that cannot distinguish a target perturbation from a credible sensor
+fault is not ready for authoritative use.
+
+## O. Evidence maturity ladder
+
+The exact ladder is:
+
+1. `HYPOTHESIS` — plausible mechanism, not adequately supported for the item.
+2. `LITERATURE_SUPPORTED` — relevant literature supports the bounded mechanism.
+3. `MEASUREMENT_SEMANTICS_VERIFIED` — actual sensor path, measurand, timing,
+   units, and state semantics have been verified.
+4. `BENCH_VALIDATED` — controlled physical bench evidence passes a predeclared
+   protocol with independent artifacts.
+5. `SINGLE_MACHINE_VALIDATED` — held-out evidence on one identified machine.
+6. `MULTI_MACHINE_VALIDATED` — evidence on at least two appropriate machines,
+   including transfer/variation analysis.
+7. `PROSPECTIVE_PILOT_VALIDATED` — preregistered prospective plant evaluation.
+
+Software unit tests, synthetic simulation, successful demo execution, and a
+clean internal audit do not count as bench validation. The code prevents an
+executable relation from being declared `BENCH_VALIDATED` or higher without an
+independently verified validation-evidence record. No present relation has such
+a record.
+
+## P. Machine-family research review
+
+### Wafer mount
+
+Candidate: roller-current/web-tension consistency. Literature supports that web
+tension and velocity depend on roller dynamics and nonideal behavior; motor
+current can relate to torque under bounded assumptions. The repository lacks
+verified drive semantics, roller geometry, transmission, motion phase,
+acceleration, and friction state. Status: `RESEARCH_ONLY`,
+`LITERATURE_SUPPORTED`.
+
+### Wafer saw
+
+Active: exact-machine speed-conditioned spindle current. A dicing-saw patent
+uses spindle feedback current as a load signal, and dicing research establishes
+coupled force/vibration/fracture dynamics. This supports a bounded research
+proxy, not force inference or diagnosis. Status: `RUNTIME_RESEARCH`,
+`LITERATURE_SUPPORTED`.
+
+Candidate: coolant hydraulic resistance. The current pressure name does not
+define a differential pressure across a named restriction. Status:
+`RESEARCH_ONLY`, `HYPOTHESIS`.
+
+### Die attach
+
+Candidate: nozzle vacuum pressure-rise leak rate. The equation needs known
+isolated volume, valve and pump isolation, timed pressure data, and thermal
+conditions. Running vacuum alone cannot identify leakage. Status: `REJECTED`,
+`LITERATURE_SUPPORTED` as a test method but not as a runtime relation.
+
+### Wire bond
+
+Candidate: ultrasonic input impedance. Published work uses voltage plus current,
+phase/harmonics, and bond-cycle timing or dedicated vibration. Present channels
+cannot reconstruct that measurement. Status: `REJECTED`,
+`LITERATURE_SUPPORTED`.
+
+### Molding
+
+Candidate: clamp/cavity force balance. Transfer-molding literature supports
+cavity pressure, temperature, phase, material, and cure context. Hydraulic
+pressure is not actual clamp force without geometry and losses. Status:
+`RESEARCH_ONLY`, `LITERATURE_SUPPORTED`.
+
+### Laser marking
+
+Candidate: delivered-power/drive/temperature consistency. KEYENCE documents a
+built-in thermopile power monitor in some marker products, and TRUMPF documents
+equipment-specific laser condition monitoring. Neither supplies a transferable
+equation for the unknown marker architecture. Status: `RESEARCH_ONLY`,
+`LITERATURE_SUPPORTED`.
+
+### Trim / form
+
+Candidate: motor-current/punch-force consistency. Torque/current does not map to
+force without torque constant, transmission, linkage, stroke phase, inertia,
+and friction. Status: `RESEARCH_ONLY`, `LITERATURE_SUPPORTED` at the motor-law
+level only.
+
+### Singulation
+
+Candidate: speed-conditioned spindle current. Shared channel names and broad
+cutting similarity do not show that wafer-dicing evidence transfers to the
+singulation station. Direct evidence on actual singulation mechanics is needed.
+Status: `RESEARCH_ONLY`, `HYPOTHESIS`.
+
+### Final test
+
+Candidate: contact resistance. Keithley guidance supports four-wire sensing,
+offset control, current reversal, settling, and contact-local measurement.
+Liu et al. show that contact condition matters in wafer-probe testing, but wafer
+probes are not final-test sockets. Repository channel names do not prove the
+measurement topology. Status: `RESEARCH_ONLY`, `LITERATURE_SUPPORTED`.
+
+## Q. Active runtime research relation
+
+`spindle.current_speed_residual` is active for `wafer_saw` only.
+
+The calibration model is:
+
+`I_expected = a_machine n_actual + b_machine`
+
+The residual is:
+
+`r_I = I_reported - I_expected`
+
+The computation is permitted only when:
+
+- the family is `wafer_saw`;
+- calibration and inference refer to the same exact machine;
+- the controller and sensor configuration is unchanged;
+- current and speed units match exactly;
+- timestamps overlap through the unchanged Step 03 alignment path;
+- speed is positive, current is nonnegative, and values are finite;
+- speed lies inside the robust calibrated range;
+- at least three usable samples remain.
+
+What it means: a research indicator of current/load consistency conditional on
+speed under calibration assumptions.
+
+What it does not mean: force, wear amount, failure probability, remaining useful
+life, causal diagnosis, a safety alarm, or an authoritative maintenance action.
+
+## R. Research-only relations
+
+The following remain visible but are not returned to Step 03:
+
+- wafer-mount roller-current/web-tension consistency;
+- wafer-saw coolant hydraulic resistance;
+- molding clamp/cavity force balance;
+- laser output/drive/temperature consistency;
+- trim/form motor-current/punch-force consistency;
+- singulation spindle current/speed consistency;
+- final-test contact resistance.
+
+Research-only is not a negative scientific result. It records that the mechanism
+could have value but the present measurement/evidence boundary is insufficient
+for runtime evidence. Each candidate includes a concrete next experiment rather
+than placeholder metadata.
 
-- **Data/input level:** physical quantities, residuals, simulated data, and
-  mechanistically selected features are supplied to a statistical learner.
-- **Architecture level:** model structure, state variables, graph structure, or
-  differential-equation components encode prior knowledge.
-- **Loss/constraint level:** conservation, monotonicity, boundary conditions, or
-  other constraints penalize physically inconsistent learning.
-- **Hybrid/model fusion:** a physical model and data-driven correction or
-  discrepancy model contribute jointly.
-- **Residual/model-based diagnosis:** measured behavior is compared with a
-  reference model, with residuals interpreted under an explicit fault and
-  operating-condition hypothesis.
+## S. Rejected relations
 
-The same reviews identify unresolved problems: incomplete physics, sparse
-failure evidence, model discrepancy, uncertainty, changing operating regimes,
-transfer across machines, and interpretability that is often asserted more
-strongly than demonstrated. Braun et al. also report concentration on batteries
-and bearings and a large share of problem-specific solutions. That limits what
-can be inferred for OSAT equipment.
+Two candidates are rejected from the current telemetry architecture:
 
-Step 01 uses the conservative data/input and residual route. It does not add a
-neural architecture, physics-constrained loss, symbolic discovery, or universal
-equation library. The scientific contribution sought here is traceability from
-source to mechanism to telemetry to executable test—not model sophistication.
+- Die-attach leak rate: without a controlled isolation event and known volume,
+  a live vacuum value has no unique leak-rate meaning.
+- Wire-bond ultrasonic impedance: without synchronized voltage/current phase,
+  suitable bandwidth, and bond-cycle timing, impedance cannot be reconstructed.
 
-ISO 13379-1:2025 supplies general diagnostic-development guidance, while JCGM,
-ASME VVUQ, and NASA model-credibility documents emphasize explicit measurands,
-uncertainty sources, intended use, model-form limitations, and validation.
-Those documents informed the review gate. The project does not claim compliance
-with any of them.
+Rejected means the proposed relation cannot be implemented honestly from the
+present signals. It does not assert that the underlying physical method is
+invalid when properly instrumented.
 
-## 4. What OSAT Fleet Command Step 01 does
+## T. Instrumentation roadmap
 
-The implementation contains three deliberately small concepts:
+Priority 1 — verify the active spindle path:
 
-- `ResearchReference`: verified short provenance stating exactly what a source
-  supports;
-- `PhysicsRelation`: an executable runtime computation plus mechanism,
-  assumptions, validity/invalidity conditions, confounders, calibration,
-  identifiability, uncertainty, sensitivity, cross-sensitivity,
-  instrumentation gaps, and falsification tests; and
-- `ResearchCandidate`: a documented relation that is scientifically plausible
-  or considered-and-rejected but cannot execute with current evidence.
+- controller documentation for actual speed and reported current;
+- independent tachometer and calibrated current reference;
+- filter/lag characterization;
+- feed, cut depth, material, blade, coolant, temperature, and phase context;
+- safe reference load/force and sensor-fault negative controls.
 
-`RelationKind` prevents epistemic overstatement:
+Priority 2 — establish direct high-value measurands:
 
-- `FIRST_PRINCIPLES` is a direct law or conservation statement;
-- `CONSTITUTIVE` is an established relation conditional on system/material
-  properties;
-- `SEMI_EMPIRICAL` has physical structure and fitted parameters;
-- `MACHINE_FITTED` has a mechanistic structure whose parameters belong to the
-  exact machine; and
-- `DIAGNOSTIC_PROXY` is supported as an indicator but is not a direct law.
-
-`relations_for_family()` exposes only `RUNTIME` records. Step 03 is unchanged and
-cannot see research-only or rejected candidates. `research_catalog_for_family()`
-exists solely for student/research inspection. `audit_physics_library()` checks
-record consistency without creating a configuration framework.
-
-The runtime computations remain deterministic, vectorized, offline, and O(n) in
-window length. No network, symbolic solver, Monte Carlo inference, model search,
-or LLM is involved.
-
-## 5. Relation acceptance gate
-
-A relation is runtime-enabled only when every applicable gate is satisfied.
-
-### Gate A — mechanism
-
-There must be a defensible physical or engineering mechanism. Correlation and
-dimensional validity by themselves are insufficient.
-
-### Gate B — measurement semantics
-
-Channel meanings must correspond to equation variables. A channel called
-`pressure` is not automatically differential pressure; a current channel is not
-automatically torque.
-
-### Gate C — units
-
-Every input unit and output unit must be explicit and dimensionally sensible.
-
-### Gate D — observability
-
-Dominant variables must be measured or defensibly stable within a narrow
-declared regime. If an omitted variable can dominate, the relation is not
-runtime-ready.
-
-### Gate E — identifiability
-
-Fitted parameters require enough independent excitation. A regression slope on
-constant input is not an identified parameter.
-
-### Gate F — operating envelope
-
-Startup, steady processing, reversal, material class, controller mode, and other
-conditions that bound use must be stated.
-
-### Gate G — confounders
-
-Alternative causes of residual movement must be recorded. Sensitivity is not
-specificity.
-
-### Gate H — numerical robustness
-
-The implementation must control division by zero, non-finite input, overflow,
-outliers, extrapolation, and degenerate fitting.
-
-### Gate I — evidence
-
-At least one high-quality source must support the actual mechanism claimed. An
-equipment patent can document one implementation; it cannot establish a
-universal relation for every machine.
-
-### Gate J — falsifiability
-
-A concrete controlled experiment must be able to invalidate the relation.
-
-Passing the gate means “usable as research evidence within the declared
-runtime,” not “validated diagnostic.”
-
-## 6. Machine-family research matrix
-
-### 6.1 Wafer mount
-
-- **Existing telemetry:** vacuum pressure [kPa], roller motor current [A], roller
-  temperature [°C], arm tracking error [µm], optional web tension [N].
-- **Mechanism investigated:** motor current → torque → roller tangential force →
-  web tension.
-- **Candidate:** `T_web ≈ f(I, Kt, radius, transmission, acceleration, friction,
-  phase)`.
-- **Missing variables:** torque constant, radius, gearing, acceleration, motion
-  phase, friction state, and drive-current semantics.
-- **Evidence:** manufacturer motor documentation supports torque constant, not
-  this machine's force mapping.
-- **Status:** `RESEARCH_ONLY`.
-- **Rationale:** current and tension are both present, but an unconstrained fit
-  would mix dynamics and friction and would be correlation rather than a torque
-  balance.
-
-### 6.2 Wafer saw / dicing
-
-- **Existing telemetry:** spindle current [A], speed [RPM], vibration [mm/s],
-  coolant pressure [MPa], flow [L/min], temperature [°C], feed-axis error [µm].
-- **Mechanisms investigated:** electromechanical load consistency; hydraulic
-  pressure-loss/flow behavior.
-- **Candidates:** `I - (b + m·speed)` and Darcy–Weisbach-type `Δp(Q)`.
-- **Missing variables:** feed rate, depth, kerf, blade diameter/wear, material,
-  controller state; for coolant, differential pressure, geometry, properties,
-  pump and valve state.
-- **Evidence:** US6168500B1 documents spindle feedback current used as dicing
-  load signal; motor documentation supports current/torque coupling; the 2026
-  dicing abstract documents richer vibration/force/fracture dynamics; USACE
-  guidance documents required hydraulic variables.
-- **Status:** spindle residual `RUNTIME`; coolant relation `RESEARCH_ONLY`.
-- **Rationale:** the spindle claim is deliberately limited to exact-machine
-  electromechanical consistency. The pressure channel cannot presently be
-  interpreted as a known pressure drop.
-
-### 6.3 Die attach
-
-- **Existing telemetry:** nozzle vacuum [kPa], z-axis current [A], position error
-  [µm], stage temperature [°C], settle time [ms].
-- **Mechanism investigated:** isolated-volume pressure rise for vacuum leakage.
-- **Candidate:** `qL = V·Δp/Δt`.
-- **Missing variables:** known volume, isolation/valve/pump state, a defined
-  pressure-rise interval, flow, and gas temperature.
-- **Evidence:** Leybold's vacuum reference supports the equation and explicitly
-  warns about outgassing/virtual leaks.
-- **Status:** `REJECTED` for current instrumentation.
-- **Rationale:** one running vacuum value cannot identify leakage or separate it
-  from commanded pneumatics and pickup state.
-
-### 6.4 Wire bond
-
-- **Existing telemetry:** bond force [gf], bond-head current [A], ultrasonic
-  current [mA], frequency shift [Hz], clamp temperature [°C].
-- **Mechanism investigated:** transducer/bond interaction changes mechanical
-  vibration and electrical input impedance/harmonics.
-- **Candidate:** complex/time-frequency `Z = V/I` plus vibration/harmonic
-  features.
-- **Missing variables:** ultrasonic voltage, voltage-current phase, waveform
-  bandwidth, bond-cycle phase, transducer amplitude, and harmonics.
-- **Evidence:** Or et al. use a dedicated PZT sensor; Feng et al. acquire both
-  voltage and current and resolve harmonics/phases; Zhang et al. use real and
-  imaginary input impedance.
-- **Status:** `REJECTED` for current instrumentation.
-- **Rationale:** current plus low-rate frequency shift cannot reconstruct
-  impedance. Inventing impedance would contradict the cited methods.
-
-### 6.5 Molding
-
-- **Existing telemetry:** cavity pressure [bar], transfer motor current [A], mold
-  temperature [°C], clamp pressure [bar], plunger position error [mm].
-- **Mechanism investigated:** cavity-pressure × projected-area force opposed by
-  clamp force through fill, pack, and cure.
-- **Candidate:** `F_required(t) = p_cavity(t)·A_projected` with dynamic/material
-  corrections.
-- **Missing variables:** actual clamp force, cylinder/transmission geometry,
-  projected area, process phase, true plunger position, resin rheology and cure.
-- **Evidence:** semiconductor transfer-molding studies use in-cavity pressure,
-  tool/melt-front temperature, transfer speed, material condition, and
-  dielectric cure data; machine settings are not equivalent to in-cavity state.
-- **Status:** `REJECTED`.
-- **Rationale:** a simple pressure ratio would be unsupported, and some geometry
-  may be protected process information that Step 01 must not ingest.
-
-### 6.6 Laser marking
-
-- **Existing telemetry:** delivered laser power [W], drive current [A], laser
-  temperature [°C], galvo current [A], tracking error [µrad].
-- **Mechanism investigated:** above-threshold laser-diode output with
-  temperature-dependent threshold current and slope efficiency.
-- **Candidate:** `Pout ≈ ηs(T)·max(I-Ith(T),0)`.
-- **Missing variables:** verified laser architecture, junction temperature,
-  internal feedback/controller state, duty cycle/Q-switch state, optical losses.
-- **Evidence:** Borràs et al. model diode optical output versus current and
-  temperature and discuss feedback-controlled output.
-- **Status:** `RESEARCH_ONLY`.
-- **Rationale:** the marker may be fiber, pulsed/Q-switched, or closed-loop; the
-  generic diode relation cannot be assigned to an unknown source architecture.
-
-### 6.7 Trim / form
-
-- **Existing telemetry:** punch force [kN], press motor current [A], die vibration
-  [mm/s], tracking error [µm], die temperature [°C].
-- **Mechanism investigated:** motor current → torque → transmission/linkage →
-  punch force by stroke phase.
-- **Candidate:** `F(θ) ≈ Kt·I·G·mechanical_advantage(θ)/losses`.
-- **Missing variables:** Kt, gearing, linkage geometry, stroke phase,
-  acceleration, friction/losses, synchronized high-rate force/current.
-- **Evidence:** manufacturer motor documentation supports only the first
-  current-to-torque link.
-- **Status:** `RESEARCH_ONLY`.
-- **Rationale:** force is measured, which makes a controlled experiment possible,
-  but a single unphased fit would mix inertia, tooling, and friction.
-
-### 6.8 Singulation
-
-- **Existing telemetry:** blade vibration [mm/s], spindle current [A], optional
-  speed [RPM], coolant flow [L/min], feed-position error [µm].
-- **Mechanisms investigated:** exact-machine spindle load consistency; coupled
-  blade vibration/load dynamics.
-- **Candidates:** current-speed residual; high-rate vibration/load model.
-- **Missing variables:** feed, depth, blade/material state, controller state; for
-  dynamics, sensor bandwidth/axis, tachometer/order reference, high-rate data.
-- **Evidence:** motor/load and dicing dynamics sources support the limited
-  mechanisms, not a transferable force equation.
-- **Status:** spindle residual `RUNTIME`; dynamic vibration relation
-  `RESEARCH_ONLY`.
-- **Rationale:** the low-rate scalar vibration channel cannot support the
-  spectral/dynamic model. Such work belongs on a dedicated DSP path.
-
-### 6.9 Final test
-
-- **Existing telemetry:** contact voltage drop [mV], site current [A], socket
-  temperature [°C], handler current [A], handler vibration [g].
-- **Mechanisms investigated:** Ohmic path resistance; contact-path dissipation.
-- **Candidates:** `R[mΩ] = median(V[mV]/I[A])`; `P[mW] = V[mV]·I[A]`.
-- **Missing variables:** Kelvin topology, contact-only voltage, relay/lead/DUT
-  separation, contact force, insertion count, settling state, per-pin identity.
-- **Evidence:** NIST/NBS supports resistance measurement principles; Keysight
-  documents low-resistance safeguards; NI documents socket spring-pin wear,
-  debris, and intermittency.
-- **Status:** resistance `RUNTIME`; power `RESEARCH_ONLY`.
-- **Rationale:** resistance is more directly connected to series-path change and
-  removes commanded current magnitude from the feature. Power remains valid
-  algebra but is less direct and strongly current-dependent.
-
-## 7. Active runtime relations
-
-### 7.1 `spindle.current_speed_residual`
-
-**Families:** wafer saw and singulation.
-
-**Interpretation:** an exact-machine electromechanical spindle-load consistency
-residual conditioned on speed. It is not cutting force, blade force, failure
-probability, or causal diagnosis.
-
-The healthy calibration model is:
-
-```text
-I_expected[A] = b_machine[A] + m_machine[A/RPM] × speed[RPM]
-I_residual[A] = median(I_measured - I_expected)
-```
-
-The linear structure is mechanistically motivated by motor current/load behavior
-and dicing equipment evidence, but both coefficients are machine-fitted. They
-are not universal torque or cutting-force constants.
-
-**Numerical and calibration safeguards:**
-
-- at least 20 finite, positive-speed, non-negative-current samples;
-- 5th–95th percentile speed span of at least 100 RPM and 0.2% of median speed;
-- centered/scaled speed for numerical conditioning;
-- Huber robust regression for moderate current outliers;
-- finite coefficient/residual checks; and
-- median/MAD residual scale recorded with a numerical floor. The scale is not a
-  confidence interval or health threshold.
-
-The robust span is important. One extreme speed sample cannot make a
-constant-speed dataset identifiable. A fit with insufficient excitation fails
-clearly.
-
-**Known:** motor torque can relate to current under known motor/controller
-conditions; a dicing-saw design uses feedback current as a load signal; dicing
-forces interact with richer process and vibration variables.
-
-**Assumed:** the channels mean drive/load-current magnitude and true spindle
-speed; intervals are steady processing; omitted process variables are stable
-enough for comparison; current/speed controller semantics have not changed.
-
-**Fitted:** slope, intercept, robust residual scale, and observed healthy speed
-span belong to the exact installed machine.
-
-**Unknown:** feed, depth, kerf, blade condition/geometry, material, controller
-state, and calibrated torque/force mapping.
-
-**Sensitivity:** positive movement can accompany increased load, friction,
-clogging, blade wear, or bearing load. **Specificity is low:** material, feed,
-depth, coolant, acceleration, controller changes, and current-sensor bias can
-move the same residual.
-
-**Falsification:** repeat controlled healthy runs across speed. If the relation
-is not stable, or if controlled load changes at fixed speed do not move the
-residual consistently, deactivate it for that equipment. A motor/drive or
-controller change invalidates calibration until re-tested.
-
-### 7.2 `contacts.contact_resistance`
-
-**Family:** final test.
-
-**Interpretation:** an aggregate aligned positive resistance of the measured
-contact path. It is not necessarily the resistance of a single spring pin and is
-not a specific diagnosis of contamination, wear, or misalignment.
-
-```text
-R_sample[mΩ] = V_drop[mV] / I_site[A]
-R_output[mΩ] = median(valid aligned R_sample)
-```
-
-The unit follows directly because 1 mV / 1 A = 1 mΩ. Median of aligned sample
-ratios is used rather than ratio of medians so voltage and current from different
-operating instants are not combined. The median also limits isolated contact
-bounce/outlier influence.
-
-**Numerical safeguards:** current must exceed the larger of 1 µA and 0.1% of the
-window's 90th-percentile absolute current. This is explicitly a numerical and
-measurement-resolution guard, not a production health limit. At least three and
-at least half of the finite paired samples must remain. Voltage/current polarity
-must imply non-negative passive resistance. NaN, infinity, division singularity,
-and overflow cannot emit a finite-looking relation output.
-
-**Known:** Ohm's law supports V/I; socket wear, debris, and intermittent pins can
-affect connectivity; precision low-resistance measurement requires adequate
-current, synchronization, offset control, and preferably Kelvin sensing.
-
-**Assumed:** voltage and current refer to one path and interval, polarity is
-consistent, the interval is settled, and other series drops remain fixed enough
-for comparison.
-
-**Fitted:** no equation coefficient. A real deployment still needs an
-exact-fixture reference distribution and repeatability study; downstream exact
-machine modeling handles the reference, not Step 01.
-
-**Unknown:** whether sensing is Kelvin, how much relay/lead/DUT voltage is
-included, per-pin identity, contact force, insertion count, and source-settling
-state.
-
-**Sensitivity:** a sustained positive shift can accompany increasing series
-resistance or less repeatable contacts. **Specificity is low:** relay, lead, DUT,
-temperature, range, timing, offset, and fixture changes can produce the same
-shift. Intermittent opens can instead reduce usable samples.
-
-**Falsification:** repeat known-good contacts under controlled current and
-temperature and compare with a traceable/four-wire reference. Deactivate the
-indicator if repeatability is poor, controlled resistance changes are not
-recovered, or other series elements dominate.
-
-## 8. Research-only relations
-
-### Wafer-mount roller current / web tension
-
-The current-to-torque mechanism is plausible and both current and tension are
-available. Activation waits for motion phase, acceleration, drive semantics,
-transmission/roller geometry, and a controlled tension experiment.
-
-### Wafer-saw coolant hydraulic resistance
-
-The old `median(pressure)/median(flow)` runtime feature was removed. A valid
-hydraulic model needs a pressure **drop** across a named element plus geometry,
-fluid/regime information, and valve/pump state. `coolant_pressure` does not state
-sensor location or differential semantics.
-
-### Laser output / current / temperature
-
-The diode relation is supported for characterized diode devices. Activation
-waits for confirmation that this marker uses that architecture and for controller
-mode, pulse/duty-cycle, junction-temperature, and optical-reference data.
-
-### Trim/form current / punch force
-
-Measured punch force makes future calibration possible, but stroke phase,
-linkage, torque constant, acceleration, and friction are needed before the fit
-has mechanical meaning.
-
-### Singulation vibration / load dynamics
-
-Dynamic vibration-force work requires defined high-rate sensor bandwidth,
-mounting/axis, order reference, and process context. The ordinary low-rate
-telemetry path is intentionally not converted into a speculative FFT feature.
-
-### Final-test contact dissipation power
-
-`mV × A = mW` is dimensionally correct, but power is strongly driven by commanded
-current and less direct for contact degradation than resistance. It remains an
-experimental thermal quantity and cannot enter Step 03.
-
-## 9. Rejected relations and instrumentation gaps
-
-### Die-attach nozzle leak rate
-
-Rejected because `nozzle_vacuum` alone does not provide known volume,
-isolation/valve/pump state, or a controlled `Δp/Δt`. Needed: a known isolated
-volume, event/valve state, calibrated rate-of-rise acquisition, temperature, and
-ideally flow/reference leak. A single vacuum value must not be labeled leak
-rate.
-
-### Wire-bond ultrasonic impedance
-
-Rejected because current plus frequency shift cannot yield complex impedance or
-the published waveform/harmonic features. Needed: synchronized ultrasonic
-voltage and current waveforms, phase, sufficient bandwidth, bond-cycle trigger,
-and optionally a calibrated PZT vibration channel.
-
-### Molding clamp/cavity force balance
-
-Rejected because hydraulic pressure is not actual clamp force without cylinder
-geometry/losses, and cavity behavior is phase/material/cure dependent. Needed:
-actual force, phase/position, approved projected area, and in-cavity/cure
-instrumentation. If that requires proprietary package geometry or recipe data,
-the relation remains outside this equipment-health library.
-
-These records demonstrate a crucial boundary: useful literature plus
-insufficient telemetry equals no runtime relation.
-
-## 10. Uncertainty and model discrepancy
-
-JCGM 100 begins with a well-defined measurand and an uncertainty model. JCGM 101
-provides Monte Carlo propagation when input probability distributions and the
-measurement model are justified. Those prerequisites are not present here:
-sensor calibration certificates, covariance, resolution models, and validated
-input distributions are absent. Step 01 therefore documents uncertainty
-**sources** and does not manufacture numerical confidence intervals.
-
-Relevant uncertainty sources include:
-
-- measurement accuracy, calibration drift, quantization, offsets, and range;
-- timestamp alignment and source/settling timing;
-- finite calibration data and fitted-parameter uncertainty;
-- operating-condition uncertainty;
-- omitted variables; and
-- model-form discrepancy.
-
-Measurement noise and model discrepancy are different. A residual can change
-because the machine degraded, the operating regime changed, a sensor drifted,
-or the model assumption stopped representing the machine. Robust statistics
-reduce some outlier sensitivity but do not resolve those explanations.
-
-ASME VVUQ 10.2 distinguishes model-form, input, numerical, and basis-data
-uncertainty and emphasizes validation experiments. NASA-HDBK-7009B emphasizes
-intended/permissible use, assumptions, and evidence for model credibility. Step
-01 adopts those habits at small scale; it is not a computational solid mechanics
-model and does not claim compliance.
-
-## 11. Novelty and differentiation assessment
-
-The PHM/PIML literature already includes physics-informed features, residuals,
-hybrid models, constraints, uncertainty-aware approaches, and model-based
-diagnosis. Semiconductor literature already includes spindle-current load
-monitoring, wire-bond electrical/vibration monitoring, transfer-mold in-situ
-sensing, laser output models, and contact-resistance measurement practice.
-None of those mechanisms is claimed as new here.
-
-The implementation emphasizes a pedagogical combination that is not always
-visible in small PHM examples: source-scoped claims, epistemic type, an explicit
-activation gate, machine identifiability, measurement semantics, numerical
-guards, uncertainty sources, falsification, and first-class rejected candidates.
-The review did not establish that this combination is unique, first, or beyond
-published practice.
-
-**Novelty has not been established.** This implementation combines several
-established model-credibility practices into a lightweight PHM relation library.
-
-What remains unproven includes predictive utility on real OSAT failures,
-transfer across vendors or machines, calibrated uncertainty, fault specificity,
-threshold validity, maintenance impact, and prospective plant performance.
-
-## 12. Experiments required for real validation
-
-### Spindle electromechanical load residual
-
-1. Verify source semantics, units, sample timing, drive/controller mode, and
-   whether current is torque-producing/feedback load current.
-2. On one exact machine, collect repeated healthy steady cuts across the allowed
-   speed envelope while controlling or recording feed, depth, kerf, blade,
-   material, coolant, acceleration, and controller state.
-3. Use a calibrated torque/force reference where feasible. Apply controlled load
-   changes at fixed speed and verify residual direction and repeatability.
-4. Repeat across days, blade changes, maintenance, and environmental conditions
-   to quantify parameter stability, measurement uncertainty, and model
-   discrepancy.
-5. Introduce safe known mechanical/process changes under engineering approval;
-   measure sensitivity and false response to confounders separately.
-6. Repeat on multiple wafer saws and singulation tools. Do not share exact-machine
-   coefficients. Test whether even the relation structure transfers.
-7. Pre-register pass/fail criteria before allowing live health influence.
-
-### Contact-path resistance
-
-1. Document the actual voltage/current topology, polarity, range, settling,
-   relays/leads, DUT contribution, and whether sensing is Kelvin.
-2. Compare the telemetry-derived value with traceable low-resistance standards
-   and a synchronized four-wire reference across the intended current range.
-3. Repeat known-good insertions over temperature and time to quantify
-   repeatability, thermal EMF, offsets, bounce, and contact-to-contact variation.
-4. Introduce controlled resistance and known socket conditions (cleaning,
-   contamination surrogate, worn pin, misalignment) without inferring that any
-   one condition is uniquely diagnosed.
-5. Vary fixture, relay, DUT, current, and temperature independently to measure
-   cross-sensitivity and identify the actual measurand.
-6. Determine how intermittent opens should affect data quality/observability
-   rather than forcing a resistance value.
-7. Validate on multiple sockets/testers with separate exact-machine references
-   before any maintenance use.
-
-No synthetic demo result substitutes for these experiments.
-
-## 13. Full bibliography
-
-1. W. Deng, K. T. P. Nguyen, K. Medjaher, C. Gogu, and J. Morio,
-   “Physics-informed machine learning in prognostics and health management:
-   State of the art and challenges,” *Applied Mathematical Modelling*, vol. 124,
-   pp. 325–352, 2023. DOI: `10.1016/j.apm.2023.07.011`.
-
-2. H. Li, Z. Zhang, T. Li, and X. Si, “A review on physics-informed data-driven
-   remaining useful life prediction: Challenges and opportunities,” *Mechanical
-   Systems and Signal Processing*, vol. 209, art. 111120, 2024. DOI:
-   `10.1016/j.ymssp.2024.111120`.
-
-3. C. Braun, J. Raible, and M. F. Huber, “Physics-Informed Machine Learning in
-   Prognostics and Health Management: A Systematic Literature Review,” 2026.
-   Identifier: `arXiv:2608.10047`. Preprint status is explicit.
-
-4. International Organization for Standardization, *Condition monitoring and
-   diagnostics of machine systems — Data interpretation and diagnostics
-   techniques — Part 1: General guidelines*, 2nd ed., 2025. Standard:
-   `ISO 13379-1:2025`.
-
-5. Joint Committee for Guides in Metrology, *Evaluation of measurement data —
-   Guide to the expression of uncertainty in measurement*, 2008. DOI:
-   `10.59161/JCGM100-2008E`.
-
-6. Joint Committee for Guides in Metrology, *Supplement 1 to the Guide to the
+- Kelvin/contact-isolated voltage/current for final-test contacts;
+- differential pressure across a named coolant element;
+- actual clamp force and approved projected area;
+- actual delivered optical power at a defined plane;
+- stroke encoder and actual punch force;
+- controlled isolation state and known volume for vacuum leak tests.
+
+Priority 3 — dedicated dynamic acquisition where justified:
+
+- synchronized generator voltage/current/phase and bond trigger for wire bond;
+- specified accelerometer axis, mounting, bandwidth, calibration, and
+  tachometer/order reference for spindle/blade vibration;
+- a dedicated streaming/DSP path for high-rate vibration rather than the
+  ordinary low-rate telemetry loop.
+
+Instrumentation must follow the approved PHM data boundary and must not require
+unapproved recipes, PPIDs, wafer maps, proprietary geometry, or process windows.
+
+## U. Controlled experiment plans
+
+### Wafer-saw spindle
+
+Use one identified instrumented saw and approved surrogate material. Randomize
+and block speed, feed, depth, material, blade state, and safe perturbations.
+Calibrate on early healthy blocks; freeze parameters and envelope; validate on
+later non-overlapping healthy and seeded-condition blocks. Include no-cut runs,
+speed-only changes, current/speed sensor offsets, and thermal repeats. Accept
+only stable coefficients, bounded conditioning dependence, predeclared
+directional response, and discrimination from sensor faults.
+
+### Final-test contacts
+
+First prove topology with schematics and instrument tracing. Use four-terminal
+force/sense connections, current reversal or offset compensation, settled SMU
+state, reference resistances, and per-contact fixture identity. Vary current,
+contact force, temperature, contamination/wear, and insertion count. Negative
+controls change lead/relay/DUT voltage without changing the target contact.
+
+### Wafer-mount web handling
+
+Measure tension, actual torque/current, encoder speed/acceleration, geometry,
+and temperature. Apply safe controlled tension changes across motion phases.
+Negative controls vary acceleration, friction, and sensor offset at fixed
+tension.
+
+### Coolant path
+
+Install calibrated differential-pressure taps around one named element, a
+calibrated flow reference, and valve/pump state. Sweep flow, temperature, and
+approved restrictions. Negative controls change supply pressure or sensor bias
+without changing branch resistance.
+
+### Die-attach vacuum
+
+Run a non-production isolation procedure with known volume, calibrated pressure
+time series, valve/pump state, temperature, and reference leaks. Include
+outgassing soak, gauge-offset, and incomplete-isolation controls.
+
+### Wire bond
+
+Acquire synchronized high-rate generator voltage/current, phase, bond trigger,
+and calibrated vibration reference. Use approved parameter/tool/quality states
+with an independent bond-quality outcome. Include electrical gain/phase
+injection and no-contact ultrasonic cycles.
+
+### Molding
+
+Use actual clamp-force and cavity-pressure sensors, phase/position, approved
+projected area, material and temperature state. Block by material and tool;
+include pressure/force bias and area/material negative controls.
+
+### Laser marking
+
+Verify laser architecture and controller mode. Compare internal reported power
+with a calibrated optical reference under controlled drive, temperature,
+pulse/duty, and optical attenuation. Separate source degradation, downstream
+path loss, and power-sensor drift.
+
+### Trim / form
+
+Measure high-rate punch force, current/torque, stroke phase/acceleration, and
+mechanism configuration. Vary tool/material/phase safely and include current,
+force, acceleration, friction, and temperature controls.
+
+### Singulation
+
+Repeat the spindle study on actual singulation equipment rather than copying
+wafer-saw coefficients or evidence. Establish drive semantics and mechanism
+equivalence or adopt a different model. Include an independent load/force
+reference and specified high-rate vibration acquisition if vibration is studied.
+
+## V. Requirements to advance maturity
+
+To reach `MEASUREMENT_SEMANTICS_VERIFIED`:
+
+- review schematics, controller/OEM definitions, sensor path, unit, sign,
+  timing, bandwidth, location, and state semantics;
+- verify calibration and traceability state;
+- document approved source-ID mapping.
+
+To reach `BENCH_VALIDATED`:
+
+- preregister a controlled protocol;
+- use reviewed reference instrumentation;
+- separate calibration and validation data;
+- pass target, nuisance, and negative-control criteria;
+- retain independent artifacts and reviewer sign-off.
+
+To reach `SINGLE_MACHINE_VALIDATED`:
+
+- identify the exact installed machine;
+- validate across its intended operating envelope and relevant time periods;
+- demonstrate parameter stability, recalibration rules, and sensor-fault handling.
+
+To reach `MULTI_MACHINE_VALIDATED`:
+
+- use at least two real machines of the same justified family;
+- evaluate between-machine variation and transfer;
+- never silently substitute exact-machine coefficients.
+
+To reach `PROSPECTIVE_PILOT_VALIDATED`:
+
+- freeze the protocol and decision rules before data collection;
+- operate observe-only under plant governance;
+- use real maintenance outcomes and event-level evaluation;
+- measure false alarms, misses, lead time, availability, and human workflow;
+- obtain appropriate site, OEM, safety, security, and data-governance approval.
+
+## W. Plant validation and deployment boundary
+
+The present project has no real OSAT fleet failure dataset, prospective plant
+pilot, production qualification, calibrated failure probabilities, validated
+universal thresholds, OEM-signed physics library, causal diagnostic proof,
+production cybersecurity certification, or validated failure-reduction result.
+
+Live-equipment operation in 0.2.1 remains observe-only and research-only.
+Physical residuals may contribute research evidence only after the existing
+telemetry quality, observability, identity, and provenance gates permit it.
+They do not authorize maintenance tickets or machine actions. The deterministic
+maintenance layer retains ticket authority; optional RAG/LLM enrichment cannot
+create machine state.
+
+A plant study must also distinguish SEMI equipment-state/performance tracking
+from PHM evidence. E10/E116-compatible context can help define observation
+periods and operating states, but it is not a substitute for reference fault
+labels, measurement validation, or prospective outcome evaluation.
+
+## X. State-of-the-art position
+
+Recent reviews by Deng et al. and Khan et al. describe the promise and
+limitations of physics-informed learning in PHM/system health. NIST's PHM4SM
+program and AMS 100-2 roadmap emphasize measurement science, testbeds, reference
+data, performance assessment, verification, validation, and uncertainty. This
+supports the project's decision to make evidence maturity and measurement
+semantics first-class rather than treating an equation as validated knowledge.
+
+The distinctive useful contribution of Step 01 is modest and architectural:
+
+- it preserves a clean boundary between reviewed physics and statistical
+  features;
+- it keeps exact-machine calibration separate from machine-family learning;
+- it refuses extrapolation;
+- it records missing measurements and falsification tests;
+- it separates model discrepancy from measurement uncertainty;
+- it makes sensor-fault mimicry visible;
+- it prevents research candidates from leaking into runtime.
+
+It is not novel physical science, a physical-law discovery system, a validated
+diagnostic engine, or a production PHM product. Credibility will come from
+metrology and prospective physical evidence, not from increasing the number of
+equations.
+
+## Y. Verified bibliography
+
+1. ISO. *Condition monitoring and diagnostics of machine systems — Data
+   interpretation and diagnostics techniques — Part 1: General guidelines*.
+   ISO 13379-1:2025.
+2. ISO. *Condition monitoring and diagnostics of machines — General
+   guidelines*. ISO 17359:2018, edition 3; confirmed 2023.
+3. ISO. *Quality management — Requirements for measurement management
+   systems*. ISO 10012:2026, edition 2.
+4. ISO. *Methods for the calibration of vibration and shock transducers —
+   Part 21: Vibration calibration by comparison to a reference transducer*.
+   ISO 16063-21:2003.
+5. ISO. *Mechanical vibration — Measurement and evaluation of machine
+   vibration — Part 3: Industrial machinery with a power rating above 15 kW
+   and operating speeds between 120 r/min and 30 000 r/min*.
+   ISO 20816-3:2022.
+6. JCGM. *Evaluation of measurement data — Guide to the expression of
+   uncertainty in measurement*. JCGM 100:2008.
+   DOI: 10.59161/JCGM100-2008E.
+7. JCGM. *International vocabulary of metrology — Basic and general concepts
+   and associated terms*, 3rd edition. JCGM 200:2012.
+   DOI: 10.59161/JCGM200-2012.
+8. JCGM. *Evaluation of measurement data — Supplement 1 to the Guide to the
    expression of uncertainty in measurement — Propagation of distributions
-   using a Monte Carlo method*, 2008. DOI: `10.59161/JCGM101-2008`.
+   using a Monte Carlo method*. JCGM 101:2008.
+   DOI: 10.59161/JCGM101-2008. No Monte Carlo method is used at runtime.
+9. JCGM. *Evaluation of measurement data — Guide to the expression of
+   uncertainty in measurement, Amendment 1: Nonlinearity in measurement
+   models*. JCGM 100:2008/Amd.1:2026. DOI: 10.59161/PPDI3267.
+10. NASA. *Standard for Models and Simulations*. NASA-STD-7009B, 2024.
+11. NASA. *NASA Handbook for Models and Simulations: An Implementation Guide
+   for NASA-STD-7009B*. NASA-HDBK-7009B, 2026.
+12. ASME. *The Role of Uncertainty Quantification in Verification and
+   Validation of Computational Solid Mechanics Models*. VVUQ 10.2-2021.
+13. NIST. *Prognostics and Health Management for Reliable Operations in Smart
+   Manufacturing (PHM4SM)*. Project created 2018; page updated 2025.
+14. J. Pellegrino, M. Justiniano, A. Raghunathan, and B. Weiss. *Measurement
+   Science Roadmap for Prognostics and Health Management for Smart
+   Manufacturing Systems*. NIST AMS 100-2, 2016.
+   DOI: 10.6028/NIST.AMS.100-2.
+15. S. Khan, T. Yairi, S. Tsutsumi, and S. Nakasuka. “A review of
+    physics-based learning for system health management.” *Annual Reviews in
+    Control* 57 (2024) 100932. DOI: 10.1016/j.arcontrol.2024.100932.
+16. W. Deng, K. T. P. Nguyen, K. Medjaher, C. Gogu, and J. Morio.
+    “Physics-informed machine learning in prognostics and health management:
+    State of the art and challenges.” *Applied Mathematical Modelling* 124
+    (2023) 325–352. DOI: 10.1016/j.apm.2023.07.011.
+17. H. Li, Z. Zhang, T. Li, and X. Si. “A review on physics-informed
+    data-driven remaining useful life prediction: Challenges and
+    opportunities.” *Mechanical Systems and Signal Processing* 209 (2024)
+    111120. DOI: 10.1016/j.ymssp.2024.111120.
+18. C. Braun, J. Raible, and M. F. Huber. “Physics-Informed Machine Learning
+    in Prognostics and Health Management: A Systematic Literature Review.”
+    arXiv:2608.10047, submitted 10 August 2026. Final journal publication was
+    not verified on the review date; this is cited as a preprint only.
+19. M. C. Kennedy and A. O'Hagan. “Bayesian calibration of computer models.”
+    *Journal of the Royal Statistical Society Series B* 63(3) (2001) 425–464.
+    DOI: 10.1111/1467-9868.00294.
+20. J. Brynjarsdóttir and A. O'Hagan. “Learning about physical parameters:
+    the importance of model discrepancy.” *Inverse Problems* 30 (2014)
+    114007. DOI: 10.1088/0266-5611/30/11/114007.
+21. A. Raue, C. Kreutz, T. Maiwald, J. Bachmann, M. Schilling,
+    U. Klingmüller, and J. Timmer. “Structural and practical identifiability
+    analysis of partially observed dynamical models by exploiting the profile
+    likelihood.” *Bioinformatics* 25(15) (2009) 1923–1929.
+    DOI: 10.1093/bioinformatics/btp358.
+22. P. M. Frank and X. Ding. “Survey of robust residual generation and
+    evaluation methods in observer-based fault detection systems.” *Journal
+    of Process Control* 7(6) (1997) 403–424.
+    DOI: 10.1016/S0959-1524(97)00016-4.
+23. I. Weisshaus and O. Y. Licht. *Monitoring system for dicing saws*.
+    US6168500B1, 2001.
+24. J. Li, D. Li, J. Lin, C. Zhang, and J. Cheng. “Vibration–force coupled
+    dynamics and fracture evolution in wafer dicing.” *International Journal
+    of Mechanical Sciences* 319 (2026) 111581.
+    DOI: 10.1016/j.ijmecsci.2026.111581.
+25. DISCO Corporation. *Product Lineup* catalog, 2024. Public catalog includes
+    dicing-saw spindle examples at 1.8 kW and 60,000 min⁻¹.
+26. maxon. *Motor constants* and *Motor data and simulation*. Technical
+    guidance explaining the torque-constant/current relationship.
+27. Keithley Instruments / Tektronix. *Low Level Measurements Handbook*,
+    7th edition, 2016.
+28. Keysight Technologies. *Precise Low Resistance Measurements Using the
+    B2961B and 34420A*. Application note 3120-1555.
+29. National Instruments. *Best Practice for Using NI SMUs to Test IC in
+    Sockets*. Updated 2025.
+30. D. S. Liu, M. K. Shih, and W. H. Huang. “Measurement and analysis of
+    contact resistance in wafer probe testing.” *Microelectronics Reliability*
+    47(7) (2007) 1086–1094. DOI: 10.1016/j.microrel.2006.07.091.
+31. C. Branca, P. R. Pagilla, and K. N. Reid. “Governing Equations for Web
+    Tension and Web Velocity in the Presence of Nonideal Rollers.” *Journal of
+    Dynamic Systems, Measurement, and Control* 135(1) (2013) 011018.
+    DOI: 10.1115/1.4007974.
+32. S. W. Or, H. L. W. Chan, V. C. Lo, and C. W. Yuen. “Ultrasonic
+    wire-bond quality monitoring using piezoelectric sensor.” *Sensors and
+    Actuators A* 65(1) (1998) 69–75.
+    DOI: 10.1016/S0924-4247(97)01638-5.
+33. W. Feng, Q. Meng, Y. Xie, and H. Fan. “Wire bonding quality monitoring
+    via refining process of electrical signal from ultrasonic generator.”
+    *Mechanical Systems and Signal Processing* 25(3) (2011) 884–900.
+    DOI: 10.1016/j.ymssp.2010.09.010.
+34. R. Kahle, T. Braun, J. Bauer, K.-F. Becker, M. Schneider-Ramelow, and
+    K.-D. Lang. “In-situ measuring module for transfer molding process
+    monitoring.” *IMAPS Proceedings* (2016).
+    DOI: 10.4071/isom-2016-THA43.
+35. B. Kaya, J.-M. Kaiser, K.-F. Becker, T. Braun, and K.-D. Lang. “Process
+    Optimization and Implementation of Online Monitoring Process in Transfer
+    Molding for Electronic Packaging.” *Journal of Microelectronics and
+    Electronic Packaging* (2019). DOI: 10.4071/IMAPS.954402.
+36. R. Borràs, J. del Río Fernández, C. Oriach, and J. Juliachs. “Laser
+    diodes optical output power model.” *Measurement* 133 (2019) 56–67.
+    DOI: 10.1016/j.measurement.2018.10.007.
+37. KEYENCE America. Laser marking resources describing built-in thermopile
+    power monitoring for detecting output-power drops. Accessed 2026-08-31.
+38. TRUMPF. *Condition Monitoring for lasers and laser systems*. Accessed
+    2026-08-31.
+39. Leybold. *Fundamentals of Leak Detection: Pressure rise and pressure drop
+    tests*. Technical reference.
+40. SEMI. *Specification for Definition and Measurement of Equipment
+    Reliability, Availability, and Maintainability (RAM) and Utilization*.
+    SEMI E10-0422, current.
+41. SEMI. *Automated Reliability, Availability, and Maintainability Standard
+    (ARAMS): Concepts, Behavior, and Services*. SEMI E58-0703, inactive.
+42. SEMI. *Specification for Equipment Performance Tracking*. SEMI E116.
 
-7. American Society of Mechanical Engineers, *The Role of Uncertainty
-   Quantification in Verification and Validation of Computational Solid
-   Mechanics Models*, 2021. Standard: `ASME VVUQ 10.2-2021`.
-
-8. National Aeronautics and Space Administration, *NASA Handbook for Models and
-   Simulations: An Implementation Guide for NASA-STD-7009B*, 2026. Identifier:
-   `NASA-HDBK-7009B`.
-
-9. I. Weisshaus and O. Y. Licht, “Monitoring system for dicing saws,” United
-   States patent, issued 2001. Patent: `US6168500B1`.
-
-10. J. Li, D. Li, J. Lin, C. Zhang, and J. Cheng, “Vibration–force coupled
-    dynamics and fracture evolution in wafer dicing,” *International Journal of
-    Mechanical Sciences*, vol. 319, art. 111581, 2026. DOI:
-    `10.1016/j.ijmecsci.2026.111581`. Review access was limited to publisher
-    metadata/abstract.
-
-11. Unitrode/Texas Instruments, “How to Measure Kt and Kv Without Measuring
-    Torque or Angular Velocity,” Application Note U-105, legacy undated
-    application note. Identifier: `TI/Unitrode U-105`.
-
-12. S. W. Or, H. L. W. Chan, V. C. Lo, and C. W. Yuen, “Ultrasonic wire-bond
-    quality monitoring using piezoelectric sensor,” *Sensors and Actuators A:
-    Physical*, vol. 65, no. 1, pp. 69–75, 1998. DOI:
-    `10.1016/S0924-4247(97)01638-5`.
-
-13. W. Feng, Q. Meng, Y. Xie, and H. Fan, “Wire bonding quality monitoring via
-    refining process of electrical signal from ultrasonic generator,”
-    *Mechanical Systems and Signal Processing*, vol. 25, no. 3, pp. 884–900,
-    2011. DOI: `10.1016/j.ymssp.2010.09.010`.
-
-14. D. Zhang, S. Ling, S. Yi, and S. W. Foo, “Improved monitoring of ultrasonic
-    wire bonding via input electrical impedance,” *Proceedings of the 6th
-    Electronics Packaging Technology Conference*, 2004. DOI:
-    `10.1109/EPTC.2004.1396634`. Review access was limited to verified
-    metadata/abstract.
-
-15. R. Borràs, J. del Río Fernández, C. Oriach, and J. Juliachs, “Laser diodes
-    optical output power model,” *Measurement*, vol. 133, pp. 56–67, 2019. DOI:
-    `10.1016/j.measurement.2018.10.007`.
-
-16. R. Kahle, T. Braun, J. Bauer, K.-F. Becker, M. Schneider-Ramelow, and K.-D.
-    Lang, “In-situ measuring module for transfer molding process monitoring,”
-    *IMAPS Proceedings of the International Symposium on Microelectronics*,
-    2016. DOI: `10.4071/isom-2016-THA43`.
-
-17. B. Kaya, J.-M. Kaiser, K.-F. Becker, T. Braun, and K.-D. Lang, “Process
-    optimization and implementation of online monitoring process in transfer
-    molding for electronic packaging,” *Journal of Microelectronics and
-    Electronic Packaging*, 2019. DOI: `10.4071/IMAPS.954402`.
-
-18. National Instruments, “Best Practice for Using NI SMUs to Test IC in
-    Sockets,” updated 2025. Identifier: NI supplemental technical document.
-
-19. Keysight Technologies, *Precise Low Resistance Measurements Using the B2961B
-    and 34420A*, undated application note, accessed 2026. Document:
-    `Keysight 3120-1555`.
-
-20. National Bureau of Standards, *Precision Resistors and Their Measurement*,
-    NBS Circular 470, 1958. Identifier: `NBS Circular 470`.
-
-21. U.S. Army Corps of Engineers, *Hydraulic Design of Reservoir Outlet Works*,
-    Engineer Manual, 1980. Identifier: `EM 1110-2-1602`.
-
-22. Leybold, *Fundamentals of Leak Detection: Pressure Rise and Pressure Drop
-    Tests*, undated manufacturer technical reference, accessed 2026. Identifier:
-    `Leybold Fundamentals of Leak Detection`.
+This bibliography records sources actually used to bound claims. Listing a
+standard or publication does not claim compliance, endorsement, or validation
+of OSAT Fleet Command.

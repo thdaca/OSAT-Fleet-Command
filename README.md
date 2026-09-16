@@ -1,8 +1,10 @@
-# OSAT Fleet Command 0.2.1
+# OSAT Fleet Command 0.2.2
 
 **RESEARCH / DEVELOPMENT BUILD — not production qualified**
 
-Version 0.2.1 is the deep Step-01 physics-library research exemplar.
+Version 0.2.2 presents the 0.2.1 Step-01 physics research through a transparent
+industrial edge-monitoring HMI prototype. The scientific and inference stages
+remain unchanged.
 
 OSAT Fleet Command is a small, edge-oriented teaching and research implementation for exploring equipment-health evidence in semiconductor back-end manufacturing. It keeps deterministic health and maintenance decisions separate from optional language-model enrichment.
 
@@ -23,7 +25,7 @@ The repository follows one visible path:
 
 The nine isolated demo stations are WM-01, WS-01, DA-01, WB-04, MO-01, MK-01, TF-01, SG-01, and FT-01. A model or baseline for one machine or family is rejected for another.
 
-The 0.2.1 runtime intentionally represents one demonstration machine per family, keyed by family. It is not yet a general plant inventory for multiple simultaneous machines of the same family. The family-data stage may still learn from historical records for multiple real machines of one family.
+The 0.2.2 runtime intentionally represents one demonstration machine per family, keyed by family. It is not yet a general plant inventory for multiple simultaneous machines of the same family. The family-data stage may still learn from historical records for multiple real machines of one family.
 
 This build does **not** provide calibrated failure probabilities, causal diagnosis, a real OSAT fleet validation, autonomous control, or a commercial SECS/GEM implementation. The model output is a `risk_score`, not a failure probability.
 
@@ -47,6 +49,22 @@ The optional local LLM integration is isolated in `requirements-llm.txt`. Do not
 ```
 
 The deterministic demo initializes all nine stations and injects a synthetic WS-01 spindle fault. Any resulting ticket is plainly marked demo-only.
+
+## HMI screens
+
+- **FLEET** is the nine-station situational overview.
+- **MACHINE** shows every approved canonical telemetry channel, one raw trend,
+  exact-machine/family-model status, and subsystem evidence.
+- **PHYSICS** exposes Step-01 runtime, research-only, and rejected relations,
+  including maturity, limitations, uncertainty, falsification, and next experiments.
+- **MAINTENANCE** separates deterministic evidence from optional retrieved/LLM prose.
+- **SYSTEM** states runtime, telemetry-security, authority, network, and proprietary boundaries.
+
+Phosphor amber is the neutral baseline; bright yellow, orange, and red are
+reserved for abnormal conditions. State text accompanies every state color.
+The design is informed by ISA-101 HMI principles, ISA-18 alarm-display
+principles, NIST OT-security transparency guidance, and accessibility/contrast
+guidance. This is design guidance, not a claim of conformance or certification.
 
 ## Verify
 
