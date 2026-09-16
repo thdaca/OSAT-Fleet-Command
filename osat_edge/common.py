@@ -117,6 +117,10 @@ class OperatingContext:
     equipment_state: EquipmentState
 
     def __post_init__(self) -> None:
+        if not isinstance(self.machine_id, str) or not self.machine_id.strip():
+            raise ValueError("Operating-context machine ID is required")
+        if not isinstance(self.equipment_state, EquipmentState):
+            raise ValueError("Operating context requires an EquipmentState")
         object.__setattr__(self, "timestamp", utc(self.timestamp))
 
 

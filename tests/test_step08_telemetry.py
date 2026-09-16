@@ -10,6 +10,7 @@ from osat_edge.common import ChannelWindow, DataOrigin, EquipmentState, Operatin
 from osat_edge.machines import STATIONS
 from osat_edge.roadmap.step08_live_telemetry import (
     BoundedTelemetryStore,
+    MAXIMUM_LIVE_SAMPLES_PER_BATCH,
     NoNewTelemetry,
     QueuedTelemetrySource,
     ReplayTelemetrySource,
@@ -129,6 +130,19 @@ class TelemetryTests(unittest.TestCase):
         with self.assertRaisesRegex(TelemetryError, "queue is full"):
             source.submit((self.sample("spindle_current", 1),))
 
+    def test_live_batch_sample_count_is_bounded_before_queueing(self) -> None:
+        source = QueuedTelemetrySource(self.machine, self.station)
+        sample = self.sample("spindle_current", 0)
+        with self.assertRaisesRegex(TelemetryError, "at most"):
+            source.submit((sample,) * (MAXIMUM_LIVE_SAMPLES_PER_BATCH + 1))
+        with self.assertRaises(NoNewTelemetry):
+            source.poll()
+        context = OperatingContext(
+            self.machine.machine_id, NOW, EquipmentState.PROCESSING
+        )
+        source.submit((), context=context)
+        self.assertEqual(context, source.poll().context)
+
     def test_live_source_rejects_future_samples_and_context_before_queueing(self) -> None:
         source = QueuedTelemetrySource(self.machine, self.station)
         received_at = dt.datetime.now(dt.timezone.utc)
@@ -237,6 +251,20 @@ class TelemetryTests(unittest.TestCase):
             with self.subTest(message=message), self.assertRaisesRegex(ValueError, message):
                 adapter.parse(payload, received_at=NOW)
 
+    def test_secs_schema_rejects_deep_unknown_data_before_security_scan(self) -> None:
+        adapter = SecsGemAdapter(self.machine, self.station)
+        nested: object = "SECRET"
+        for _ in range(1_200):
+            nested = [nested]
+        payload = {
+            "stream": 6,
+            "function": 11,
+            "variables": [{"id": "WS-SV-01", "value": 2.5}],
+            "lot_id": nested,
+        }
+        with self.assertRaisesRegex(ValueError, "payload keys"):
+            adapter.parse(payload, received_at=NOW)
+
     def test_secs_adapter_rejects_conflicting_source_remap(self) -> None:
         with self.assertRaisesRegex(TelemetrySecurityError, "already approved"):
             SecsGemAdapter(
@@ -266,9 +294,31 @@ class TelemetryTests(unittest.TestCase):
 
     def test_secs_adapter_rejects_process_ip_anywhere(self) -> None:
         adapter = SecsGemAdapter(self.machine, self.station)
-        for payload in ({"recipe": "secret"}, {"metadata": {"name": "wafer-map"}}):
-            with self.subTest(payload=payload), self.assertRaises(TelemetrySecurityError):
-                adapter.parse(payload, received_at=NOW)
+        payload = {
+            "stream": 6,
+            "function": 11,
+            "variables": [{"id": "recipe-secret", "value": 2.5}],
+        }
+        with self.assertRaises(TelemetrySecurityError):
+            adapter.parse(payload, received_at=NOW)
+
+    def test_operating_context_requires_identity_enum_and_aware_time(self) -> None:
+        invalid = (
+            lambda: OperatingContext("", NOW, EquipmentState.PROCESSING),
+            lambda: OperatingContext(
+                self.machine.machine_id,
+                NOW,
+                "PROCESSING",  # type: ignore[arg-type]
+            ),
+            lambda: OperatingContext(
+                self.machine.machine_id,
+                dt.datetime(2026, 1, 1),
+                EquipmentState.PROCESSING,
+            ),
+        )
+        for factory in invalid:
+            with self.subTest(factory=factory), self.assertRaises(ValueError):
+                factory()
 
     def test_secs_adapter_rejects_other_messages_and_bad_mapping(self) -> None:
         with self.assertRaises(ValueError):

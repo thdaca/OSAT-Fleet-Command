@@ -25,6 +25,7 @@ from ..machines import StationDefinition
 FEATURE_WINDOW = dt.timedelta(seconds=60)
 MAXIMUM_CONTEXT_AGE = dt.timedelta(seconds=30)
 MAXIMUM_LIVE_FUTURE_SKEW = dt.timedelta(seconds=5)
+MAXIMUM_LIVE_SAMPLES_PER_BATCH = 256
 MAXIMUM_SECS_VARIABLES = 256
 
 
@@ -87,6 +88,11 @@ class QueuedTelemetrySource:
         *,
         context: OperatingContext | None = None,
     ) -> None:
+        if len(samples) > MAXIMUM_LIVE_SAMPLES_PER_BATCH:
+            raise TelemetryError(
+                "Live telemetry batches may contain at most "
+                f"{MAXIMUM_LIVE_SAMPLES_PER_BATCH} samples"
+            )
         batch = TelemetryBatch(tuple(samples), context)
         if not batch.samples and batch.context is None:
             raise TelemetryError("Live telemetry batches must contain samples or context")
@@ -421,7 +427,8 @@ class SecsGemAdapter:
         self._specs = known
 
     def parse(self, payload: Mapping[str, Any], *, received_at: dt.datetime) -> tuple[TelemetrySample, ...]:
-        _reject_process_ip(payload)
+        if not isinstance(payload, Mapping):
+            raise ValueError("S6F11 payload must be an object")
         if set(payload) != {"stream", "function", "variables"}:
             raise ValueError(
                 "S6F11 payload keys must be exactly stream, function, and variables"
@@ -437,10 +444,7 @@ class SecsGemAdapter:
             raise ValueError(
                 f"S6F11 variables must contain 1 to {MAXIMUM_SECS_VARIABLES} entries"
             )
-        timestamp = utc(received_at)
-        samples: list[TelemetrySample] = []
-        unknown: list[str] = []
-        resolved_channels: set[str] = set()
+        validated_variables: list[tuple[str, int | float]] = []
         for item in variables:
             if not isinstance(item, Mapping) or set(item) != {"id", "value"}:
                 raise ValueError("Each status variable must contain exactly id and value")
@@ -450,7 +454,18 @@ class SecsGemAdapter:
                 item["value"], (int, float)
             ):
                 raise ValueError("Each status variable value must be numeric")
-            source_id = item["id"]
+            validated_variables.append((item["id"], item["value"]))
+
+        # Defense-in-depth inspection runs only after the input shape is known
+        # to be flat and bounded, so recursive attacker-controlled structures
+        # cannot reach the scanner.
+        _reject_process_ip(payload)
+
+        timestamp = utc(received_at)
+        samples: list[TelemetrySample] = []
+        unknown: list[str] = []
+        resolved_channels: set[str] = set()
+        for source_id, raw_value in validated_variables:
             canonical = self._mapping.get(source_id)
             if canonical is None:
                 unknown.append(source_id)
@@ -466,7 +481,7 @@ class SecsGemAdapter:
                     machine_id=self.identity.machine_id,
                     channel=canonical,
                     timestamp=timestamp,
-                    value=float(item["value"]),
+                    value=float(raw_value),
                     unit=spec.unit,
                     source_id=spec.source_id,
                 )
