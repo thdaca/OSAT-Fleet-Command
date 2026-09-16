@@ -7,24 +7,24 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Mapping, Sequence
 
-from .roadmap.pre_steps.pre01_common import (
+from .roadmap.pre_steps.pre01_common.pre01_common import (
     DataOrigin,
     EquipmentState,
     HealthState,
     MachineIdentity,
     RuntimeMode,
 )
-from .roadmap.pre_steps.pre02_machine_registry import StationDefinition
-from .roadmap.steps.step02_physical_features import FeatureSet, extract_physical_features
-from .roadmap.steps.step03_physical_residuals import calculate_physical_residuals
-from .roadmap.steps.step05_family_model import FamilyModel, score_family_model
-from .roadmap.steps.step07_machine_model import (
+from .roadmap.pre_steps.pre02_machine_registry.pre02_machine_registry import StationDefinition
+from .roadmap.steps.step02_physical_features.step02_physical_features import FeatureSet, extract_physical_features
+from .roadmap.steps.step03_physical_residuals.step03_physical_residuals import calculate_physical_residuals
+from .roadmap.steps.step05_family_model.step05_family_model import FamilyModel, score_family_model
+from .roadmap.steps.step07_machine_model.step07_machine_model import (
     MachineModel,
     MachineModelResult,
     evaluate_machine_model,
     validate_machine_model,
 )
-from .roadmap.steps.step08_live_telemetry import (
+from .roadmap.steps.step08_live_telemetry.step08_live_telemetry import (
     FEATURE_WINDOW,
     BoundedTelemetryStore,
     NoNewTelemetry,
@@ -35,14 +35,14 @@ from .roadmap.steps.step08_live_telemetry import (
     TelemetryStatus,
     assess_telemetry,
 )
-from .roadmap.steps.step09_health_risk import HealthAssessment, HealthEngine
-from .roadmap.steps.step10_fault_evidence import FaultEvidence, build_fault_evidence
-from .roadmap.steps.step11a_maintenance_db import MaintenanceRepository
-from .roadmap.steps.step11b_oem_manuals import ManualChunk
-from .roadmap.steps.step12_rag import retrieve_rag_context
-from .roadmap.steps.step13_local_llm import generate_local_llm_json
-from .roadmap.steps.step14_json_validation import deterministic_fallback, validate_llm_json
-from .roadmap.steps.step15_maintenance_ticket import MaintenanceTicket, create_or_update_ticket
+from .roadmap.steps.step09_health_risk.step09_health_risk import HealthAssessment, HealthEngine
+from .roadmap.steps.step10_fault_evidence.step10_fault_evidence import FaultEvidence, build_fault_evidence
+from .roadmap.steps.step11a_maintenance_db.step11a_maintenance_db import MaintenanceRepository
+from .roadmap.steps.step11b_oem_manuals.step11b_oem_manuals import ManualChunk
+from .roadmap.steps.step12_rag.step12_rag import retrieve_rag_context
+from .roadmap.steps.step13_local_llm.step13_local_llm import generate_local_llm_json
+from .roadmap.steps.step14_json_validation.step14_json_validation import deterministic_fallback, validate_llm_json
+from .roadmap.steps.step15_maintenance_ticket.step15_maintenance_ticket import MaintenanceTicket, create_or_update_ticket
 
 
 @dataclass(frozen=True)

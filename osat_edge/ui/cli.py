@@ -7,9 +7,9 @@ import json
 import sys
 from typing import Sequence
 
-from ..roadmap.pre_steps.pre01_common import RELEASE_CLASS, VERSION
-from ..roadmap.post_steps.post01_demo import run_demo
-from ..roadmap.post_steps.post04_real_data_evaluation import DEFAULT_EXTERNAL_DATA_ROOT
+from ..roadmap.pre_steps.pre01_common.pre01_common import RELEASE_CLASS, VERSION
+from ..roadmap.post_steps.post01_demo.post01_demo import run_demo
+from ..roadmap.post_steps.post04_real_data_evaluation.post04_real_data_evaluation import DEFAULT_EXTERNAL_DATA_ROOT
 
 
 def parser() -> argparse.ArgumentParser:
@@ -80,7 +80,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(json.dumps(run_demo(), indent=2, sort_keys=True))
         return 0
     if args.command == "reference-replay":
-        from ..roadmap.post_steps.post02_reference_replay import (
+        from ..roadmap.post_steps.post02_reference_replay.post02_reference_replay import (
             DEFAULT_REFERENCE_DIRECTORY,
             ReferenceReplayError,
             run_reference_replay,
@@ -94,7 +94,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0
     if args.command == "benchmark-nasa-milling":
-        from ..roadmap.post_steps.post03_external_benchmark import (
+        from ..roadmap.post_steps.post03_external_benchmark.post03_external_benchmark import (
             BenchmarkError,
             analyze_nasa_milling,
             benchmark_summary,
@@ -111,7 +111,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(json.dumps(benchmark_summary(result), indent=2, sort_keys=True))
         return 0
     if args.command == "evaluate-real":
-        from ..roadmap.post_steps.post04_real_data_evaluation import (
+        from ..roadmap.post_steps.post04_real_data_evaluation.post04_real_data_evaluation import (
             RealDataEvaluationError,
             evaluate_all_real_data,
             evaluate_real_dataset,
@@ -139,7 +139,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(json.dumps(real_data_summary(result), indent=2, sort_keys=True))
         return 0
     if args.command == "verify-real-evidence":
-        from ..roadmap.post_steps.post04_real_data_evaluation import (
+        from ..roadmap.post_steps.post04_real_data_evaluation.post04_real_data_evaluation import (
             RealDataEvaluationError,
             verify_committed_real_data_evidence,
         )

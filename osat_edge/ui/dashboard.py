@@ -34,10 +34,10 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from ..roadmap.pre_steps.pre01_common import HealthState, RELEASE_CLASS, RuntimeMode, VERSION
-from ..roadmap.post_steps.post01_demo import DemoFleet, create_demo_fleet
-from ..roadmap.pre_steps.pre02_machine_registry import STATION_ORDER, STATIONS
-from ..roadmap.steps.step01_physics_library import (
+from ..roadmap.pre_steps.pre01_common.pre01_common import HealthState, RELEASE_CLASS, RuntimeMode, VERSION
+from ..roadmap.post_steps.post01_demo.post01_demo import DemoFleet, create_demo_fleet
+from ..roadmap.pre_steps.pre02_machine_registry.pre02_machine_registry import STATION_ORDER, STATIONS
+from ..roadmap.steps.step01_physics_library.step01_physics_library import (
     RESIDUAL_SCALE,
     SPEED_HIGH,
     SPEED_LOW,
@@ -48,9 +48,9 @@ from ..roadmap.steps.step01_physics_library import (
     physics_readiness_report,
     research_catalog_for_family,
 )
-from ..roadmap.steps.step08_live_telemetry import FEATURE_WINDOW
-from ..roadmap.steps.step09_health_risk import HealthAssessment
-from ..roadmap.steps.step15_maintenance_ticket import MaintenanceTicket, list_tickets
+from ..roadmap.steps.step08_live_telemetry.step08_live_telemetry import FEATURE_WINDOW
+from ..roadmap.steps.step09_health_risk.step09_health_risk import HealthAssessment
+from ..roadmap.steps.step15_maintenance_ticket.step15_maintenance_ticket import MaintenanceTicket, list_tickets
 
 
 PALETTE = {

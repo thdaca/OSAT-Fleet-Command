@@ -43,11 +43,11 @@ py -3.12 -m venv .venv
 ```
 
 The optional local LLM integration is isolated beside Step 13 at
-`osat_edge/roadmap/steps/step13_local_llm_assets/resources/requirements-llm.txt`.
+`osat_edge/roadmap/steps/step13_local_llm/resources/requirements-llm.txt`.
 Do not install it for the normal demo or tests.
 
 The optional external benchmark parser is declared in
-`osat_edge/roadmap/post_steps/post03_external_benchmark_assets/resources/requirements-benchmarks.txt`.
+`osat_edge/roadmap/post_steps/post03_external_benchmark/resources/requirements-benchmarks.txt`.
 The core pinned dependency file is unchanged.
 
 ## Run
@@ -67,13 +67,13 @@ The deterministic demo initializes all nine stations and injects a synthetic WS-
 `reference-replay` runs the one bundled, checksum-verified
 `SYNTHETIC + REAL_REPLAY` artifact through the actual telemetry, physics,
 exact-machine, health, evidence, and deterministic demo-ticket path. See
-[POST02 replay notes](osat_edge/roadmap/post_steps/post02_reference_replay_assets/research/REFERENCE_REPLAY.md).
+[POST02 replay notes](osat_edge/roadmap/post_steps/post02_reference_replay/research/REFERENCE_REPLAY.md).
 
 `benchmark-nasa-milling` reads a user-supplied official NASA/UC Berkeley
 Milling artifact and performs descriptive per-run analysis only. The raw data
 are not bundled or downloaded automatically. It never enters OSAT health,
 model, ticket, or HMI paths. See
-[POST03 benchmark notes](osat_edge/roadmap/post_steps/post03_external_benchmark_assets/research/EXTERNAL_BENCHMARK.md).
+[POST03 benchmark notes](osat_edge/roadmap/post_steps/post03_external_benchmark/research/EXTERNAL_BENCHMARK.md).
 
 The bundled replay is not real data. The NASA data are real external machining
 data, but not semiconductor or OSAT data. Neither path is plant validation,
@@ -85,13 +85,13 @@ Step-05 family model, or calls Step 15. External inputs remain
 after a pinned official artifact/content identity matches. Runtime timings are
 printed by the CLI but omitted from the deterministic report written under
 `.artifacts/real_data/` only with `--report`. See
-[POST04 real-data catalog](osat_edge/roadmap/post_steps/post04_real_data_evaluation_assets/research/REAL_DATA_CATALOG.md)
+[POST04 real-data catalog](osat_edge/roadmap/post_steps/post04_real_data_evaluation/research/REAL_DATA_CATALOG.md)
 for source provenance,
 exact mappings, attempted datasets, supported metrics, and limitations.
 When the official datasets are already present locally, `verify-real-evidence`
 re-runs them without network access and checks the deterministic comparison and
 evaluator hashes against the committed POST04 resource
-`osat_edge/roadmap/post_steps/post04_real_data_evaluation_assets/resources/0.2.4-real-data.json`.
+`osat_edge/roadmap/post_steps/post04_real_data_evaluation/resources/0.2.4-real-data.json`.
 
 ## Repository map
 
@@ -106,8 +106,9 @@ osat_edge/
 ```
 
 The conceptual flow is **PRE-STEPS → STEPS 01–15 → POST-STEPS**. The UI is a
-separate sibling interface. Stage-owned research, tests, fixtures, and resources
-are colocated under the stage's `*_assets/` directory. See
+separate sibling interface. Each named stage has one folder containing its
+same-named implementation module and any owned `research/`, `tests/`, or
+`resources/` directories. See
 [`osat_edge/roadmap/README.md`](osat_edge/roadmap/README.md).
 
 ## HMI screens

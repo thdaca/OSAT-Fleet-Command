@@ -30,6 +30,12 @@ POST03 external benchmark
 POST04 real-data and REAL_OSAT evaluation
 ```
 
+PRE-STEPS own foundational contracts, the machine registry, and provenance.
+STEPS are the actual Step01-Step15 PHM/ML and deterministic-maintenance path.
+POST-STEPS own demonstration, replay, and isolated external/real-data evidence.
+The separate `ui/` package is the human-interface layer.
+
 `pipeline.py` remains the linear operational orchestrator. The sibling `ui/`
 package contains human interfaces only. Research notes, tests, fixtures, and
-resources owned by one stage live beside it in a matching `*_assets/` directory.
+resources owned by one stage live in that stage's `research/`, `tests/`, and
+`resources/` directories beside its same-named implementation module.

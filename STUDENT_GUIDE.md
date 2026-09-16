@@ -6,11 +6,11 @@ transparent industrial edge-monitoring HMI prototype. Start with
 
 ## The path through the code
 
-- `roadmap/pre_steps/pre01_common.py` contains shared identities, modes, states,
+- `roadmap/pre_steps/pre01_common/pre01_common.py` contains shared identities, modes, states,
   and telemetry contracts.
-- `roadmap/pre_steps/pre02_machine_registry.py` is the sole registry of the nine
+- `roadmap/pre_steps/pre02_machine_registry/pre02_machine_registry.py` is the sole registry of the nine
   station families and their explicitly approved channels.
-- `roadmap/pre_steps/pre03_data_provenance.py` verifies external source bytes,
+- `roadmap/pre_steps/pre03_data_provenance/pre03_data_provenance.py` verifies external source bytes,
   REAL_OSAT origin claims, label semantics, and optional canonical mappings.
 - `roadmap/steps/step01` through `step03` turn reviewed engineering
   relationships and robust telemetry statistics into evidence.
@@ -21,7 +21,7 @@ transparent industrial edge-monitoring HMI prototype. Start with
 - `roadmap/steps/step11a` through `step15` persist deterministic tickets and
   isolate optional retrieval/LLM wording behind strict validation.
 - `pipeline.py` connects those steps with explicit control flow.
-- `roadmap/post_steps/post01_demo.py` owns synthetic generation and injection;
+- `roadmap/post_steps/post01_demo/post01_demo.py` owns synthetic generation and injection;
   POST02 validates the frozen synthetic replay, POST03 runs the isolated NASA
   description, and POST04 evaluates explicitly supplied external data offline.
 - `ui/cli.py` and `ui/dashboard.py` are human interfaces, not roadmap stages.
@@ -37,16 +37,20 @@ evidence is. The reference fixture therefore uses `REAL_REPLAY` execution with
 release; they cannot create actionable tickets. The optional RAG/LLM branch can
 only improve wording after deterministic evidence exists.
 
+PRE03 accepts canonical REAL_OSAT directory identities only through the
+unambiguous `CANONICAL_FILE_SET_SHA256_V2` scheme. Legacy directory hashing is
+retained solely to reproduce already-committed external benchmark evidence.
+
 The live/demo runtime is deliberately one machine per family. Its `machines[family]` mapping is not a general plant inventory for WS-01, WS-02, and WS-03 at the same time. This does not prevent the family-data stage from learning across historical records from multiple machines of that family.
 
-Read the POST02 `post02_reference_replay_assets/research/REFERENCE_REPLAY.md`
+Read the POST02 `post02_reference_replay/research/REFERENCE_REPLAY.md`
 before changing the bundled fixture. Read the POST03
-`post03_external_benchmark_assets/research/EXTERNAL_BENCHMARK.md` before analyzing
+`post03_external_benchmark/research/EXTERNAL_BENCHMARK.md` before analyzing
 the optional NASA data. External machining observations are not OSAT evidence,
 and the benchmark is intentionally prevented from producing health states or
 maintenance tickets.
 
-Read the POST04 `post04_real_data_evaluation_assets/research/REAL_DATA_CATALOG.md`
+Read the POST04 `post04_real_data_evaluation/research/REAL_DATA_CATALOG.md`
 before using `evaluate-real`.
 External data are offline research inputs only; a semantically similar signal
 is not automatically an approved OSAT channel. A compatible file is also not
