@@ -8,6 +8,10 @@ Physical validation complete: **NO**
 Review type: structured engineering literature and model-credibility review;
 this is not represented as a formal systematic review.
 
+For the subsequent, non-executable measurement/experiment roadmap, see
+[Snapshot 5 research supplement](PHYSICS_RESEARCH_ROADMAP_2026.md).
+Its proposals do not promote or replace any existing relation or evidence claim.
+
 ## Optional offline research tools
 
 Step01's optional unit, symbolic, and experiment-design audits are isolated

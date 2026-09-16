@@ -1,0 +1,30 @@
+{
+  "entries": [
+    {
+      "commercial_reexecution_or_redistribution": "requires permission or legal/license review",
+      "fleet_command_code_sharealike_claim": false,
+      "identifier": "st-awfd-d1-and-d2",
+      "purpose": "NONCOMMERCIAL_RESEARCH_BENCHMARK",
+      "raw_data_in_repository_or_release": false,
+      "rights_statement": "Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)",
+      "source": "https://github.com/STMicroelectronics/ST-AWFD"
+    },
+    {
+      "identifier": "tuhh-dad3350-surface",
+      "purpose": "DESCRIPTIVE_TARGET_EQUIPMENT_PROCESS_EVIDENCE",
+      "raw_data_in_repository_or_release": false,
+      "rights_instrument": "public-domain marking; not CC0",
+      "rights_statement": "Public Domain Mark 1.0",
+      "source": "https://doi.org/10.15480/882.15763"
+    },
+    {
+      "identifier": "convert-keyence-files",
+      "independent_validation_required": true,
+      "license": "Unlicense",
+      "purpose": "OPTIONAL_RESEARCH_ONLY_VK7_PARSER",
+      "source_commit": "36e1eb9f550a41f5be2369de125ec51338f54d9e",
+      "version": "0.1.0"
+    }
+  ],
+  "schema_version": "1.0"
+}

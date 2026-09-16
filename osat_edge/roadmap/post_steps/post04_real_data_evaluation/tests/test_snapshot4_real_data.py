@@ -151,6 +151,13 @@ class Snapshot4RealDataTests(unittest.TestCase):
         )
         self.assertEqual("EXECUTED", report["status"])
         self.assertEqual(1.0, report["pipeline_coverage"])
+        self.assertEqual(1.0, report["material_scoring_coverage"])
+        self.assertEqual(0.8, report["headline_step_coverage"])
+        self.assertEqual(0.0, report["complete_headline_material_coverage"])
+        self.assertEqual(
+            "legacy evidence-schema alias for material_scoring_coverage",
+            report["pipeline_coverage_definition"],
+        )
         self.assertEqual(2, report["held_out_label_counts"]["abnormal"])
         self.assertTrue(
             all(item["step_id"] not in {-2, -1, 1} for item in report["step_results"])
@@ -167,6 +174,26 @@ class Snapshot4RealDataTests(unittest.TestCase):
         self.assertFalse(report["pipeline"]["step15_ticket"])
         self.assertEqual(0, report["operational_ticket_count"])
         self.assertIn("not health states", report["threshold_probe_semantics"])
+        self.assertEqual(2, report["positive_count"])
+        self.assertEqual(1805, report["negative_count"])
+        self.assertEqual(2 / 1807, report["positive_prevalence"])
+        self.assertEqual(
+            report["positive_prevalence"], report["average_precision_baseline"]
+        )
+        self.assertEqual(
+            "LOW_POSITIVE_COUNT_DESCRIPTIVE_ONLY",
+            report["positive_count_assessment"],
+        )
+        self.assertIn("only two abnormal", report["discrimination_evidence_context"])
+        self.assertIn("SUPPORTED_EXTERNALLY", report["discrimination_evidence"])
+        self.assertIn("NOT_SUPPORTED", report["threshold_transfer_evidence"])
+        self.assertEqual(
+            "NONCOMMERCIAL_RESEARCH_BENCHMARK",
+            report["data_use_classification"],
+        )
+        self.assertFalse(
+            report["third_party_data_use"]["fleet_command_code_sharealike_claim"]
+        )
 
     @unittest.skipUnless(
         (DEFAULT_EXTERNAL_DATA_ROOT / "st-awfd-d2" / "D2.zip").is_file(),
@@ -178,6 +205,9 @@ class Snapshot4RealDataTests(unittest.TestCase):
         )
         self.assertEqual("EXECUTED", report["status"])
         self.assertEqual([1, 2], report["headline_step_ids"])
+        self.assertEqual(1.0, report["material_scoring_coverage"])
+        self.assertEqual(1.0, report["headline_step_coverage"])
+        self.assertEqual(1.0, report["complete_headline_material_coverage"])
         self.assertEqual(367, report["held_out_label_counts"]["abnormal"])
         self.assertEqual(1.0, report["continuous_metrics"]["auroc"])
         self.assertEqual(1.0, report["continuous_metrics"]["average_precision"])
@@ -198,6 +228,25 @@ class Snapshot4RealDataTests(unittest.TestCase):
             self.assertEqual(6, len(report["surface_maps"]))
             self.assertFalse(report["pipeline"]["step07_machine_model"])
             self.assertFalse(report["pipeline"]["step09_temporal_state_machine"])
+            self.assertEqual(
+                "DATUM_COMPARABILITY_UNVERIFIED",
+                report["median_height_association_status"],
+            )
+            self.assertEqual(
+                [
+                    "detrended_height_rms",
+                    "detrended_mean_absolute_deviation",
+                    "peak_to_valley",
+                ],
+                report["principal_descriptive_results"],
+            )
+            self.assertEqual(
+                "Public Domain Mark 1.0",
+                report["third_party_data_use"]["rights_statement"],
+            )
+            self.assertIn(
+                "not CC0", report["third_party_data_use"]["rights_instrument"]
+            )
 
     def test_current_record_contains_aggregate_results_only(self) -> None:
         if not CURRENT_EVIDENCE_PATH.is_file():

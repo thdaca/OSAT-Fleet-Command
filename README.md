@@ -105,6 +105,15 @@ separately re-runs the current datasets without network access and checks the
 deterministic comparison against `0.2.5-real-data.json`. A current evaluator
 hash is not compared with the historical evaluator hash.
 
+POST04 is organized by explicit dataset owner under `datasets/`, with only
+shared metrics, bounded reporting, and evidence lifecycle code under `core/`.
+ST-AWFD reports material-scoring, headline-step, and complete-headline-material
+coverage separately; continuous discrimination evidence is kept distinct from
+unsupported transfer/calibration of the frozen Step09 thresholds. Third-party
+data rights and the optional TUHH parser are recorded in
+`post04_real_data_evaluation/resources/THIRD_PARTY_DATA_USE.json`. Raw external
+datasets remain ignored and excluded from releases.
+
 ## Repository map
 
 ```text

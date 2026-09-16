@@ -80,11 +80,20 @@ set `2, 4, 5, 6, 7`, reports StepID 5 as `NO_SOURCE_ROWS`, reports optional
 `-1/-2` coverage descriptively, and does not relabel StepID 1. On 1,807
 held-out MaterialIDs (2 abnormal), the location score has AUROC
 `0.935180055401662` and average precision `0.012303436225975538`.
+Material scoring coverage is `1.0`, headline-step coverage is `4/5 = 0.8`, and
+complete-headline-material coverage is `0.0` because StepID 5 is absent. The
+positive prevalence and AP baseline are `2/1807 = 0.0011068068622025456`; AP
+lift over prevalence is `11.1161546301689`. This is marked
+`LOW_POSITIVE_COUNT_DESCRIPTIVE_ONLY`: an AUROC based on two abnormal held-out
+MaterialIDs is statistically fragile.
 
 The pinned D2 bytes contain 126,794 data rows and 1,156 MaterialIDs, one below
 each README value, with supplied mandatory StepIDs 1 and 2. On 604 held-out
 MaterialIDs (367 abnormal), the location score has AUROC and average precision
 of `1.0`. These values are reported as observed, without threshold tuning.
+Material, headline-step, and complete-headline-material coverage are all `1.0`.
+Positive prevalence and AP baseline are `367/604 = 0.6076158940397351`, giving
+an AP lift over prevalence of `1.645776566757493`.
 
 Static probes of the frozen numeric thresholds 0.35, 0.60, and 0.82 report
 confusion counts, precision, recall, F1, balanced accuracy, and MCC. They are
@@ -95,10 +104,20 @@ claim. The labels identify abnormal MaterialIDs/process outcomes, not confirmed
 maintenance faults. Raw and sample-level transformed data remain ignored and
 uncommitted.
 
+For both datasets, the deterministic interpretation is that external evidence
+supports Step07 continuous discrimination on this benchmark, while transfer or
+calibration of the frozen Step09 thresholds is not supported. The thresholds
+remain unchanged. ST-AWFD is classified as a
+`NONCOMMERCIAL_RESEARCH_BENCHMARK` under CC BY-NC-SA 4.0. Commercial
+re-execution or redistribution requires permission or legal/license review.
+That dataset license does not by itself make a claim that Fleet Command source
+code is ShareAlike.
+
 ### TUHH DISCO DAD3350 diced-surface maps
 
 The authoritative v1.0 source is DOI
-[10.15480/882.15763](https://doi.org/10.15480/882.15763), Public Domain. Pinned
+[10.15480/882.15763](https://doi.org/10.15480/882.15763), with the precise
+rights statement `Public Domain Mark 1.0` (not CC0). Pinned
 source identities are:
 
 - `data_raw.zip`: SHA-256
@@ -122,6 +141,13 @@ association with feed velocity. Detrended quantities are descriptive proxies
 unless independently validated against Keyence VK-A3D output; no ISO roughness
 compliance is claimed. This is real target-equipment/process evidence, not
 equipment-health validation or OSAT evidence. Steps 07/09/10/15 are not run.
+Cross-map absolute median-height association is marked
+`DATUM_COMPARABILITY_UNVERIFIED` and is not headline physics evidence. The
+principal descriptive results are detrended RMS, detrended mean absolute
+deviation, and peak-to-valley.
+
+The deterministic third-party data-use and parser inventory is
+[`THIRD_PARTY_DATA_USE.json`](../resources/THIRD_PARTY_DATA_USE.json).
 
 ### CHDL disposition
 

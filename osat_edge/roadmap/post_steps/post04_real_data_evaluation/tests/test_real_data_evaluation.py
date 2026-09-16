@@ -21,7 +21,7 @@ from osat_edge.roadmap.post_steps.post04_real_data_evaluation.post04_real_data_e
     RealDataEvaluationError,
     _fit_nominal_benchmark_model,
     _r2r_source_field_coverage,
-    deterministic_scientific_sha256,
+    current_real_data_evidence_record,
     evaluate_all_real_data,
     evaluate_real_dataset,
     verify_committed_real_data_evidence,
@@ -228,16 +228,7 @@ class RealDataEvaluationTests(unittest.TestCase):
             ],
             "summary": {"operational_tickets": 0},
         }
-        evaluator_path = Path(__file__).resolve().parents[1] / "post04_real_data_evaluation.py"
-        committed = {
-            "release_version": VERSION,
-            "evaluator_sha256": hashlib.sha256(
-                evaluator_path.read_bytes()
-            ).hexdigest(),
-            "deterministic_comparison_report_sha256": deterministic_scientific_sha256(report),
-            "summary": report["summary"],
-            "results": report["datasets"],
-        }
+        committed = current_real_data_evidence_record(report)
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "evidence.json"
             path.write_text(json.dumps(committed), encoding="utf-8")
@@ -257,7 +248,7 @@ class RealDataEvaluationTests(unittest.TestCase):
             root = Path(directory)
             _write_kuka(root)
             with patch(
-                "osat_edge.roadmap.post_steps.post04_real_data_evaluation.post04_real_data_evaluation.MAXIMUM_KUKA_MEMBERS",
+                "osat_edge.roadmap.post_steps.post04_real_data_evaluation.datasets.kuka.MAXIMUM_KUKA_MEMBERS",
                 1,
             ):
                 with self.assertRaisesRegex(RealDataEvaluationError, "too many files"):
@@ -291,9 +282,13 @@ class RealDataEvaluationTests(unittest.TestCase):
         self.assertFalse(kuka["step10_evidence_used"])
 
     def test_external_evaluator_has_no_step15_dependency(self) -> None:
-        source = (
-            Path(__file__).resolve().parents[1] / "post04_real_data_evaluation.py"
-        ).read_text(encoding="utf-8")
+        root = Path(__file__).resolve().parents[1]
+        source = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in sorted((root / "core").glob("*.py"))
+            + sorted((root / "datasets").glob("*.py"))
+            + [root / "post04_real_data_evaluation.py"]
+        )
         self.assertNotIn("step15_maintenance_ticket", source)
         self.assertNotIn("create_or_update_ticket", source)
         self.assertNotIn("step09_health_risk", source)

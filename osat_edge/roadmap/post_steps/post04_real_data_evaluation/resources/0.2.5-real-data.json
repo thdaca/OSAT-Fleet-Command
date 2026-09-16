@@ -1,6 +1,6 @@
 {
-  "deterministic_comparison_report_sha256": "1db1bdb93adf27130ef460644f093a636376deffef7f732bf6b0152bf8c7df33",
-  "evaluator_sha256": "8dacd29472cfc029b33a3798ba6673be8e33c2f557f2360ef56b664d0ece8c82",
+  "deterministic_comparison_report_sha256": "1551eb482da579bae370998650ee343093e00253abf2080e79a10ed469ac0c1b",
+  "evaluator_sha256": "3a406d6d3c0289777ed69f226d92b39be0f77ff1f92072195583596cb7101927",
   "historical_artifact": {
     "name": "0.2.4-real-data.json",
     "reproduced_as_current": false,
@@ -28,12 +28,25 @@
         "The pinned D1 CSV has 602108 data rows and 5104 MaterialIDs; the repository README states 602108 rows and 5105 MaterialIDs.",
         "The pinned D1 CSV contains StepID 1 and no StepID 5 although the repository README names StepID 5 as mandatory; neither identifier is relabeled."
       ],
+      "average_precision_baseline": 0.0011068068622025456,
+      "average_precision_lift_definition": "average_precision / positive_prevalence",
+      "average_precision_lift_over_prevalence": 11.1161546301689,
+      "complete_headline_material_coverage": 0.0,
       "continuous_metrics": {
         "auroc": 0.935180055401662,
         "average_precision": 0.012303436225975538
       },
+      "coverage_definitions": {
+        "complete_headline_material_coverage": "held-out MaterialIDs scored for every configured headline StepID / all held-out MaterialIDs",
+        "headline_step_coverage": "configured headline StepIDs scored / configured headline StepIDs",
+        "material_scoring_coverage": "held-out MaterialIDs with at least one location score / all held-out MaterialIDs"
+      },
       "data_quality_coverage": 1.0,
+      "data_use_classification": "NONCOMMERCIAL_RESEARCH_BENCHMARK",
       "dataset": "st-awfd-d1",
+      "discrimination_evidence": "SUPPORTED_EXTERNALLY_FOR_STEP07_CONTINUOUS_DISCRIMINATION",
+      "discrimination_evidence_context": "AUROC is based on only two abnormal held-out MaterialIDs and is statistically fragile.",
+      "headline_step_coverage": 0.8,
       "headline_step_ids": [
         2,
         4,
@@ -64,7 +77,9 @@
         "The authoritative D1 bytes contain no StepID 5; the headline registry retains StepID 5 with NO_SOURCE_ROWS and does not substitute StepID 1."
       ],
       "machines": null,
+      "material_scoring_coverage": 1.0,
       "method_scope": "per-MaterialID/per-mandatory-StepID anonymous-feature median and MAD; frozen Step07 numerical deviation only",
+      "negative_count": 1805,
       "normal_location_score_distribution": {
         "count": 1805,
         "maximum": 0.9999999999045367,
@@ -87,6 +102,10 @@
         "step15_ticket": false
       },
       "pipeline_coverage": 1.0,
+      "pipeline_coverage_definition": "legacy evidence-schema alias for material_scoring_coverage",
+      "positive_count": 2,
+      "positive_count_assessment": "LOW_POSITIVE_COUNT_DESCRIPTIVE_ONLY",
+      "positive_prevalence": 0.0011068068622025456,
       "provenance_method": "official STMicroelectronics GitHub commit 54be5cc91b83615240710bda9745f51c984d10c5; pinned archive SHA-256",
       "provenance_status": "VERIFIED_OFFICIAL_ARTIFACT",
       "runs": 5104,
@@ -153,6 +172,12 @@
         "6": 20422,
         "7": 102018
       },
+      "third_party_data_use": {
+        "commercial_reexecution_or_redistribution": "requires permission or legal/license review",
+        "fleet_command_code_sharealike_claim": false,
+        "raw_data_in_repository_or_release": false,
+        "rights_statement": "CC BY-NC-SA 4.0"
+      },
       "threshold_probe_semantics": "static probes of frozen entry thresholds; these are not health states and no threshold was selected or optimized",
       "threshold_probes": {
         "CRITICAL_ENTRY": {
@@ -192,6 +217,7 @@
           "tp": 2
         }
       },
+      "threshold_transfer_evidence": "NOT_SUPPORTED_FOR_FROZEN_STEP09_THRESHOLD_TRANSFER_OR_CALIBRATION",
       "training_materials": 3297
     },
     {
@@ -205,12 +231,25 @@
       "artifact_observations": [
         "The pinned D2 CSV has 126794 data rows and 1156 MaterialIDs; the repository README states 126795 rows and 1157 MaterialIDs."
       ],
+      "average_precision_baseline": 0.6076158940397351,
+      "average_precision_lift_definition": "average_precision / positive_prevalence",
+      "average_precision_lift_over_prevalence": 1.645776566757493,
+      "complete_headline_material_coverage": 1.0,
       "continuous_metrics": {
         "auroc": 1.0,
         "average_precision": 1.0
       },
+      "coverage_definitions": {
+        "complete_headline_material_coverage": "held-out MaterialIDs scored for every configured headline StepID / all held-out MaterialIDs",
+        "headline_step_coverage": "configured headline StepIDs scored / configured headline StepIDs",
+        "material_scoring_coverage": "held-out MaterialIDs with at least one location score / all held-out MaterialIDs"
+      },
       "data_quality_coverage": 1.0,
+      "data_use_classification": "NONCOMMERCIAL_RESEARCH_BENCHMARK",
       "dataset": "st-awfd-d2",
+      "discrimination_evidence": "SUPPORTED_EXTERNALLY_FOR_STEP07_CONTINUOUS_DISCRIMINATION",
+      "discrimination_evidence_context": "Observed on the official held-out MaterialID split without threshold tuning.",
+      "headline_step_coverage": 1.0,
       "headline_step_ids": [
         1,
         2
@@ -237,7 +276,9 @@
         "Labels describe abnormal MaterialIDs/process results, not confirmed equipment-maintenance faults."
       ],
       "machines": null,
+      "material_scoring_coverage": 1.0,
       "method_scope": "per-MaterialID/per-mandatory-StepID anonymous-feature median and MAD; frozen Step07 numerical deviation only",
+      "negative_count": 237,
       "normal_location_score_distribution": {
         "count": 237,
         "maximum": 0.9869265555759356,
@@ -257,6 +298,10 @@
         "step15_ticket": false
       },
       "pipeline_coverage": 1.0,
+      "pipeline_coverage_definition": "legacy evidence-schema alias for material_scoring_coverage",
+      "positive_count": 367,
+      "positive_count_assessment": "DESCRIPTIVE_EXTERNAL_BENCHMARK",
+      "positive_prevalence": 0.6076158940397351,
       "provenance_method": "official STMicroelectronics GitHub commit 54be5cc91b83615240710bda9745f51c984d10c5; pinned archive SHA-256",
       "provenance_status": "VERIFIED_OFFICIAL_ARTIFACT",
       "runs": 1156,
@@ -298,6 +343,12 @@
         "1": 74945,
         "2": 51849
       },
+      "third_party_data_use": {
+        "commercial_reexecution_or_redistribution": "requires permission or legal/license review",
+        "fleet_command_code_sharealike_claim": false,
+        "raw_data_in_repository_or_release": false,
+        "rights_statement": "CC BY-NC-SA 4.0"
+      },
       "threshold_probe_semantics": "static probes of frozen entry thresholds; these are not health states and no threshold was selected or optimized",
       "threshold_probes": {
         "CRITICAL_ENTRY": {
@@ -337,6 +388,7 @@
           "tp": 367
         }
       },
+      "threshold_transfer_evidence": "NOT_SUPPORTED_FOR_FROZEN_STEP09_THRESHOLD_TRANSFER_OR_CALIBRATION",
       "training_materials": 552
     },
     {
@@ -359,6 +411,7 @@
         "Steps 07, 09, 10, and 15 are not run and no operational ticket authority exists."
       ],
       "machines": null,
+      "median_height_association_status": "DATUM_COMPARABILITY_UNVERIFIED",
       "method_scope": "descriptive target-process surface metrology only",
       "operational_ticket_count": 0,
       "pipeline": {
@@ -370,6 +423,11 @@
         "step15_ticket": false
       },
       "pipeline_coverage": 1.0,
+      "principal_descriptive_results": [
+        "detrended_height_rms",
+        "detrended_mean_absolute_deviation",
+        "peak_to_valley"
+      ],
       "provenance_method": "pinned authoritative TORE v1.0 archive and README SHA-256/MD5",
       "provenance_status": "VERIFIED_OFFICIAL_ARTIFACT",
       "runs": 6,
@@ -471,7 +529,19 @@
           "robust_spread": 0.0463925,
           "valid_pixel_fraction": 1.0
         }
-      ]
+      ],
+      "third_party_data_use": {
+        "independent_validation_required": true,
+        "parser": {
+          "commit": "36e1eb9f550a41f5be2369de125ec51338f54d9e",
+          "license": "Unlicense",
+          "name": "convert-keyence-files",
+          "version": "0.1.0"
+        },
+        "raw_data_in_repository_or_release": false,
+        "rights_instrument": "public-domain marking; not CC0",
+        "rights_statement": "Public Domain Mark 1.0"
+      }
     },
     {
       "dataset": "wafer-dicing-chang-2024",
@@ -658,6 +728,8 @@
     }
   ],
   "schema_version": "1.0",
+  "snapshot4_evidence_artifact_sha256": "eb301b10f2f8da993a2117d143c0af77f44bb75999325ca55b666f53e18557ed",
+  "snapshot4_scientific_payload_sha256": "61963b9a0de672f5e698d30442d5e5c4c81fce299e9a66ca2ef8b76074f11132",
   "summary": {
     "attempted": 13,
     "executed": 5,
@@ -666,6 +738,9 @@
     "rejected_invalid": 0,
     "unavailable": 5,
     "unverified_external_input": 0
+  },
+  "third_party_data_use_inventory": {
+    "path": "THIRD_PARTY_DATA_USE.json",
+    "sha256": "9c593aaf1f517980ea5b3319bd2f1e1aa97ccfecaa8c34d52ccf51646c5e0c6c"
   }
 }
-
