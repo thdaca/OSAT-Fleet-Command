@@ -10,7 +10,12 @@ from osat_edge.common import DataOrigin, EquipmentState, RuntimeMode
 from osat_edge.roadmap.step04_family_data import FamilyDataset, FamilySample
 from osat_edge.roadmap.step05_family_model import FamilyModel, fit_family_model, score_family_model
 from osat_edge.roadmap.step06_machine_history import HealthyInterval, MachineHistory
-from osat_edge.roadmap.step07_machine_model import ContextModel, evaluate_machine_model, fit_machine_model
+from osat_edge.roadmap.step07_machine_model import (
+    ContextModel,
+    evaluate_machine_model,
+    evaluate_machine_model_numerically,
+    fit_machine_model,
+)
 from support import NOW, family_dataset, feature_set, identity
 
 
@@ -208,7 +213,14 @@ class ModelTests(unittest.TestCase):
             evaluate_machine_model(model, wrong_station, replace(rows[-1], machine=wrong_station), runtime_mode=RuntimeMode.SIMULATION)
         with self.assertRaisesRegex(ValueError, "synthetic"):
             evaluate_machine_model(model, machine, rows[-1], runtime_mode=RuntimeMode.LIVE_EQUIPMENT)
-        self.assertTrue(evaluate_machine_model(model, machine, rows[-1], runtime_mode=RuntimeMode.SIMULATION).available)
+        operational = evaluate_machine_model(
+            model, machine, rows[-1], runtime_mode=RuntimeMode.SIMULATION
+        )
+        self.assertTrue(operational.available)
+        self.assertEqual(
+            operational,
+            evaluate_machine_model_numerically(model, machine, rows[-1]),
+        )
 
 
 if __name__ == "__main__":

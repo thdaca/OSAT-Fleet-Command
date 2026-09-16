@@ -1,12 +1,13 @@
-# OSAT Fleet Command 0.2.3
+# OSAT Fleet Command 0.2.4
 
 **RESEARCH / DEVELOPMENT BUILD — not production qualified**
 
-Release title: **REFERENCE DATA & EXTERNAL BENCHMARK**
+Release title: **EXTERNAL REAL-DATA EVALUATION**
 
-Version 0.2.3 adds reference-data and benchmark capabilities while preserving
-the predictive architecture; it also carries forward the final correctness
-fixes from the 0.2.2 hardening pass.
+Version 0.2.4 adds an isolated offline evaluator for explicitly supplied real
+external data. The 0.2.3 inference method, thresholds, canonical stations,
+demo, reference replay, UI, security boundary, and ticket authority are not
+tuned or redesigned.
 
 OSAT Fleet Command is a small, edge-oriented teaching and research implementation for exploring equipment-health evidence in semiconductor back-end manufacturing. It keeps deterministic health and maintenance decisions separate from optional language-model enrichment.
 
@@ -28,7 +29,7 @@ The repository follows one visible path:
 
 The nine isolated demo stations are WM-01, WS-01, DA-01, WB-04, MO-01, MK-01, TF-01, SG-01, and FT-01. A model or baseline for one machine or family is rejected for another.
 
-The 0.2.3 runtime intentionally represents one demonstration machine per family, keyed by family. It is not yet a general plant inventory for multiple simultaneous machines of the same family. The family-data stage may still learn from historical records for multiple real machines of one family.
+The runtime intentionally represents one demonstration machine per family, keyed by family. It is not yet a general plant inventory for multiple simultaneous machines of the same family. The family-data stage may still learn from historical records for multiple real machines of one family.
 
 This build does **not** provide calibrated failure probabilities, causal diagnosis, a real OSAT fleet validation, autonomous control, or a commercial SECS/GEM implementation. The model output is a `risk_score`, not a failure probability.
 
@@ -53,6 +54,8 @@ The optional external benchmark parser is declared in
 .venv\Scripts\python -m osat_edge.cli demo
 .venv\Scripts\python -m osat_edge.cli reference-replay
 .venv\Scripts\python -m osat_edge.cli benchmark-nasa-milling --dataset benchmarks\_external\NASA_Milling.zip
+.venv\Scripts\python -m osat_edge.cli evaluate-real --dataset kuka-kr3 --path benchmarks\_external\kuka-kr3
+.venv\Scripts\python -m osat_edge.cli evaluate-real --all --root benchmarks\_external
 .venv\Scripts\python -m osat_edge.cli ui
 ```
 
@@ -72,6 +75,13 @@ model, ticket, or HMI paths. See
 The bundled replay is not real data. The NASA data are real external machining
 data, but not semiconductor or OSAT data. Neither path is plant validation,
 production qualification, or evidence of failure-prediction performance.
+
+`evaluate-real` never downloads data, enters the operational pipeline, fits a
+Step-05 family model, or calls Step 15. External inputs remain
+`DataOrigin.EXTERNAL_BENCHMARK`; reports are written under
+`.artifacts/real_data/` only with `--report`. See
+[docs/REAL_DATA_CATALOG.md](docs/REAL_DATA_CATALOG.md) for source provenance,
+exact mappings, attempted datasets, supported metrics, and limitations.
 
 ## HMI screens
 

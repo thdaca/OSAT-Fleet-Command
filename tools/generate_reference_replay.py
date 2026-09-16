@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from osat_edge.common import DataOrigin, RuntimeMode, VERSION  # noqa: E402
+from osat_edge.common import DataOrigin, RuntimeMode  # noqa: E402
 from osat_edge.demo import _demo_identity, _fit_demo_model, _stable_center  # noqa: E402
 from osat_edge.machines import STATIONS  # noqa: E402
 from osat_edge.roadmap.step01_physics_library import SPEED_HIGH  # noqa: E402
@@ -25,6 +25,7 @@ OUTPUT = ROOT / "examples" / "reference_replay"
 START = dt.datetime(2026, 2, 2, 14, 0, tzinfo=dt.timezone.utc)
 DATASET_ID = "osat-reference-fleet-001"
 SCHEMA_VERSION = "1.0"
+REFERENCE_RELEASE_VERSION = "0.2.3"
 
 
 def _timestamp(seconds: float) -> str:
@@ -179,7 +180,7 @@ def generate(output_directory: str | Path = OUTPUT) -> None:
 
 Dataset ID: `{DATASET_ID}`  
 Schema: `{SCHEMA_VERSION}`  
-Release generator: OSAT Fleet Command `{VERSION}`
+Release generator: OSAT Fleet Command `{REFERENCE_RELEASE_VERSION}`
 
 This small, deterministic artifact is **SYNTHETIC REFERENCE REPLAY** data. It
 uses `REAL_REPLAY` execution semantics so students can inspect the real replay,
@@ -214,7 +215,7 @@ Regenerate only when intentionally revising the frozen artifact:
     manifest = {
         "dataset_id": DATASET_ID,
         "schema_version": SCHEMA_VERSION,
-        "release_version": VERSION,
+        "release_version": REFERENCE_RELEASE_VERSION,
         "title": "OSAT Fleet Command frozen synthetic reference replay",
         "origin": DataOrigin.SYNTHETIC.value,
         "runtime_mode": RuntimeMode.REAL_REPLAY.value,

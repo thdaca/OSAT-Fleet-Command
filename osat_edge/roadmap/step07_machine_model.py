@@ -176,6 +176,34 @@ def evaluate_machine_model(
     runtime_mode: RuntimeMode,
 ) -> MachineModelResult:
     validate_machine_model(model, active_machine, runtime_mode)
+    return evaluate_machine_model_numerically(model, active_machine, feature_set)
+
+
+def evaluate_machine_model_numerically(
+    model: MachineModel,
+    active_machine: MachineIdentity,
+    feature_set: FeatureSet,
+) -> MachineModelResult:
+    """Apply the Step-07 numerical score after caller-owned provenance policy.
+
+    Operational callers must continue to use :func:`evaluate_machine_model`,
+    which enforces runtime-mode and model-origin policy.  This pure entry point
+    exists only so the isolated external-data evaluator can exercise exactly
+    the same score without granting EXTERNAL_BENCHMARK operational authority.
+    """
+
+    if model.machine.machine_id != active_machine.machine_id:
+        raise ValueError(
+            f"Machine model for {model.machine.machine_id} cannot score {active_machine.machine_id}"
+        )
+    if model.machine.family != active_machine.family:
+        raise ValueError(
+            f"Machine model family {model.machine.family} cannot score {active_machine.family}"
+        )
+    if model.machine.station_id != active_machine.station_id:
+        raise ValueError(
+            f"Machine model station {model.machine.station_id} cannot score {active_machine.station_id}"
+        )
     if feature_set.machine != active_machine:
         raise ValueError("Feature set belongs to another installed machine")
     context = model.contexts.get(feature_set.equipment_state)

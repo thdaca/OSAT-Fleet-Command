@@ -33,6 +33,28 @@ def parser() -> argparse.ArgumentParser:
     )
     benchmark.add_argument("--dataset", required=True, help="Path to mill.mat, extracted directory, or official ZIP")
     benchmark.add_argument("--output", help="Optional path for the full JSON report")
+    real = commands.add_parser(
+        "evaluate-real",
+        help="Evaluate explicitly supplied external real data offline",
+    )
+    choice = real.add_mutually_exclusive_group(required=True)
+    choice.add_argument("--dataset", choices=(
+        "wafer-dicing-chang-2024", "phm-2018-ion-mill", "phm-2016-cmp",
+        "forinfpro-himd", "r2r-web-tension", "me-ad", "kuka-kr3",
+        "rddac", "nasa-milling", "uci-secom",
+    ))
+    choice.add_argument("--all", action="store_true", help="Attempt all registered datasets")
+    real.add_argument("--path", help="Local artifact/directory for --dataset")
+    real.add_argument(
+        "--root",
+        default="benchmarks/_external",
+        help="Local root containing dataset-ID directories for --all",
+    )
+    real.add_argument(
+        "--report",
+        action="store_true",
+        help="Write .artifacts/real_data/comparison.json explicitly",
+    )
     commands.add_parser("ui", help="Launch the PyQt6 research dashboard")
     return value
 
@@ -72,6 +94,34 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(str(exc), file=sys.stderr)
             return 2
         print(json.dumps(benchmark_summary(result), indent=2, sort_keys=True))
+        return 0
+    if args.command == "evaluate-real":
+        from .real_data import (
+            RealDataEvaluationError,
+            evaluate_all_real_data,
+            evaluate_real_dataset,
+            real_data_summary,
+            write_real_data_report,
+        )
+
+        if args.dataset and not args.path:
+            print("evaluate-real --dataset requires --path", file=sys.stderr)
+            return 2
+        if args.all and args.path:
+            print("evaluate-real --all uses --root, not --path", file=sys.stderr)
+            return 2
+        try:
+            result = (
+                evaluate_all_real_data(args.root)
+                if args.all
+                else evaluate_real_dataset(args.dataset, args.path)
+            )
+            if args.report:
+                write_real_data_report(result)
+        except RealDataEvaluationError as exc:
+            print(f"REAL-DATA EVALUATION ERROR: {exc}", file=sys.stderr)
+            return 2
+        print(json.dumps(real_data_summary(result), indent=2, sort_keys=True))
         return 0
     if args.command == "ui":
         from .ui import main as ui_main

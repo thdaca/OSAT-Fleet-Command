@@ -1,6 +1,6 @@
 # Student guide
 
-OSAT Fleet Command 0.2.3 is intentionally a minimum research build with a
+OSAT Fleet Command 0.2.4 is intentionally a minimum research build with a
 transparent industrial edge-monitoring HMI prototype. Read it from `step01` to
 `step15`; the file names are the architecture map.
 
@@ -20,7 +20,8 @@ transparent industrial edge-monitoring HMI prototype. Read it from `step01` to
 - `pipeline.py` connects those steps with explicit control flow. `demo.py` owns
   live synthetic generation and injection. `reference_replay.py` validates and
   runs the one frozen synthetic replay artifact. `benchmark.py` is a separate,
-  descriptive external-data analysis path.
+  descriptive external-data analysis path. `real_data.py` is the isolated
+  offline evaluator for explicitly supplied external real data.
 
 ## Boundaries to preserve
 
@@ -33,13 +34,17 @@ evidence is. The reference fixture therefore uses `REAL_REPLAY` execution with
 release; they cannot create actionable tickets. The optional RAG/LLM branch can
 only improve wording after deterministic evidence exists.
 
-The live/demo runtime is deliberately one machine per family in 0.2.3. Its `machines[family]` mapping is not a general plant inventory for WS-01, WS-02, and WS-03 at the same time. This does not prevent the family-data stage from learning across historical records from multiple machines of that family.
+The live/demo runtime is deliberately one machine per family. Its `machines[family]` mapping is not a general plant inventory for WS-01, WS-02, and WS-03 at the same time. This does not prevent the family-data stage from learning across historical records from multiple machines of that family.
 
 Read [REFERENCE_REPLAY.md](REFERENCE_REPLAY.md) before changing the bundled
 fixture. Read [EXTERNAL_BENCHMARK.md](EXTERNAL_BENCHMARK.md) before analyzing
 the optional NASA data. External machining observations are not OSAT evidence,
 and the benchmark is intentionally prevented from producing health states or
 maintenance tickets.
+
+Read [REAL_DATA_CATALOG.md](REAL_DATA_CATALOG.md) before using `evaluate-real`.
+External data are offline research inputs only; a semantically similar signal
+is not automatically an approved OSAT channel.
 
 Source identifiers must be explicitly reviewed and mapped to canonical health channels. Do not ingest recipes, PPIDs, wafer maps, geometry, proprietary process windows, or unknown equipment variables.
 

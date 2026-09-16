@@ -1,6 +1,6 @@
 # Repository rules
 
-OSAT Fleet Command 0.2.3 is a research/development student project, not production software.
+OSAT Fleet Command 0.2.4 is a research/development student project, not production software.
 
 - Keep the numbered modules in `osat_edge/roadmap/` aligned with the documented roadmap.
 - Prefer explicit ordinary Python and small dataclasses over framework-like indirection.

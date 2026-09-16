@@ -1,6 +1,6 @@
 # External NASA Milling benchmark
 
-OSAT Fleet Command 0.2.3 includes an optional, isolated parser and descriptive
+OSAT Fleet Command 0.2.4 includes an optional, isolated parser and descriptive
 analysis for the official NASA/UC Berkeley Milling Data Set. NASA describes the
 data as milling experiments provided by the UC Berkeley BEST Lab with varying
 operating conditions and measured flank wear.
@@ -70,10 +70,10 @@ tool insert, and run progression can affect both signals and observed wear.
 Pooled associations therefore cannot be read as isolated wear effects, and
 even within-condition associations remain observational.
 
-## Verified local result for 0.2.3
+## Verified local result carried into 0.2.4
 
-The official source archive checked during release work had SHA-256
-`bdba8d52ec1a1baab24c2be58480e6ac62508c8cc1f8219f47ebde8fc9ebc474`.
+The official source archive checked during 0.2.4 release work had SHA-256
+`de9c8685cb0e07b4f39459dc282b49192a3ad660e9577ff99b68dc9994e35d27`.
 It contained 167 runs across 16 cases and eight depth/feed/material
 combinations; 146 runs had finite `VB` values. The pooled Spearman association
 with `VB` was 0.725 for AC-current RMS, 0.740 for DC-current RMS, and -0.530 for

@@ -33,6 +33,7 @@ from .roadmap.step15_maintenance_ticket import list_tickets
 
 
 REFERENCE_SCHEMA_VERSION = "1.0"
+REFERENCE_RELEASE_VERSION = "0.2.3"
 REFERENCE_DATASET_ID = "osat-reference-fleet-001"
 REFERENCE_FILES = (
     "telemetry.csv",
@@ -210,8 +211,8 @@ def _validate_manifest(directory: Path) -> Mapping[str, Any]:
         raise ReferenceReplayError("Unsupported reference replay dataset_id")
     if manifest.get("schema_version") != REFERENCE_SCHEMA_VERSION:
         raise ReferenceReplayError("Unsupported reference replay schema_version")
-    if manifest.get("release_version") != VERSION:
-        raise ReferenceReplayError("Reference replay release_version does not match the runtime")
+    if manifest.get("release_version") != REFERENCE_RELEASE_VERSION:
+        raise ReferenceReplayError("Reference replay release_version is not the frozen release")
     if manifest.get("origin") != DataOrigin.SYNTHETIC.value:
         raise ReferenceReplayError("Reference replay origin must be SYNTHETIC")
     if manifest.get("runtime_mode") != RuntimeMode.REAL_REPLAY.value:

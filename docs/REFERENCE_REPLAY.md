@@ -1,6 +1,6 @@
 # Frozen synthetic reference replay
 
-OSAT Fleet Command 0.2.3 bundles exactly one small reference artifact at
+OSAT Fleet Command 0.2.4 carries forward exactly one small reference artifact at
 `examples/reference_replay/`. Its dataset ID is
 `osat-reference-fleet-001`.
 
@@ -56,7 +56,7 @@ synthetic research calibration.
 The checked-in artifact has 1,509 telemetry rows, 251 context rows, and 494
 asynchronous replay ticks. All 1,509 telemetry rows and 251 context rows are
 accepted; zero are rejected. Because loading is fail-closed, an invalid fixture
-produces an error rather than partial ingestion. On the accepted 0.2.3 code it
+produces an error rather than partial ingestion. On the frozen 0.2.3 inference path it
 produces:
 
 - initial `UNKNOWN` while the 60-second feature window matures, then `NORMAL`;
