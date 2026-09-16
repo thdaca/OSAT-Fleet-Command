@@ -53,6 +53,7 @@ def snapshot4_scientific_payload_sha256(record: Mapping[str, Any]) -> str:
     value.pop("snapshot4_scientific_payload_sha256", None)
     value.pop("snapshot4_evidence_artifact_sha256", None)
     value.pop("third_party_data_use_inventory", None)
+    value.pop("st_awfd_discrimination_interpretation", None)
     for result in value.get("results", []):
         for field in SNAPSHOT5_REPORTING_FIELDS:
             result.pop(field, None)
@@ -204,6 +205,9 @@ def current_real_data_evidence_record(report: Mapping[str, Any]) -> dict[str, An
         },
         "summary": report["summary"],
         "results": results,
+        "st_awfd_discrimination_interpretation": report.get(
+            "st_awfd_discrimination_interpretation"
+        ),
     }
     observed_snapshot4_hash = snapshot4_scientific_payload_sha256(record)
     if (

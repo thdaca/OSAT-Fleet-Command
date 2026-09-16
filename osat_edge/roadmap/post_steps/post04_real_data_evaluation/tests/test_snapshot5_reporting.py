@@ -114,7 +114,12 @@ class Snapshot5ReportingTests(unittest.TestCase):
     def test_discrimination_is_separate_from_threshold_transfer(self) -> None:
         for dataset_id in ("st-awfd-d1", "st-awfd-d2"):
             result = self.results[dataset_id]
-            self.assertIn("SUPPORTED_EXTERNALLY", result["discrimination_evidence"])
+            expected = (
+                "INDICATIVE_EXTERNAL_DISCRIMINATION_DESCRIPTIVE_ONLY"
+                if dataset_id == "st-awfd-d1"
+                else "SUPPORTED_EXTERNALLY_FOR_STEP07_CONTINUOUS_DISCRIMINATION"
+            )
+            self.assertEqual(expected, result["discrimination_evidence"])
             self.assertIn("NOT_SUPPORTED", result["threshold_transfer_evidence"])
             self.assertFalse(result["pipeline"]["step05_family_model"])
             self.assertFalse(result["pipeline"]["step09_temporal_state_machine"])

@@ -185,7 +185,10 @@ class Snapshot4RealDataTests(unittest.TestCase):
             report["positive_count_assessment"],
         )
         self.assertIn("only two abnormal", report["discrimination_evidence_context"])
-        self.assertIn("SUPPORTED_EXTERNALLY", report["discrimination_evidence"])
+        self.assertEqual(
+            "INDICATIVE_EXTERNAL_DISCRIMINATION_DESCRIPTIVE_ONLY",
+            report["discrimination_evidence"],
+        )
         self.assertIn("NOT_SUPPORTED", report["threshold_transfer_evidence"])
         self.assertEqual(
             "NONCOMMERCIAL_RESEARCH_BENCHMARK",

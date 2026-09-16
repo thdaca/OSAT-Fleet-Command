@@ -22,6 +22,7 @@ from .core.dataset_context import (
 )
 from .core.model_bridge import _fit_nominal_benchmark_model
 from .core.reporting import (
+    ST_AWFD_DISCRIMINATION_INTERPRETATION,
     deterministic_scientific_bytes,
     deterministic_scientific_report,
     deterministic_scientific_sha256,
@@ -96,6 +97,15 @@ def evaluate_all_real_data(root: str | Path) -> dict[str, Any]:
         "origin": DataOrigin.EXTERNAL_BENCHMARK.value,
         "dataset_order": list(DATASET_ORDER),
         "datasets": results,
+        "st_awfd_discrimination_interpretation": (
+            ST_AWFD_DISCRIMINATION_INTERPRETATION
+            if all(
+                any(item["dataset"] == dataset_id and item["status"] == "EXECUTED"
+                    for item in results)
+                for dataset_id in ST_AWFD_SPECS
+            )
+            else None
+        ),
         "summary": {
             "attempted": len(results),
             "executed": sum(item["status"].startswith("EXECUTED") for item in results),

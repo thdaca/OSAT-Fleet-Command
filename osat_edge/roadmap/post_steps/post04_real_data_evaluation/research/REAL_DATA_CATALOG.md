@@ -85,7 +85,10 @@ complete-headline-material coverage is `0.0` because StepID 5 is absent. The
 positive prevalence and AP baseline are `2/1807 = 0.0011068068622025456`; AP
 lift over prevalence is `11.1161546301689`. This is marked
 `LOW_POSITIVE_COUNT_DESCRIPTIVE_ONLY`: an AUROC based on two abnormal held-out
-MaterialIDs is statistically fragile.
+MaterialIDs is statistically fragile. Its discrimination classification is
+`INDICATIVE_EXTERNAL_DISCRIMINATION_DESCRIPTIVE_ONLY`, not strong external
+support. D1 cannot receive the strong classification below the existing
+low-positive cutoff of 10.
 
 The pinned D2 bytes contain 126,794 data rows and 1,156 MaterialIDs, one below
 each README value, with supplied mandatory StepIDs 1 and 2. On 604 held-out
@@ -104,9 +107,11 @@ claim. The labels identify abnormal MaterialIDs/process outcomes, not confirmed
 maintenance faults. Raw and sample-level transformed data remain ignored and
 uncommitted.
 
-For both datasets, the deterministic interpretation is that external evidence
-supports Step07 continuous discrimination on this benchmark, while transfer or
-calibration of the frozen Step09 thresholds is not supported. The thresholds
+External Step07 continuous discrimination support from ST-AWFD is driven
+primarily by D2, which retains
+`SUPPORTED_EXTERNALLY_FOR_STEP07_CONTINUOUS_DISCRIMINATION`. D1 is statistically
+fragile corroborative evidence only. Transfer or calibration of the frozen
+Step09 thresholds is not supported for either dataset. The thresholds
 remain unchanged. ST-AWFD is classified as a
 `NONCOMMERCIAL_RESEARCH_BENCHMARK` under CC BY-NC-SA 4.0. Commercial
 re-execution or redistribution requires permission or legal/license review.

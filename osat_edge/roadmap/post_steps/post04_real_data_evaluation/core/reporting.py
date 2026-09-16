@@ -4,6 +4,15 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Any, Mapping
+
+ST_AWFD_DISCRIMINATION_INTERPRETATION = (
+    "External Step07 continuous discrimination support from the pinned ST-AWFD "
+    "results is driven primarily by D2; D1 is statistically fragile corroborative "
+    "evidence with only 2 abnormal held-out MaterialIDs out of 1,807 and is "
+    "indicative and descriptive only."
+)
+
+
 def real_data_summary(report: Mapping[str, Any]) -> dict[str, Any]:
     """Bound stdout to provenance, coverage, supported results, and limits."""
 
@@ -12,6 +21,9 @@ def real_data_summary(report: Mapping[str, Any]) -> dict[str, Any]:
             "version": report["version"],
             "origin": report["origin"],
             "summary": report["summary"],
+            "st_awfd_discrimination_interpretation": report.get(
+                "st_awfd_discrimination_interpretation"
+            ),
             "datasets": [
                 {
                     "dataset": item["dataset"],

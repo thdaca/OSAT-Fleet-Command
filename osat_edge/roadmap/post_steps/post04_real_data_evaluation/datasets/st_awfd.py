@@ -15,6 +15,7 @@ from ..core.metrics import _binary_threshold_metrics, _continuous_binary_metrics
 from ..core.model_bridge import _fit_nominal_benchmark_model
 ST_AWFD_SOURCE_COMMIT = "54be5cc91b83615240710bda9745f51c984d10c5"
 ST_AWFD_LICENSE = "CC BY-NC-SA 4.0"
+LOW_POSITIVE_COUNT_THRESHOLD = 10
 ST_AWFD_SPECS: dict[str, dict[str, Any]] = {
     "st-awfd-d1": {
         "archive": "D1.zip",
@@ -40,6 +41,16 @@ ST_THRESHOLD_PROBES = {
 }
 MAXIMUM_ST_ARCHIVE_BYTES = 32 * 1024 * 1024
 MAXIMUM_ST_CSV_BYTES = 160 * 1024 * 1024
+
+
+def _st_discrimination_evidence(dataset_id: str, positive_count: int) -> str:
+    """Interpret D1's sparse positives without changing any measured score."""
+
+    if dataset_id == "st-awfd-d1" and positive_count < LOW_POSITIVE_COUNT_THRESHOLD:
+        return "INDICATIVE_EXTERNAL_DISCRIMINATION_DESCRIPTIVE_ONLY"
+    return "SUPPORTED_EXTERNALLY_FOR_STEP07_CONTINUOUS_DISCRIMINATION"
+
+
 def _st_identity(dataset_id: str, step_id: int) -> MachineIdentity:
     suffix = dataset_id.removeprefix("st-awfd-").upper()
     return MachineIdentity(
@@ -439,11 +450,11 @@ def _evaluate_st_awfd(path: Path, dataset_id: str) -> dict[str, Any]:
             ),
             "positive_count_assessment": (
                 "LOW_POSITIVE_COUNT_DESCRIPTIVE_ONLY"
-                if positive_count < 10
+                if positive_count < LOW_POSITIVE_COUNT_THRESHOLD
                 else "DESCRIPTIVE_EXTERNAL_BENCHMARK"
             ),
-            "discrimination_evidence": (
-                "SUPPORTED_EXTERNALLY_FOR_STEP07_CONTINUOUS_DISCRIMINATION"
+            "discrimination_evidence": _st_discrimination_evidence(
+                dataset_id, positive_count
             ),
             "threshold_transfer_evidence": (
                 "NOT_SUPPORTED_FOR_FROZEN_STEP09_THRESHOLD_TRANSFER_OR_CALIBRATION"
