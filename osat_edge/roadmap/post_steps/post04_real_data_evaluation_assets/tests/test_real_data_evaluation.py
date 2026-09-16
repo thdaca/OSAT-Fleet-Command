@@ -1,0 +1,455 @@
+from __future__ import annotations
+
+import contextlib
+import datetime as dt
+import hashlib
+import io
+import json
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import patch
+
+import numpy as np
+
+from osat_edge.ui.cli import main
+from osat_edge.roadmap.pre_steps.pre01_common import DataOrigin, EquipmentState, VERSION
+from osat_edge.roadmap.pre_steps.pre03_data_provenance import (
+    OsatProvenanceBasis,
+    ProvenanceError,
+    RealOsatChannelMapping,
+    RealOsatLabelType,
+    RealOsatProvenance,
+    SourceIdentityKind,
+    VerifiedRealOsatSource,
+    declare_real_osat_origin,
+    directory_hash,
+    verify_real_osat_source,
+)
+from osat_edge.roadmap.post_steps.post04_real_data_evaluation import (
+    COMMITTED_EVIDENCE_PATH,
+    DATASET_ORDER,
+    DATASETS,
+    RealDataEvaluationError,
+    _fit_nominal_benchmark_model,
+    _r2r_source_field_coverage,
+    deterministic_scientific_sha256,
+    evaluate_all_real_data,
+    evaluate_real_dataset,
+    verify_committed_real_data_evidence,
+    write_real_data_report,
+)
+from osat_edge.roadmap.steps.step02_physical_features import Feature, FeatureSet
+from osat_edge.roadmap.steps.step06_machine_history import HealthyInterval, MachineHistory
+from osat_edge.roadmap.steps.step07_machine_model import fit_machine_model
+from osat_edge.roadmap.pre_steps.pre01_common_assets.tests.support import identity
+
+
+KUKA_HEADER = ";".join(
+    [f"Iststrom_A{axis} (A)" for axis in range(1, 7)] + ["Sample"]
+)
+
+
+def _write_kuka(root: Path, *, bad_unit: bool = False) -> None:
+    robot = root / "Robot_R1"
+    robot.mkdir(parents=True)
+    records = [(100 + index, 1 if index < 6 else 2) for index in range(12)]
+    records.extend(((250, 3), (350, 4)))
+    header = KUKA_HEADER.replace("Iststrom_A1 (A)", "Iststrom_A1 (mA)") if bad_unit else KUKA_HEADER
+    for index, (payload, split) in enumerate(records):
+        rows = [header]
+        for sample in (0, 12, 24, 36):
+            currents = [0.01 * axis + 0.0001 * index + sample * 0.00001 for axis in range(1, 7)]
+            rows.append(";".join([*(str(value) for value in currents), str(sample)]))
+        (robot / f"collector_{payload}_{split}.csv").write_text(
+            "\n".join(rows) + "\n", encoding="utf-8"
+        )
+
+
+class RealDataEvaluationTests(unittest.TestCase):
+    def test_registry_order_and_provenance_are_explicit(self) -> None:
+        self.assertEqual(tuple(DATASETS), DATASET_ORDER)
+        self.assertEqual(10, len(DATASET_ORDER))
+        self.assertEqual("A", DATASETS["wafer-dicing-chang-2024"]["evidence_class"])
+        self.assertEqual("B", DATASETS["phm-2018-ion-mill"]["evidence_class"])
+        self.assertEqual("D", DATASETS["kuka-kr3"]["evidence_class"])
+
+    def test_compatible_kuka_fixture_is_not_declared_real_without_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _write_kuka(root)
+            report = evaluate_real_dataset("kuka-kr3", root)
+        self.assertEqual("UNVERIFIED_EXTERNAL_INPUT", report["status"])
+        self.assertEqual(DataOrigin.EXTERNAL_BENCHMARK.value, report["origin"])
+        self.assertIsNone(report["source"])
+        self.assertIsNone(report["real_data"])
+        self.assertIsNone(report["synthetic_data"])
+        self.assertFalse(report["provenance_verified"])
+        self.assertEqual(14, report["runs"])
+        self.assertEqual(1, report["machines"])
+
+    def test_r2r_headline_coverage_uses_all_classified_physical_fields(self) -> None:
+        mapped = {
+            "Film Tension #1 (kg)",
+            "Film Tension #2 (kg)",
+            "Film Tension #3 (kg)",
+            "Web Current Speed (mm/sec)",
+        }
+        schema = (
+            "Date",
+            "Model",
+            "Trigger",
+            "Film kind",
+            "OutFeeder-Control: Kp",
+            *sorted(mapped),
+            "Film width (mm)",
+            "Master roll speed (mm/sec)",
+        )
+        headline, source_fields = _r2r_source_field_coverage(schema, mapped)
+        self.assertEqual({"mapped": 4, "total": 6, "fraction": 4 / 6}, headline)
+        self.assertEqual(11, source_fields["inspected_source_fields"])
+        self.assertEqual(4, source_fields["metadata_or_label_fields_excluded"])
+        self.assertEqual(1, source_fields["controller_configuration_fields_excluded"])
+        self.assertNotEqual(1.0, source_fields["fraction"])
+
+    def test_benchmark_nominal_fit_is_numerically_equivalent_to_step07(self) -> None:
+        machine = identity()
+        start = dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc)
+        regular = np.arange(12, dtype=np.float64)
+        std_fallback = np.asarray([0.0] * 11 + [10.0])
+        floor_from_center = np.full(12, 2.0)
+        absolute_floor = np.full(12, 1e-8)
+        rows: list[FeatureSet] = []
+        for index in range(12):
+            window_start = start + dt.timedelta(minutes=index)
+            window_end = window_start + dt.timedelta(seconds=30)
+            rows.append(
+                FeatureSet(
+                    machine,
+                    window_end,
+                    EquipmentState.PROCESSING,
+                    window_start,
+                    window_end,
+                    (
+                        Feature("regular", float(regular[index]), "spindle", "location"),
+                        Feature("std_fallback", float(std_fallback[index]), "spindle", "spread"),
+                        Feature("floor_from_center", float(floor_from_center[index]), "spindle", "location"),
+                        Feature("absolute_floor", float(absolute_floor[index]), "spindle", "location"),
+                    ),
+                )
+            )
+        interval = HealthyInterval(
+            machine.machine_id,
+            start - dt.timedelta(seconds=1),
+            rows[-1].window_end + dt.timedelta(seconds=1),
+        )
+        operational_model = fit_machine_model(
+            MachineHistory(machine, DataOrigin.SYNTHETIC, tuple(rows), (interval,))
+        )
+        self.assertIs(DataOrigin.SYNTHETIC, operational_model.origin)
+        operational = operational_model.contexts[EquipmentState.PROCESSING]
+        benchmark = _fit_nominal_benchmark_model(
+            machine, rows
+        ).contexts[EquipmentState.PROCESSING]
+        self.assertEqual(operational.feature_names, benchmark.feature_names)
+        np.testing.assert_array_equal(operational.center, benchmark.center)
+        np.testing.assert_array_equal(operational.scale, benchmark.scale)
+        self.assertEqual(0.02, operational.scale[2])
+        self.assertEqual(0.0001, operational.scale[3])
+
+    @staticmethod
+    def _osat_contract(
+        *label_types: RealOsatLabelType,
+        evidence_class: str = "A",
+        source_sha256: str = "0" * 64,
+        canonical_station_id: str | None = "WB-04",
+        channel_mappings: tuple[RealOsatChannelMapping, ...] | None = None,
+        equipment: str = "production wire bonder",
+        source_identity_kind: SourceIdentityKind = SourceIdentityKind.ARTIFACT_SHA256,
+    ) -> RealOsatProvenance:
+        if channel_mappings is None:
+            channel_mappings = (
+                RealOsatChannelMapping(
+                    "Bond Force", "bond_force", "gf", "per-bond head-force feedback"
+                ),
+            ) if canonical_station_id is not None else ()
+        return RealOsatProvenance(
+            dataset_citation="De-identified OSAT partner export under reviewed agreement",
+            source_sha256=source_sha256,
+            source_identity_kind=source_identity_kind,
+            osat_provenance_basis=OsatProvenanceBasis.OPERATOR_ATTESTATION,
+            osat_provenance="Partner attests that the source facility performs outsourced assembly/test",
+            machine_pseudonym="WB-PSEUDO-01",
+            equipment=equipment,
+            canonical_station_id=canonical_station_id,
+            channel_mappings=channel_mappings,
+            boundary_semantics="timestamped bond cycles grouped by pseudonymous machine and run",
+            provenance_statement="De-identified export; customer and recipe names removed",
+            label_types=label_types or (RealOsatLabelType.UNLABELED,),
+            evidence_class=evidence_class,
+        )
+
+    def test_real_osat_origin_requires_complete_provenance_contract(self) -> None:
+        with self.assertRaisesRegex(ProvenanceError, "byte-verified"):
+            declare_real_osat_origin(None)
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "partner-export.bin"
+            source.write_bytes(b"authorized de-identified OSAT export")
+            contract = self._osat_contract(
+                source_sha256=hashlib.sha256(source.read_bytes()).hexdigest()
+            )
+            verified = verify_real_osat_source(contract, source)
+        self.assertIs(DataOrigin.REAL_OSAT, declare_real_osat_origin(verified))
+        self.assertTrue(verified.canonically_executable)
+        with self.assertRaisesRegex(ValueError, "SHA-256"):
+            RealOsatProvenance(
+                **{**contract.__dict__, "source_sha256": "not-a-hash"}
+            )
+
+    def test_fabricated_hash_and_random_compatible_file_cannot_establish_real_osat(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "compatible.csv"
+            source.write_text("Bond Force\n40\n", encoding="utf-8")
+            contract = self._osat_contract(source_sha256="a" * 64)
+            with self.assertRaisesRegex(ProvenanceError, "do not match"):
+                verify_real_osat_source(contract, source)
+            with self.assertRaisesRegex(ProvenanceError, "byte-verified"):
+                declare_real_osat_origin(contract)  # type: ignore[arg-type]
+
+    def test_unverified_osat_paper_and_synthetic_origin_are_not_executable_sources(self) -> None:
+        paper_only = self._osat_contract(source_sha256="b" * 64)
+        with tempfile.TemporaryDirectory() as directory:
+            missing_attachment = Path(directory) / "unpublished-supplement.csv"
+            with self.assertRaisesRegex(ProvenanceError, "existing file"):
+                verify_real_osat_source(paper_only, missing_attachment)
+        for unverified in (paper_only, DataOrigin.SYNTHETIC):
+            with self.subTest(unverified=unverified), self.assertRaisesRegex(
+                ProvenanceError, "byte-verified"
+            ):
+                declare_real_osat_origin(unverified)  # type: ignore[arg-type]
+
+    def test_verified_source_result_cannot_be_constructed_without_byte_verification(self) -> None:
+        contract = self._osat_contract(source_sha256="c" * 64)
+        with self.assertRaisesRegex(ProvenanceError, "only be created"):
+            VerifiedRealOsatSource(contract, "c" * 64, ("claimed.csv",), object())
+
+    def test_canonical_station_channel_and_unit_claims_fail_closed(self) -> None:
+        with self.assertRaisesRegex(ProvenanceError, "Unknown canonical station"):
+            self._osat_contract(canonical_station_id="NOT-A-STATION")
+        with self.assertRaisesRegex(ProvenanceError, "not a channel"):
+            self._osat_contract(
+                channel_mappings=(
+                    RealOsatChannelMapping(
+                        "Mystery", "not_a_real_channel", "bananas", "unknown proxy"
+                    ),
+                )
+            )
+        with self.assertRaisesRegex(ProvenanceError, "exact unit"):
+            self._osat_contract(
+                channel_mappings=(
+                    RealOsatChannelMapping(
+                        "Bond Force", "bond_force", "bananas", "per-bond force"
+                    ),
+                )
+            )
+
+    def test_verified_real_osat_origin_may_be_noncanonical_auxiliary_equipment(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "pump-export.bin"
+            source.write_bytes(b"authorized auxiliary pump export")
+            auxiliary = self._osat_contract(
+                RealOsatLabelType.MAINTENANCE_EVENT,
+                evidence_class="C",
+                source_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),
+                canonical_station_id=None,
+                equipment="auxiliary liquid-ring vacuum pump",
+            )
+            verified = verify_real_osat_source(auxiliary, source)
+        self.assertIs(DataOrigin.REAL_OSAT, declare_real_osat_origin(verified))
+        self.assertFalse(verified.canonically_executable)
+        self.assertIsNone(auxiliary.canonical_station_id)
+        self.assertEqual((), auxiliary.channel_mappings)
+
+    def test_real_osat_canonical_file_set_identity_is_computed_from_supplied_files(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory)
+            (source / "first.csv").write_text("x\n1\n", encoding="utf-8")
+            (source / "second.csv").write_text("y\n2\n", encoding="utf-8")
+            files = tuple(sorted(source.iterdir()))
+            contract = self._osat_contract(
+                source_sha256=directory_hash(source, files),
+                source_identity_kind=SourceIdentityKind.CANONICAL_FILE_SET_SHA256,
+            )
+            verified = verify_real_osat_source(contract, source)
+        self.assertEqual(("first.csv", "second.csv"), verified.verified_files)
+
+    def test_osat_origin_evidence_class_and_label_semantics_remain_separate(self) -> None:
+        process_record = self._osat_contract(
+            RealOsatLabelType.MACHINE_ALARM,
+            RealOsatLabelType.MES_SCRAP,
+            RealOsatLabelType.PROCESS_QUALITY,
+            evidence_class="C",
+        )
+        self.assertEqual("C", process_record.evidence_class)
+        self.assertFalse(process_record.supports_confirmed_fault)
+        self.assertFalse(process_record.supports_confirmed_healthy)
+        maintenance_only = self._osat_contract(RealOsatLabelType.MAINTENANCE_EVENT)
+        self.assertFalse(maintenance_only.supports_confirmed_fault)
+        self.assertFalse(maintenance_only.supports_confirmed_healthy)
+        adjudicated = self._osat_contract(
+            RealOsatLabelType.ADJUDICATED_HEALTHY_INTERVAL,
+            RealOsatLabelType.ADJUDICATED_FAULT,
+        )
+        self.assertTrue(adjudicated.supports_confirmed_fault)
+        self.assertTrue(adjudicated.supports_confirmed_healthy)
+
+    def test_kuka_mapping_fails_closed_on_wrong_unit_header(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _write_kuka(root, bad_unit=True)
+            with self.assertRaisesRegex(RealDataEvaluationError, "ampere units"):
+                evaluate_real_dataset("kuka-kr3", root)
+
+    def test_all_reports_present_invalid_data_as_rejected_not_unavailable(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _write_kuka(root / "kuka-kr3", bad_unit=True)
+            report = evaluate_all_real_data(root)
+        kuka = next(item for item in report["datasets"] if item["dataset"] == "kuka-kr3")
+        self.assertEqual("REJECTED_INVALID", kuka["status"])
+        self.assertEqual(1, report["summary"]["rejected_invalid"])
+        self.assertEqual(9, report["summary"]["unavailable"])
+
+    def test_secom_labels_are_not_recast_as_equipment_health(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "secom.data").write_text(
+                "1 NaN 3\n2 4 6\n7 8 9\n", encoding="utf-8"
+            )
+            (root / "secom_labels.data").write_text(
+                '-1 "01/01/2008 00:00:00"\n1 "01/01/2008 00:01:00"\n-1 "01/01/2008 00:02:00"\n',
+                encoding="utf-8",
+            )
+            report = evaluate_real_dataset("uci-secom", root)
+        self.assertEqual("UNVERIFIED_EXTERNAL_INPUT", report["status"])
+        self.assertEqual(
+            {"pass": 2, "fail": 1}, report["observed_label_counts"]
+        )
+        self.assertIsNone(report["real_data"])
+        self.assertEqual(0, report["operational_ticket_count"])
+
+    def test_all_is_offline_and_missing_data_are_reported_honestly(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report = evaluate_all_real_data(root)
+            self.assertFalse((root / ".artifacts").exists())
+        self.assertEqual(10, report["summary"]["attempted"])
+        self.assertEqual(10, report["summary"]["unavailable"])
+        self.assertEqual(0, report["summary"]["operational_tickets"])
+
+    def test_report_is_written_only_when_explicitly_called(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report = evaluate_all_real_data(root / "missing")
+            output = root / "reports"
+            self.assertFalse(output.exists())
+            path = write_real_data_report(report, output)
+            stored = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual("comparison.json", path.name)
+        self.assertEqual(DATASET_ORDER, tuple(stored["dataset_order"]))
+
+    def test_report_excludes_runtime_and_is_byte_deterministic(self) -> None:
+        first = {"dataset": "example", "runtime": {"elapsed_seconds": 1.0}, "value": 7}
+        second = {"dataset": "example", "runtime": {"elapsed_seconds": 9.0}, "value": 7}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            first_path = write_real_data_report(first, root / "first")
+            second_path = write_real_data_report(second, root / "second")
+            first_bytes = first_path.read_bytes()
+            second_bytes = second_path.read_bytes()
+        self.assertEqual(first_bytes, second_bytes)
+        self.assertNotIn(b"runtime", first_bytes)
+
+    def test_committed_evidence_verifier_is_offline_and_detects_drift(self) -> None:
+        report = {
+            "version": VERSION,
+            "origin": DataOrigin.EXTERNAL_BENCHMARK.value,
+            "dataset_order": ["fixture"],
+            "datasets": [
+                {
+                    "dataset": "fixture",
+                    "status": "UNAVAILABLE",
+                    "source_sha256": None,
+                    "channel_coverage": {"mapped": 0, "total": 0, "fraction": None},
+                }
+            ],
+            "summary": {"operational_tickets": 0},
+        }
+        evaluator_path = Path(__file__).resolve().parents[2] / "post04_real_data_evaluation.py"
+        committed = {
+            "release_version": VERSION,
+            "evaluator_sha256": hashlib.sha256(
+                evaluator_path.read_bytes()
+            ).hexdigest(),
+            "deterministic_comparison_report_sha256": deterministic_scientific_sha256(report),
+            "summary": report["summary"],
+            "results": report["datasets"],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "evidence.json"
+            path.write_text(json.dumps(committed), encoding="utf-8")
+            with patch(
+                "osat_edge.roadmap.post_steps.post04_real_data_evaluation.evaluate_all_real_data",
+                return_value=report,
+            ):
+                verified = verify_committed_real_data_evidence(Path(directory), path)
+                self.assertEqual("PASS", verified["status"])
+                committed["deterministic_comparison_report_sha256"] = "f" * 64
+                path.write_text(json.dumps(committed), encoding="utf-8")
+                with self.assertRaisesRegex(RealDataEvaluationError, "DRIFT"):
+                    verify_committed_real_data_evidence(Path(directory), path)
+
+    def test_extracted_directory_resource_limits_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _write_kuka(root)
+            with patch(
+                "osat_edge.roadmap.post_steps.post04_real_data_evaluation.MAXIMUM_KUKA_MEMBERS",
+                1,
+            ):
+                with self.assertRaisesRegex(RealDataEvaluationError, "too many files"):
+                    evaluate_real_dataset("kuka-kr3", root)
+
+    def test_cli_requires_a_path_for_one_dataset(self) -> None:
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            result = main(["evaluate-real", "--dataset", "kuka-kr3"])
+        self.assertEqual(2, result)
+        self.assertIn("requires --path", stderr.getvalue())
+
+    def test_committed_release_result_is_small_deterministic_and_code_pinned(self) -> None:
+        result_path = COMMITTED_EVIDENCE_PATH
+        result = json.loads(result_path.read_text(encoding="utf-8"))
+        evaluator = (Path(__file__).resolve().parents[2] / "post04_real_data_evaluation.py").read_bytes()
+        self.assertLess(result_path.stat().st_size, 20_000)
+        self.assertEqual("0.2.4", result["release_version"])
+        self.assertEqual(hashlib.sha256(evaluator).hexdigest(), result["evaluator_sha256"])
+        serialized = json.dumps(result)
+        self.assertNotIn('"runtime"', serialized)
+        kuka = next(item for item in result["results"] if item["dataset"] == "kuka-kr3")
+        self.assertFalse(kuka["step09_health_used"])
+        self.assertFalse(kuka["step10_evidence_used"])
+
+    def test_external_evaluator_has_no_step15_dependency(self) -> None:
+        source = (
+            Path(__file__).resolve().parents[2] / "post04_real_data_evaluation.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("step15_maintenance_ticket", source)
+        self.assertNotIn("create_or_update_ticket", source)
+        self.assertNotIn("step09_health_risk", source)
+        self.assertNotIn("step10_fault_evidence", source)
+        self.assertNotIn("step06_machine_history", source)
+
+
+if __name__ == "__main__":
+    unittest.main()

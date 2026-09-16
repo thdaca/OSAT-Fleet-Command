@@ -42,21 +42,24 @@ py -3.12 -m venv .venv
 .venv\Scripts\python -m pip install -r requirements.txt
 ```
 
-The optional local LLM integration is isolated in `requirements-llm.txt`. Do not install it for the normal demo or tests.
+The optional local LLM integration is isolated beside Step 13 at
+`osat_edge/roadmap/steps/step13_local_llm_assets/resources/requirements-llm.txt`.
+Do not install it for the normal demo or tests.
 
 The optional external benchmark parser is declared in
-`requirements-benchmarks.txt`. The core pinned dependency file is unchanged.
+`osat_edge/roadmap/post_steps/post04_real_data_evaluation_assets/resources/requirements-benchmarks.txt`.
+The core pinned dependency file is unchanged.
 
 ## Run
 
 ```powershell
-.venv\Scripts\python -m osat_edge.cli --help
-.venv\Scripts\python -m osat_edge.cli demo
-.venv\Scripts\python -m osat_edge.cli reference-replay
-.venv\Scripts\python -m osat_edge.cli benchmark-nasa-milling --dataset benchmarks\_external\NASA_Milling.zip
-.venv\Scripts\python -m osat_edge.cli evaluate-real --dataset kuka-kr3 --path benchmarks\_external\kuka-kr3
-.venv\Scripts\python -m osat_edge.cli evaluate-real --all --root benchmarks\_external
-.venv\Scripts\python -m osat_edge.cli ui
+.venv\Scripts\python -m osat_edge.ui.cli --help
+.venv\Scripts\python -m osat_edge.ui.cli demo
+.venv\Scripts\python -m osat_edge.ui.cli reference-replay
+.venv\Scripts\python -m osat_edge.ui.cli benchmark-nasa-milling --dataset benchmarks\_external\NASA_Milling.zip
+.venv\Scripts\python -m osat_edge.ui.cli evaluate-real --dataset kuka-kr3 --path benchmarks\_external\kuka-kr3
+.venv\Scripts\python -m osat_edge.ui.cli evaluate-real --all --root benchmarks\_external
+.venv\Scripts\python -m osat_edge.ui.cli ui
 ```
 
 The deterministic demo initializes all nine stations and injects a synthetic WS-01 spindle fault. Any resulting ticket is plainly marked demo-only.
@@ -64,13 +67,13 @@ The deterministic demo initializes all nine stations and injects a synthetic WS-
 `reference-replay` runs the one bundled, checksum-verified
 `SYNTHETIC + REAL_REPLAY` artifact through the actual telemetry, physics,
 exact-machine, health, evidence, and deterministic demo-ticket path. See
-[docs/REFERENCE_REPLAY.md](docs/REFERENCE_REPLAY.md).
+[POST02 replay notes](osat_edge/roadmap/post_steps/post02_reference_replay_assets/research/REFERENCE_REPLAY.md).
 
 `benchmark-nasa-milling` reads a user-supplied official NASA/UC Berkeley
 Milling artifact and performs descriptive per-run analysis only. The raw data
 are not bundled or downloaded automatically. It never enters OSAT health,
 model, ticket, or HMI paths. See
-[docs/EXTERNAL_BENCHMARK.md](docs/EXTERNAL_BENCHMARK.md).
+[POST03 benchmark notes](osat_edge/roadmap/post_steps/post03_external_benchmark_assets/research/EXTERNAL_BENCHMARK.md).
 
 The bundled replay is not real data. The NASA data are real external machining
 data, but not semiconductor or OSAT data. Neither path is plant validation,
@@ -82,11 +85,30 @@ Step-05 family model, or calls Step 15. External inputs remain
 after a pinned official artifact/content identity matches. Runtime timings are
 printed by the CLI but omitted from the deterministic report written under
 `.artifacts/real_data/` only with `--report`. See
-[docs/REAL_DATA_CATALOG.md](docs/REAL_DATA_CATALOG.md) for source provenance,
+[POST04 real-data catalog](osat_edge/roadmap/post_steps/post04_real_data_evaluation_assets/research/REAL_DATA_CATALOG.md)
+for source provenance,
 exact mappings, attempted datasets, supported metrics, and limitations.
 When the official datasets are already present locally, `verify-real-evidence`
 re-runs them without network access and checks the deterministic comparison and
-evaluator hashes against `benchmarks/results/0.2.4-real-data.json`.
+evaluator hashes against the committed POST04 resource
+`osat_edge/roadmap/post_steps/post04_real_data_evaluation_assets/resources/0.2.4-real-data.json`.
+
+## Repository map
+
+```text
+osat_edge/
+├── pipeline.py                         linear operational orchestrator
+├── roadmap/
+│   ├── pre_steps/                      PRE01 contracts, PRE02 registry, PRE03 provenance
+│   ├── steps/                          STEP01–STEP15 PHM/maintenance path
+│   └── post_steps/                     POST01 demo through POST04 evaluation
+└── ui/                                 CLI and PyQt dashboard
+```
+
+The conceptual flow is **PRE-STEPS → STEPS 01–15 → POST-STEPS**. The UI is a
+separate sibling interface. Stage-owned research, tests, fixtures, and resources
+are colocated under the stage's `*_assets/` directory. See
+[`osat_edge/roadmap/README.md`](osat_edge/roadmap/README.md).
 
 ## HMI screens
 
@@ -107,8 +129,9 @@ guidance. This is design guidance, not a claim of conformance or certification.
 ## Verify
 
 ```powershell
-.venv\Scripts\python -W error::ResourceWarning -m unittest discover -s tests -v
+.venv\Scripts\python -W error::ResourceWarning -m unittest discover -s osat_edge -t . -p "test_*.py" -v
 .venv\Scripts\python -m compileall osat_edge
 ```
 
-Start with [docs/STUDENT_GUIDE.md](docs/STUDENT_GUIDE.md), then read the numbered modules in `osat_edge/roadmap/`.
+Start with [docs/STUDENT_GUIDE.md](docs/STUDENT_GUIDE.md), then follow
+[the roadmap](osat_edge/roadmap/README.md).

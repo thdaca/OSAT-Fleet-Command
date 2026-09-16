@@ -1,28 +1,30 @@
 # Student guide
 
 OSAT Fleet Command 0.2.4 is intentionally a minimum research build with a
-transparent industrial edge-monitoring HMI prototype. Read it from `step01` to
-`step15`; the file names are the architecture map.
+transparent industrial edge-monitoring HMI prototype. Start with
+`osat_edge/roadmap/README.md`; the file names are the architecture map.
 
 ## The path through the code
 
-- `common.py` contains only shared identities, modes, states, and telemetry contracts.
-- `machines.py` lists the nine machine families and the explicitly approved channels for each.
-- `roadmap/step01` through `step03` turn reviewed engineering relationships and robust telemetry statistics into evidence.
-- `roadmap/step04` and `step05` define optional learning across real machines of one family. The output is a risk score.
-- `roadmap/step06` and `step07` build a separate baseline for one installed machine using confirmed healthy history.
-- `roadmap/step08` ingests asynchronous per-channel telemetry, enforces approved source IDs, and reports validity and observability.
-- `roadmap/step09` makes subsystem-first deterministic health decisions with fixed hysteresis.
-- `roadmap/step10` creates compact structured fault evidence.
-- `roadmap/step11a` stores tickets in SQLite. `step11b` loads local reviewed manual/playbook passages.
-- `roadmap/step12` retrieves only relevant local context. `step13` optionally calls a local GGUF model. `step14` strictly validates its small JSON response.
-- `roadmap/step15` creates or updates a deterministic ticket. It refuses to do so outside simulation.
-- `pipeline.py` connects those steps with explicit control flow. `demo.py` owns
-  live synthetic generation and injection. `reference_replay.py` validates and
-  runs the one frozen synthetic replay artifact. `benchmark.py` is a separate,
-  descriptive external-data analysis path. `real_data.py` is the isolated
-  offline evaluator for explicitly supplied external data. It treats schema
-  compatibility and verified provenance as separate requirements.
+- `roadmap/pre_steps/pre01_common.py` contains shared identities, modes, states,
+  and telemetry contracts.
+- `roadmap/pre_steps/pre02_machine_registry.py` is the sole registry of the nine
+  station families and their explicitly approved channels.
+- `roadmap/pre_steps/pre03_data_provenance.py` verifies external source bytes,
+  REAL_OSAT origin claims, label semantics, and optional canonical mappings.
+- `roadmap/steps/step01` through `step03` turn reviewed engineering
+  relationships and robust telemetry statistics into evidence.
+- `roadmap/steps/step04` through `step07` keep same-family learning separate
+  from the baseline for one installed machine.
+- `roadmap/steps/step08` through `step10` ingest asynchronous telemetry and
+  produce subsystem-first health and structured fault evidence.
+- `roadmap/steps/step11a` through `step15` persist deterministic tickets and
+  isolate optional retrieval/LLM wording behind strict validation.
+- `pipeline.py` connects those steps with explicit control flow.
+- `roadmap/post_steps/post01_demo.py` owns synthetic generation and injection;
+  POST02 validates the frozen synthetic replay, POST03 runs the isolated NASA
+  description, and POST04 evaluates explicitly supplied external data offline.
+- `ui/cli.py` and `ui/dashboard.py` are human interfaces, not roadmap stages.
 
 ## Boundaries to preserve
 
@@ -37,13 +39,15 @@ only improve wording after deterministic evidence exists.
 
 The live/demo runtime is deliberately one machine per family. Its `machines[family]` mapping is not a general plant inventory for WS-01, WS-02, and WS-03 at the same time. This does not prevent the family-data stage from learning across historical records from multiple machines of that family.
 
-Read [REFERENCE_REPLAY.md](REFERENCE_REPLAY.md) before changing the bundled
-fixture. Read [EXTERNAL_BENCHMARK.md](EXTERNAL_BENCHMARK.md) before analyzing
+Read the POST02 `post02_reference_replay_assets/research/REFERENCE_REPLAY.md`
+before changing the bundled fixture. Read the POST03
+`post03_external_benchmark_assets/research/EXTERNAL_BENCHMARK.md` before analyzing
 the optional NASA data. External machining observations are not OSAT evidence,
 and the benchmark is intentionally prevented from producing health states or
 maintenance tickets.
 
-Read [REAL_DATA_CATALOG.md](REAL_DATA_CATALOG.md) before using `evaluate-real`.
+Read the POST04 `post04_real_data_evaluation_assets/research/REAL_DATA_CATALOG.md`
+before using `evaluate-real`.
 External data are offline research inputs only; a semantically similar signal
 is not automatically an approved OSAT channel. A compatible file is also not
 automatically the official real dataset: pinned archive/content identity must
@@ -63,4 +67,7 @@ not undergone a formal conformance assessment.
 
 ## Safe first contribution
 
-Run the full suite, inspect one numbered step with its matching tests, make one narrow change, run that test file, and then run the full suite. Avoid introducing general frameworks for a requirement that appears only once.
+Run the full suite with `python -W error::ResourceWarning -m unittest discover
+-s osat_edge -t . -p "test_*.py" -v`, inspect one stage with its colocated
+tests, make one narrow change, run that test file, and then run the full suite.
+Avoid introducing general frameworks for a requirement that appears only once.

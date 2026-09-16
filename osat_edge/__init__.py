@@ -1,6 +1,6 @@
 """OSAT Fleet Command student research platform."""
 
-from .common import (
+from .roadmap.pre_steps.pre01_common import (
     DataOrigin,
     EquipmentState,
     HealthState,
@@ -8,7 +8,7 @@ from .common import (
     RuntimeMode,
     VERSION,
 )
-from .machines import STATIONS
+from .roadmap.pre_steps.pre02_machine_registry import STATIONS
 
 __all__ = [
     "DataOrigin",
