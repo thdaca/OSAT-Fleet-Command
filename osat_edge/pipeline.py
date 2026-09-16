@@ -63,8 +63,9 @@ class MachinePipeline:
             raise ValueError("Active machine and station identity must match")
         if source.identity != identity or source.profile != station:
             raise ValueError("Telemetry source identity/profile does not match active machine")
+        model_policy_mode = self._model_policy_mode(source)
         if machine_model is not None:
-            validate_machine_model(machine_model, identity, source.runtime_mode)
+            validate_machine_model(machine_model, identity, model_policy_mode)
         if family_model is not None:
             if family_model.family != identity.family:
                 raise ValueError(
@@ -87,6 +88,30 @@ class MachinePipeline:
         self.health = HealthEngine(identity, station)
         self.monitored = True
         self.last_result: PipelineResult | None = None
+
+    @staticmethod
+    def _model_policy_mode(source: TelemetrySource) -> RuntimeMode:
+        """Allow synthetic baselines only for explicitly synthetic execution paths."""
+
+        if (
+            source.runtime_mode is RuntimeMode.REAL_REPLAY
+            and source.origin is DataOrigin.SYNTHETIC
+        ):
+            return RuntimeMode.SIMULATION
+        return source.runtime_mode
+
+    def _ticket_evidence(self, evidence: FaultEvidence) -> FaultEvidence | None:
+        """Bridge synthetic replay to the unchanged simulation-only ticket stage."""
+
+        if self.source.runtime_mode is RuntimeMode.SIMULATION:
+            return evidence
+        if (
+            self.source.runtime_mode is RuntimeMode.REAL_REPLAY
+            and self.source.origin is DataOrigin.SYNTHETIC
+            and bool(getattr(self.source, "demo_ticket_authorized", False))
+        ):
+            return replace(evidence, runtime_mode=RuntimeMode.SIMULATION)
+        return None
 
     def _poll(self) -> dt.datetime:
         batch = self.source.poll()
@@ -153,7 +178,7 @@ class MachinePipeline:
                 self.machine_model,
                 self.identity,
                 feature_set,
-                runtime_mode=self.source.runtime_mode,
+                runtime_mode=self._model_policy_mode(self.source),
             )
             if self.family_model is not None:
                 family_features = {
@@ -177,31 +202,35 @@ class MachinePipeline:
         )
         fault_evidence = build_fault_evidence(assessment)
         ticket = None
+        ticket_evidence = (
+            self._ticket_evidence(fault_evidence)
+            if fault_evidence is not None
+            else None
+        )
         if (
             assessment.transitioned
             and assessment.health_state in {HealthState.DEGRADED, HealthState.CRITICAL}
-            and fault_evidence is not None
-            and self.source.runtime_mode is RuntimeMode.SIMULATION
+            and ticket_evidence is not None
         ):
             try:
                 prior = self.repository.prior_context(self.identity.machine_id)
                 passages = retrieve_rag_context(
-                    fault_evidence, prior, self.manual_chunks
+                    ticket_evidence, prior, self.manual_chunks
                 )
             except Exception:
                 passages = ()
             ticket = create_or_update_ticket(
                 self.repository,
-                fault_evidence,
-                deterministic_fallback(fault_evidence, passages),
+                ticket_evidence,
+                deterministic_fallback(ticket_evidence, passages),
             )
             raw = generate_local_llm_json(
-                fault_evidence, passages, model_path=self.llm_model_path
+                ticket_evidence, passages, model_path=self.llm_model_path
             )
-            enrichment = validate_llm_json(raw, fault_evidence, passages)
+            enrichment = validate_llm_json(raw, ticket_evidence, passages)
             if enrichment.backend == "local-llm":
                 ticket = create_or_update_ticket(
-                    self.repository, fault_evidence, enrichment
+                    self.repository, ticket_evidence, enrichment
                 )
         result = PipelineResult(
             assessment=assessment,

@@ -1,0 +1,43 @@
+{
+  "dataset_id": "osat-reference-fleet-001",
+  "machine_id": "DEMO-WS-01",
+  "mappings": [
+    {
+      "canonical_channel": "spindle_current",
+      "source_id": "REF-01-SPINDLE-CURRENT",
+      "unit": "A"
+    },
+    {
+      "canonical_channel": "spindle_speed",
+      "source_id": "REF-02-SPINDLE-SPEED",
+      "unit": "RPM"
+    },
+    {
+      "canonical_channel": "spindle_vibration",
+      "source_id": "REF-03-SPINDLE-VIBRATION",
+      "unit": "mm/s"
+    },
+    {
+      "canonical_channel": "coolant_pressure",
+      "source_id": "REF-04-COOLANT-PRESSURE",
+      "unit": "MPa"
+    },
+    {
+      "canonical_channel": "coolant_flow",
+      "source_id": "REF-05-COOLANT-FLOW",
+      "unit": "L/min"
+    },
+    {
+      "canonical_channel": "feed_axis_error",
+      "source_id": "REF-06-FEED-AXIS-ERROR",
+      "unit": "µm"
+    },
+    {
+      "canonical_channel": "coolant_temperature",
+      "source_id": "REF-07-COOLANT-TEMPERATURE",
+      "unit": "°C"
+    }
+  ],
+  "origin": "SYNTHETIC",
+  "schema_version": "1.0"
+}

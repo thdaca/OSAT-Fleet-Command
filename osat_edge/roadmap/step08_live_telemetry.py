@@ -100,13 +100,14 @@ class QueuedTelemetrySource:
 
 class ReplayTelemetrySource:
     runtime_mode = RuntimeMode.REAL_REPLAY
-    origin = DataOrigin.REAL_OSAT
 
     def __init__(
         self,
         identity: MachineIdentity,
         profile: StationDefinition,
         batches: Sequence[TelemetryBatch],
+        *,
+        origin: DataOrigin,
     ) -> None:
         if (
             identity.family != profile.family
@@ -116,6 +117,7 @@ class ReplayTelemetrySource:
             raise ValueError("Replay requires matching identity/profile and telemetry")
         self.identity = identity
         self.profile = profile
+        self.origin = origin
         self._batches = tuple(batches)
         self._position = 0
 

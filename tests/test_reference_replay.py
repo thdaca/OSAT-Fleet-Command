@@ -1,0 +1,216 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import shutil
+import tempfile
+import unittest
+from pathlib import Path
+
+from osat_edge.common import DataOrigin, RuntimeMode
+from osat_edge.demo import _fit_demo_model
+from osat_edge.machines import STATIONS
+from osat_edge.pipeline import MachinePipeline
+from osat_edge.reference_replay import (
+    DEFAULT_REFERENCE_DIRECTORY,
+    ReferenceReplayError,
+    load_reference_replay,
+    run_reference_replay,
+)
+from osat_edge.roadmap.step08_live_telemetry import ReplayTelemetrySource
+from osat_edge.roadmap.step11a_maintenance_db import MaintenanceRepository
+
+
+class ReferenceReplayTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.dataset = load_reference_replay()
+        cls.report = run_reference_replay()
+
+    def _copy_fixture(self, directory: str) -> Path:
+        target = Path(directory) / "reference_replay"
+        shutil.copytree(DEFAULT_REFERENCE_DIRECTORY, target)
+        return target
+
+    def _refresh_checksum(self, directory: Path, filename: str) -> None:
+        manifest_path = directory / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["files"][filename] = hashlib.sha256(
+            (directory / filename).read_bytes()
+        ).hexdigest()
+        manifest_path.write_text(
+            json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+
+    def test_frozen_artifact_is_small_human_readable_and_checksum_valid(self) -> None:
+        names = {path.name for path in DEFAULT_REFERENCE_DIRECTORY.iterdir()}
+        self.assertEqual(
+            {
+                "README.md",
+                "manifest.json",
+                "telemetry.csv",
+                "context.csv",
+                "source_mapping.json",
+                "expected_checkpoints.json",
+            },
+            names,
+        )
+        self.assertLess(
+            sum(path.stat().st_size for path in DEFAULT_REFERENCE_DIRECTORY.iterdir()),
+            1_000_000,
+        )
+        self.assertEqual("osat-reference-fleet-001", self.dataset.manifest["dataset_id"])
+
+    def test_runtime_mode_and_data_origin_are_independent(self) -> None:
+        self.assertIs(RuntimeMode.REAL_REPLAY, self.dataset.source.runtime_mode)
+        self.assertIs(DataOrigin.SYNTHETIC, self.dataset.source.origin)
+        self.assertEqual("DEMO-WS-01", self.dataset.identity.machine_id)
+        self.assertEqual("wafer_saw", self.dataset.identity.family)
+
+    def test_replay_uses_actual_pipeline_and_observed_checkpoints_match(self) -> None:
+        expected = {
+            row["name"]: row["expected"]
+            for row in self.dataset.expected_checkpoints["checkpoints"]
+        }
+        observed = self.report["checkpoint_observations"]
+        for name, fields in expected.items():
+            with self.subTest(checkpoint=name):
+                for key, value in fields.items():
+                    if key != "ticket_count":
+                        self.assertEqual(value, observed[name][key])
+        self.assertEqual(1, len(self.report["tickets"]))
+        self.assertTrue(self.report["tickets"][0]["demo_only"])
+        self.assertEqual("URGENT", self.report["tickets"][0]["priority"])
+        self.assertEqual("CRITICAL", self.report["final_health"])
+        self.assertTrue(
+            {"NORMAL", "WATCH", "DEGRADED", "CRITICAL", "UNKNOWN"}
+            .issubset(self.report["health_counts"])
+        )
+
+    def test_reference_trace_includes_stale_unknown_and_physics_abstention(self) -> None:
+        stale = self.report["checkpoint_observations"]["required_stale"]
+        abstains = self.report["checkpoint_observations"]["physics_abstains"]
+        resumes = self.report["checkpoint_observations"]["physics_resumes"]
+        self.assertFalse(stale["telemetry_valid"])
+        self.assertEqual("UNKNOWN", stale["health"])
+        self.assertFalse(abstains["physics_residual_present"])
+        self.assertTrue(resumes["physics_residual_present"])
+        self.assertGreater(self.report["physics_abstention_ticks"], 0)
+
+    def test_expected_results_do_not_control_inference(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = self._copy_fixture(directory)
+            path = fixture / "expected_checkpoints.json"
+            value = json.loads(path.read_text(encoding="utf-8"))
+            value["checkpoints"][-1]["expected"]["health"] = "NORMAL"
+            path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            self._refresh_checksum(fixture, path.name)
+            report = run_reference_replay(fixture)
+        self.assertEqual("CRITICAL", report["final_health"])
+
+    def test_checksum_tampering_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = self._copy_fixture(directory)
+            path = fixture / "telemetry.csv"
+            path.write_text(path.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+            with self.assertRaisesRegex(ReferenceReplayError, "Checksum mismatch"):
+                load_reference_replay(fixture)
+
+    def test_fail_closed_schema_and_data_validation(self) -> None:
+        mutations = (
+            (
+                "source_mapping.json",
+                lambda value: value["mappings"][0].update(source_id="UNAPPROVED"),
+                "unapproved source_id",
+                "telemetry.csv",
+                lambda text: text,
+            ),
+            (
+                "source_mapping.json",
+                lambda value: value["mappings"][0].update(unit="V"),
+                "unit",
+                None,
+                None,
+            ),
+        )
+        for filename, mutate, message, second_name, second_mutate in mutations:
+            with self.subTest(message=message), tempfile.TemporaryDirectory() as directory:
+                fixture = self._copy_fixture(directory)
+                path = fixture / filename
+                value = json.loads(path.read_text(encoding="utf-8"))
+                mutate(value)
+                path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+                self._refresh_checksum(fixture, filename)
+                if second_name is not None:
+                    second = fixture / second_name
+                    second.write_text(second_mutate(second.read_text(encoding="utf-8")), encoding="utf-8")
+                    self._refresh_checksum(fixture, second_name)
+                with self.assertRaisesRegex(ReferenceReplayError, message):
+                    load_reference_replay(fixture)
+
+    def test_nonfinite_and_duplicate_channel_records_are_rejected(self) -> None:
+        for replacement, message in ((",nan,A", "finite"), (None, "Duplicate")):
+            with self.subTest(message=message), tempfile.TemporaryDirectory() as directory:
+                fixture = self._copy_fixture(directory)
+                path = fixture / "telemetry.csv"
+                lines = path.read_text(encoding="utf-8").splitlines()
+                if replacement is None:
+                    lines.insert(2, lines[1])
+                else:
+                    parts = lines[1].split(",")
+                    parts[3] = "nan"
+                    lines[1] = ",".join(parts)
+                path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+                self._refresh_checksum(fixture, path.name)
+                with self.assertRaisesRegex(ReferenceReplayError, message):
+                    load_reference_replay(fixture)
+
+    def test_real_osat_replay_still_rejects_synthetic_machine_model(self) -> None:
+        source = ReplayTelemetrySource(
+            self.dataset.identity,
+            self.dataset.station,
+            self.dataset.source._batches,
+            origin=DataOrigin.REAL_OSAT,
+        )
+        with tempfile.TemporaryDirectory() as directory, self.assertRaisesRegex(
+            ValueError, "reject synthetic exact-machine"
+        ):
+            MachinePipeline(
+                identity=self.dataset.identity,
+                station=self.dataset.station,
+                source=source,
+                repository=MaintenanceRepository(Path(directory) / "tickets.sqlite"),
+                machine_model=_fit_demo_model(self.dataset.identity, self.dataset.station),
+            )
+
+    def test_unvalidated_synthetic_replay_cannot_create_a_demo_ticket(self) -> None:
+        source = ReplayTelemetrySource(
+            self.dataset.identity,
+            self.dataset.station,
+            self.dataset.source._batches,
+            origin=DataOrigin.SYNTHETIC,
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            repository = MaintenanceRepository(Path(directory) / "tickets.sqlite")
+            pipeline = MachinePipeline(
+                identity=self.dataset.identity,
+                station=self.dataset.station,
+                source=source,
+                repository=repository,
+                machine_model=_fit_demo_model(self.dataset.identity, self.dataset.station),
+            )
+            while pipeline.tick() is not None:
+                pass
+            self.assertEqual([], repository.list_tickets())
+
+    def test_replay_source_requires_explicit_origin(self) -> None:
+        with self.assertRaises(TypeError):
+            ReplayTelemetrySource(  # type: ignore[call-arg]
+                self.dataset.identity,
+                STATIONS["wafer_saw"],
+                self.dataset.source._batches,
+            )
+
+
+if __name__ == "__main__":
+    unittest.main()

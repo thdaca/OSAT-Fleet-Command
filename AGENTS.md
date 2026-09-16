@@ -1,13 +1,19 @@
 # Repository rules
 
-OSAT Fleet Command 0.2.2 is a research/development student project, not production software.
+OSAT Fleet Command 0.2.3 is a research/development student project, not production software.
 
 - Keep the numbered modules in `osat_edge/roadmap/` aligned with the documented roadmap.
 - Prefer explicit ordinary Python and small dataclasses over framework-like indirection.
 - Preserve machine-family and exact-machine identity checks.
 - Preserve asynchronous per-channel telemetry and fail-closed source-ID mapping.
 - Keep synthetic evidence separate from real OSAT evidence.
-- LIVE_EQUIPMENT is observe-only. Only SIMULATION may create maintenance tickets.
+- LIVE_EQUIPMENT and REAL_OSAT replay are observe-only. SIMULATION and the
+  checksum-verified bundled SYNTHETIC reference replay may create demo-only
+  maintenance tickets.
+- Runtime mode and data origin are separate. Never infer REAL_OSAT from
+  REAL_REPLAY.
+- Keep the NASA Milling benchmark isolated from OSAT physics, models, health,
+  tickets, and the HMI. It is external non-semiconductor machining data.
 - Health is deterministic. RAG and the optional local LLM may enrich a ticket, never create it.
 - Do not call a risk score a failure probability.
 - Do not add compatibility layers for deleted pre-0.2.0 architecture.

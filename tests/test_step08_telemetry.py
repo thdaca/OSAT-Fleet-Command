@@ -5,7 +5,7 @@ import unittest
 
 import numpy as np
 
-from osat_edge.common import ChannelWindow, EquipmentState, OperatingContext, TelemetrySample
+from osat_edge.common import ChannelWindow, DataOrigin, EquipmentState, OperatingContext, TelemetrySample
 from osat_edge.machines import STATIONS
 from osat_edge.roadmap.step08_live_telemetry import (
     BoundedTelemetryStore,
@@ -90,7 +90,9 @@ class TelemetryTests(unittest.TestCase):
         with self.assertRaises(NoNewTelemetry):
             live.poll()
         batch = TelemetryBatch((self.sample("spindle_current", 0),))
-        replay = ReplayTelemetrySource(self.machine, self.station, (batch,))
+        replay = ReplayTelemetrySource(
+            self.machine, self.station, (batch,), origin=DataOrigin.REAL_OSAT
+        )
         self.assertEqual(batch, replay.poll())
         with self.assertRaises(TelemetrySourceExhausted):
             replay.poll()

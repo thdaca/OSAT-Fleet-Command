@@ -1,0 +1,78 @@
+{
+  "checkpoints": [
+    {
+      "expected": {
+        "health": "NORMAL",
+        "telemetry_valid": true
+      },
+      "name": "healthy",
+      "timestamp_utc": "2026-02-02T14:01:10Z"
+    },
+    {
+      "expected": {
+        "telemetry_valid": true
+      },
+      "name": "optional_missing",
+      "timestamp_utc": "2026-02-02T14:01:21Z"
+    },
+    {
+      "expected": {
+        "health": "UNKNOWN",
+        "telemetry_valid": false
+      },
+      "name": "required_stale",
+      "timestamp_utc": "2026-02-02T14:01:27Z"
+    },
+    {
+      "expected": {
+        "health": "NORMAL",
+        "telemetry_valid": true
+      },
+      "name": "recovered",
+      "timestamp_utc": "2026-02-02T14:01:36Z"
+    },
+    {
+      "expected": {
+        "physics_residual_present": false
+      },
+      "name": "physics_abstains",
+      "timestamp_utc": "2026-02-02T14:02:50Z"
+    },
+    {
+      "expected": {
+        "physics_residual_present": true
+      },
+      "name": "physics_resumes",
+      "timestamp_utc": "2026-02-02T14:03:00Z"
+    },
+    {
+      "expected": {
+        "health": "WATCH"
+      },
+      "name": "watch",
+      "timestamp_utc": "2026-02-02T14:03:55Z"
+    },
+    {
+      "expected": {
+        "health": "DEGRADED",
+        "ticket_created": true
+      },
+      "name": "degraded_ticket",
+      "timestamp_utc": "2026-02-02T14:04:00Z"
+    },
+    {
+      "expected": {
+        "health": "CRITICAL",
+        "ticket_count": 1
+      },
+      "name": "critical_ticket",
+      "timestamp_utc": "2026-02-02T14:04:10Z"
+    }
+  ],
+  "dataset_id": "osat-reference-fleet-001",
+  "expected_final_state": "CRITICAL",
+  "expected_subsystem": "spindle",
+  "expected_ticket_priority": "URGENT",
+  "note": "These expectations support tests and review; inference never reads them as decisions.",
+  "schema_version": "1.0"
+}

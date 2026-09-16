@@ -1,6 +1,6 @@
 # Student guide
 
-OSAT Fleet Command 0.2.2 is intentionally a minimum research build with a
+OSAT Fleet Command 0.2.3 is intentionally a minimum research build with a
 transparent industrial edge-monitoring HMI prototype. Read it from `step01` to
 `step15`; the file names are the architecture map.
 
@@ -17,15 +17,29 @@ transparent industrial edge-monitoring HMI prototype. Read it from `step01` to
 - `roadmap/step11a` stores tickets in SQLite. `step11b` loads local reviewed manual/playbook passages.
 - `roadmap/step12` retrieves only relevant local context. `step13` optionally calls a local GGUF model. `step14` strictly validates its small JSON response.
 - `roadmap/step15` creates or updates a deterministic ticket. It refuses to do so outside simulation.
-- `pipeline.py` connects those steps with explicit control flow. `demo.py` owns all synthetic generation and injection.
+- `pipeline.py` connects those steps with explicit control flow. `demo.py` owns
+  live synthetic generation and injection. `reference_replay.py` validates and
+  runs the one frozen synthetic replay artifact. `benchmark.py` is a separate,
+  descriptive external-data analysis path.
 
 ## Boundaries to preserve
 
 Data quality asks whether telemetry is valid. Observability asks whether enough useful telemetry exists. Health asks what condition the evidence supports. They are related but not interchangeable.
 
-Synthetic data can test and demonstrate the architecture. It is not real OSAT evidence. LIVE_EQUIPMENT is observe-only in this release; it cannot create actionable tickets. The optional RAG/LLM branch can only improve wording after deterministic evidence exists.
+Synthetic data can test and demonstrate the architecture. It is not real OSAT
+evidence. Runtime mode says how code executes; data origin says what the
+evidence is. The reference fixture therefore uses `REAL_REPLAY` execution with
+`SYNTHETIC` origin. LIVE_EQUIPMENT and REAL_OSAT replay are observe-only in this
+release; they cannot create actionable tickets. The optional RAG/LLM branch can
+only improve wording after deterministic evidence exists.
 
-The live/demo runtime is deliberately one machine per family in 0.2.2. Its `machines[family]` mapping is not a general plant inventory for WS-01, WS-02, and WS-03 at the same time. This does not prevent the family-data stage from learning across historical records from multiple machines of that family.
+The live/demo runtime is deliberately one machine per family in 0.2.3. Its `machines[family]` mapping is not a general plant inventory for WS-01, WS-02, and WS-03 at the same time. This does not prevent the family-data stage from learning across historical records from multiple machines of that family.
+
+Read [REFERENCE_REPLAY.md](REFERENCE_REPLAY.md) before changing the bundled
+fixture. Read [EXTERNAL_BENCHMARK.md](EXTERNAL_BENCHMARK.md) before analyzing
+the optional NASA data. External machining observations are not OSAT evidence,
+and the benchmark is intentionally prevented from producing health states or
+maintenance tickets.
 
 Source identifiers must be explicitly reviewed and mapped to canonical health channels. Do not ingest recipes, PPIDs, wafer maps, geometry, proprietary process windows, or unknown equipment variables.
 

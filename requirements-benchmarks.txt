@@ -1,0 +1,2 @@
+# Optional external NASA Milling benchmark support. Core runtime requirements are unchanged.
+scipy==1.18.1

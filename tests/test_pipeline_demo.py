@@ -188,7 +188,9 @@ class PipelineDemoTests(unittest.TestCase):
             ),
             OperatingContext(machine.machine_id, NOW, EquipmentState.PROCESSING),
         )
-        source = ReplayTelemetrySource(machine, station, (batch,))
+        source = ReplayTelemetrySource(
+            machine, station, (batch,), origin=DataOrigin.REAL_OSAT
+        )
         with tempfile.TemporaryDirectory() as directory:
             pipeline = MachinePipeline(
                 identity=machine,

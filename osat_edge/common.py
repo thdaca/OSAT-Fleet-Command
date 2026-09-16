@@ -9,12 +9,13 @@ from enum import Enum
 import numpy as np
 
 
-VERSION = "0.2.2"
+VERSION = "0.2.3"
 RELEASE_CLASS = "RESEARCH / DEVELOPMENT"
 
 
 class DataOrigin(str, Enum):
     SYNTHETIC = "SYNTHETIC"
+    EXTERNAL_BENCHMARK = "EXTERNAL_BENCHMARK"
     REAL_OSAT = "REAL_OSAT"
 
 

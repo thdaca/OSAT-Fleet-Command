@@ -1,0 +1,78 @@
+{
+  "claims": [
+    "SYNTHETIC REFERENCE REPLAY",
+    "NOT REAL OSAT DATA",
+    "NOT PLANT VALIDATION",
+    "NOT PRODUCTION QUALIFICATION"
+  ],
+  "classification": [
+    "FROZEN",
+    "EDUCATIONAL",
+    "PIPELINE-REFERENCE DATA"
+  ],
+  "dataset_id": "osat-reference-fleet-001",
+  "files": {
+    "context.csv": "ab6cdc8dc6a3d25b40b9728cf27144d9ee76d4d4daac561df0be6ebc21d97e3e",
+    "expected_checkpoints.json": "70548a9582b07560e1d5164decec6db13a80ed8de8167d1e7fedc40cfd38c203",
+    "source_mapping.json": "b208b77dad523f47116dc004b4e83f060e53c0d108d92ad6cc66f88b22292085",
+    "telemetry.csv": "3c06e36700297d3be954f037e48bda9ee93110eb462caf3881361f0cd9823fa9"
+  },
+  "machine": {
+    "family": "wafer_saw",
+    "machine_id": "DEMO-WS-01",
+    "name": "Synthetic reference Wafer Saw / Dicing",
+    "station_id": "WS-01"
+  },
+  "origin": "SYNTHETIC",
+  "phases": [
+    {
+      "end_seconds": 65,
+      "name": "healthy_stable",
+      "start_seconds": 0
+    },
+    {
+      "end_seconds": 74,
+      "name": "healthy_variation",
+      "start_seconds": 66
+    },
+    {
+      "end_seconds": 82,
+      "name": "optional_missing",
+      "start_seconds": 75
+    },
+    {
+      "end_seconds": 88,
+      "name": "required_stale",
+      "start_seconds": 81
+    },
+    {
+      "end_seconds": 104,
+      "name": "recovery",
+      "start_seconds": 89
+    },
+    {
+      "end_seconds": 170,
+      "name": "physics_outside_calibration",
+      "start_seconds": 105
+    },
+    {
+      "end_seconds": 184,
+      "name": "physics_in_domain",
+      "start_seconds": 171
+    },
+    {
+      "end_seconds": 250,
+      "name": "positive_load_residual",
+      "start_seconds": 185
+    }
+  ],
+  "production_qualified": false,
+  "release_version": "0.2.3",
+  "runtime_mode": "REAL_REPLAY",
+  "schema_version": "1.0",
+  "timeline": {
+    "end_utc": "2026-02-02T14:04:10Z",
+    "start_utc": "2026-02-02T14:00:00Z"
+  },
+  "title": "OSAT Fleet Command frozen synthetic reference replay"
+}
