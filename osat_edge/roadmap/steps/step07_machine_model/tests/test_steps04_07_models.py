@@ -6,11 +6,19 @@ from dataclasses import replace
 
 import numpy as np
 
-from osat_edge.roadmap.pre_steps.pre01_common.pre01_common import DataOrigin, EquipmentState, RuntimeMode
-from osat_edge.roadmap.steps.step04_family_data.step04_family_data import FamilyDataset, FamilySample
-from osat_edge.roadmap.steps.step05_family_model.step05_family_model import FamilyModel, fit_family_model, score_family_model
-from osat_edge.roadmap.steps.step06_machine_history.step06_machine_history import HealthyInterval, MachineHistory
-from osat_edge.roadmap.steps.step07_machine_model.step07_machine_model import (
+from osat_edge.roadmap.pre_steps.pre01_common.contracts import (
+    DataOrigin,
+    EquipmentState,
+    RuntimeMode,
+)
+from osat_edge.roadmap.steps.step04_family_data.dataset import FamilyDataset, FamilySample
+from osat_edge.roadmap.steps.step05_family_model.model import (
+    FamilyModel,
+    fit_family_model,
+    score_family_model,
+)
+from osat_edge.roadmap.steps.step06_machine_history.history import HealthyInterval, MachineHistory
+from osat_edge.roadmap.steps.step07_machine_model.model import (
     ContextModel,
     evaluate_machine_model,
     evaluate_machine_model_numerically,

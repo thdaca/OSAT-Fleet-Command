@@ -7,16 +7,32 @@ import unittest
 from dataclasses import replace
 from pathlib import Path
 
-from osat_edge.roadmap.pre_steps.pre01_common.pre01_common import EquipmentState, HealthState, RuntimeMode
-from osat_edge.roadmap.steps.step07_machine_model.step07_machine_model import FeatureDeviation
-from osat_edge.roadmap.steps.step09_health_risk.step09_health_risk import HealthAssessment, SubsystemHealth
-from osat_edge.roadmap.steps.step10_fault_evidence.step10_fault_evidence import FaultEvidence, build_fault_evidence
-from osat_edge.roadmap.steps.step11a_maintenance_db.step11a_maintenance_db import MaintenanceRepository
-from osat_edge.roadmap.steps.step11b_oem_manuals.step11b_oem_manuals import DEFAULT_MANUALS_PATH, load_oem_manuals
-from osat_edge.roadmap.steps.step12_rag.step12_rag import RetrievedPassage, retrieve_rag_context
-from osat_edge.roadmap.steps.step13_local_llm.step13_local_llm import generate_local_llm_json
-from osat_edge.roadmap.steps.step14_json_validation.step14_json_validation import deterministic_fallback, validate_llm_json
-from osat_edge.roadmap.steps.step15_maintenance_ticket.step15_maintenance_ticket import create_or_update_ticket, list_tickets
+from osat_edge.roadmap.pre_steps.pre01_common.contracts import (
+    EquipmentState,
+    HealthState,
+    RuntimeMode,
+)
+from osat_edge.roadmap.steps.step07_machine_model.model import FeatureDeviation
+from osat_edge.roadmap.steps.step09_health_risk.health import HealthAssessment, SubsystemHealth
+from osat_edge.roadmap.steps.step10_fault_evidence.evidence import (
+    FaultEvidence,
+    build_fault_evidence,
+)
+from osat_edge.roadmap.steps.step11a_maintenance_db.repository import MaintenanceRepository
+from osat_edge.roadmap.steps.step11b_oem_manuals.manuals import (
+    DEFAULT_MANUALS_PATH,
+    load_oem_manuals,
+)
+from osat_edge.roadmap.steps.step12_rag.retrieval import RetrievedPassage, retrieve_rag_context
+from osat_edge.roadmap.steps.step13_local_llm.llm import generate_local_llm_json
+from osat_edge.roadmap.steps.step14_json_validation.validation import (
+    deterministic_fallback,
+    validate_llm_json,
+)
+from osat_edge.roadmap.steps.step15_maintenance_ticket.tickets import (
+    create_or_update_ticket,
+    list_tickets,
+)
 from osat_edge.roadmap.pre_steps.pre01_common.tests.support import NOW, identity, model_result
 
 

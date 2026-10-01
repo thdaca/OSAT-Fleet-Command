@@ -3,7 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 import time
 from typing import Any
-from ...post03_external_benchmark.post03_external_benchmark import BenchmarkError, NASA_OFFICIAL_ARCHIVE_SHA256, NASA_OFFICIAL_MAT_SHA256, analyze_nasa_milling
+from ...post03_external_benchmark.benchmark import (
+    BenchmarkError,
+    NASA_OFFICIAL_ARCHIVE_SHA256,
+    NASA_OFFICIAL_MAT_SHA256,
+    analyze_nasa_milling,
+)
 from ..core.dataset_context import RealDataEvaluationError, _base_report, _unverified_input
 def _evaluate_nasa(path: Path) -> dict[str, Any]:
     started = time.perf_counter()

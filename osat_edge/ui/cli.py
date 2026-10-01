@@ -7,9 +7,9 @@ import json
 import sys
 from typing import Sequence
 
-from ..roadmap.pre_steps.pre01_common.pre01_common import RELEASE_CLASS, VERSION
-from ..roadmap.post_steps.post01_demo.post01_demo import run_demo
-from ..roadmap.post_steps.post04_real_data_evaluation.post04_real_data_evaluation import (
+from ..roadmap.pre_steps.pre01_common.contracts import RELEASE_CLASS, VERSION
+from ..roadmap.post_steps.post01_demo.demo import run_demo
+from ..roadmap.post_steps.post04_real_data_evaluation.core.dataset_context import (
     DATASET_ORDER,
     DEFAULT_EXTERNAL_DATA_ROOT,
 )
@@ -18,7 +18,7 @@ from ..roadmap.post_steps.post04_real_data_evaluation.post04_real_data_evaluatio
 def parser() -> argparse.ArgumentParser:
     value = argparse.ArgumentParser(
         prog="osat-edge",
-        description=f"OSAT Fleet Command {VERSION} — {RELEASE_CLASS}",
+        description=f"OSAT SemiGuard {VERSION} — {RELEASE_CLASS}",
     )
     value.add_argument("--version", action="version", version=VERSION)
     commands = value.add_subparsers(dest="command", required=True)
@@ -81,7 +81,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser().parse_args(argv)
     if args.command == "poc":
         from pathlib import Path
-        from ..roadmap.post_steps.post05_full_poc.post05_full_poc import run_full_poc, write_poc_report, poc_summary
+        from ..roadmap.post_steps.post05_full_poc.poc import run_full_poc, write_poc_report, poc_summary
 
         try:
             result = run_full_poc(artifact_root=Path(args.artifacts) if args.artifacts else None)
@@ -100,9 +100,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(json.dumps(run_demo(), indent=2, sort_keys=True))
         return 0
     if args.command == "reference-replay":
-        from ..roadmap.post_steps.post02_reference_replay.post02_reference_replay import (
+        from ..roadmap.post_steps.post02_reference_replay.artifact import (
             DEFAULT_REFERENCE_DIRECTORY,
             ReferenceReplayError,
+        )
+        from ..roadmap.post_steps.post02_reference_replay.replay import (
             run_reference_replay,
         )
 
@@ -114,7 +116,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0
     if args.command == "benchmark-nasa-milling":
-        from ..roadmap.post_steps.post03_external_benchmark.post03_external_benchmark import (
+        from ..roadmap.post_steps.post03_external_benchmark.benchmark import (
             BenchmarkError,
             analyze_nasa_milling,
             benchmark_summary,
@@ -131,10 +133,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(json.dumps(benchmark_summary(result), indent=2, sort_keys=True))
         return 0
     if args.command == "evaluate-real":
-        from ..roadmap.post_steps.post04_real_data_evaluation.post04_real_data_evaluation import (
-            RealDataEvaluationError,
+        from ..roadmap.post_steps.post04_real_data_evaluation.core.dataset_context import RealDataEvaluationError
+        from ..roadmap.post_steps.post04_real_data_evaluation.evaluation import (
             evaluate_all_real_data,
             evaluate_real_dataset,
+        )
+        from ..roadmap.post_steps.post04_real_data_evaluation.core.reporting import (
             real_data_summary,
             write_real_data_report,
         )
@@ -159,8 +163,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(json.dumps(real_data_summary(result), indent=2, sort_keys=True))
         return 0
     if args.command == "verify-real-evidence":
-        from ..roadmap.post_steps.post04_real_data_evaluation.post04_real_data_evaluation import (
-            RealDataEvaluationError,
+        from ..roadmap.post_steps.post04_real_data_evaluation.core.dataset_context import RealDataEvaluationError
+        from ..roadmap.post_steps.post04_real_data_evaluation.core.evidence_lifecycle import (
             verify_committed_real_data_evidence,
         )
 

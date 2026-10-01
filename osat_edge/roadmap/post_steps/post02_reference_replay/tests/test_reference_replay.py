@@ -9,18 +9,22 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from osat_edge.roadmap.pre_steps.pre01_common.pre01_common import DataOrigin, RuntimeMode
-from osat_edge.roadmap.post_steps.post01_demo.post01_demo import _fit_demo_model
-from osat_edge.roadmap.pre_steps.pre02_machine_registry.pre02_machine_registry import STATIONS
+from osat_edge.roadmap.pre_steps.pre01_common.contracts import DataOrigin, RuntimeMode
+from osat_edge.roadmap.post_steps.post01_demo.demo import fit_demo_model
+from osat_edge.roadmap.pre_steps.pre02_machine_registry.registry import STATIONS
 from osat_edge.pipeline import MachinePipeline
-from osat_edge.roadmap.post_steps.post02_reference_replay.post02_reference_replay import (
+from osat_edge.roadmap.post_steps.post02_reference_replay.artifact import (
     DEFAULT_REFERENCE_DIRECTORY,
     ReferenceReplayError,
     load_reference_replay,
+)
+from osat_edge.roadmap.post_steps.post02_reference_replay.replay import (
     run_reference_replay,
 )
-from osat_edge.roadmap.steps.step08_live_telemetry.step08_live_telemetry import ReplayTelemetrySource
-from osat_edge.roadmap.steps.step11a_maintenance_db.step11a_maintenance_db import MaintenanceRepository
+from osat_edge.roadmap.steps.step08_live_telemetry.sources import (
+    ReplayTelemetrySource,
+)
+from osat_edge.roadmap.steps.step11a_maintenance_db.repository import MaintenanceRepository
 
 
 class ReferenceReplayTests(unittest.TestCase):
@@ -396,7 +400,7 @@ class ReferenceReplayTests(unittest.TestCase):
                 station=self.dataset.station,
                 source=source,
                 repository=MaintenanceRepository(Path(directory) / "tickets.sqlite"),
-                machine_model=_fit_demo_model(self.dataset.identity, self.dataset.station),
+                machine_model=fit_demo_model(self.dataset.identity, self.dataset.station),
             )
 
     def test_unvalidated_synthetic_replay_cannot_create_a_demo_ticket(self) -> None:
@@ -413,7 +417,7 @@ class ReferenceReplayTests(unittest.TestCase):
                 station=self.dataset.station,
                 source=source,
                 repository=repository,
-                machine_model=_fit_demo_model(self.dataset.identity, self.dataset.station),
+                machine_model=fit_demo_model(self.dataset.identity, self.dataset.station),
             )
             while pipeline.tick() is not None:
                 pass

@@ -2,7 +2,7 @@
 
 secsgem is imported only when this optional scenario executes. Its codecs
 encode/decode the wire messages; the project owns only this fixed test session.
-Fleet Command sends Select.rsp and report acknowledgments, never equipment
+SemiGuard sends Select.rsp and report acknowledgments, never equipment
 commands. RPTIDs in this authored fixture explicitly identify approved SVIDs.
 """
 import datetime as dt
@@ -12,16 +12,21 @@ import socket
 import struct
 
 from .....pipeline import MachinePipeline
-from ....pre_steps.pre01_common.pre01_common import DataOrigin, OperatingContext, EquipmentState
-from ....pre_steps.pre01_common.core.authority import require_shadow_permission
-from ....steps.step07_machine_model.core.model_io import identity_sha256
-from ....steps.step08_live_telemetry.step08_live_telemetry import (
-    QueuedTelemetrySource, SecsGemAdapter, TelemetryError, TelemetrySecurityError,
+from ....pre_steps.pre01_common.contracts import DataOrigin, OperatingContext, EquipmentState
+from ....pre_steps.pre01_common.authority import require_shadow_permission
+from ....steps.step07_machine_model.model_io import identity_sha256
+from ....steps.step08_live_telemetry.sources import (
+    QueuedTelemetrySource,
+    TelemetryError,
+    TelemetrySecurityError,
 )
-from ....steps.step11a_maintenance_db.step11a_maintenance_db import MaintenanceRepository
-from ...post01_demo.post01_demo import SyntheticTelemetrySource, DEMO_START
+from ....steps.step08_live_telemetry.secs_gem import (
+    SecsGemAdapter,
+)
+from ....steps.step11a_maintenance_db.repository import MaintenanceRepository
+from ...post01_demo.demo import SyntheticTelemetrySource, DEMO_START
 from .onboarding import IDENTITY, STATION
-from ..core.trace import store_identity
+from ..trace import store_identity
 
 
 class SimulatorTelemetrySource(QueuedTelemetrySource):
@@ -163,7 +168,7 @@ def run_connectivity(workspace: Path):
             "rejected_reports_telemetry_invalid": rejected_invalid,
             "session_loss_detected": loss_detected, "current_health_after_loss": after.assessment.health_state.value,
             "telemetry_after_loss": "INVALID" if not after.telemetry_status.valid else "VALID",
-            "sent_by_fleet_command": sorted(set(sent_by_host)), "host_message_count": len(sent_by_host),
+            "sent_by_host": sorted(set(sent_by_host)), "host_message_count": len(sent_by_host),
             "equipment_control_messages": 0, "operational_ticket_count": len(repository.list_tickets()),
             "transcript_sha256": identity_sha256(transcript), "plant_interoperability_claimed": False,
             "limitation": "Fixed authored report layout, not full GEM negotiation, OEM interoperability or plant validation; no REAL_OSAT-calibrated model."}

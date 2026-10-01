@@ -10,17 +10,17 @@ import time
 from typing import Any, Mapping
 import zipfile
 import numpy as np
-from ....pre_steps.pre01_common.pre01_common import ChannelSpec, DataOrigin, EquipmentState, MachineIdentity, OperatingContext, TelemetrySample
-from ....pre_steps.pre02_machine_registry.pre02_machine_registry import StationDefinition
-from ....pre_steps.pre03_data_provenance.pre03_data_provenance import (
+from ....pre_steps.pre01_common.contracts import ChannelSpec, DataOrigin, EquipmentState, MachineIdentity, OperatingContext, TelemetrySample
+from ....pre_steps.pre02_machine_registry.registry import StationDefinition
+from ....pre_steps.pre03_data_provenance.provenance import (
     legacy_external_directory_hash as _directory_hash, md5_file as _md5_file,
     legacy_external_named_content_hash as _named_content_hash, sha256_file as _sha256_file,
 )
-from ....steps.step02_physical_features.step02_physical_features import FeatureSet, extract_physical_features
-from ....steps.step07_machine_model.step07_machine_model import evaluate_machine_model_numerically
-from ....steps.step08_live_telemetry.step08_live_telemetry import BoundedTelemetryStore, TelemetryStatus, assess_telemetry
+from ....steps.step02_physical_features.features import FeatureSet, extract_physical_features
+from ....steps.step07_machine_model.model import evaluate_machine_model_numerically
+from ....steps.step08_live_telemetry.store import BoundedTelemetryStore, TelemetryStatus, assess_telemetry
 from ..core.dataset_context import RealDataEvaluationError, RealDataNotFound, _base_report, _bounded_directory_files, _unverified_input
-from ..core.metrics import _percentile, _spearman
+from ...metrics import _percentile, _spearman
 from ..core.model_bridge import _fit_nominal_benchmark_model
 KUKA_COLUMNS = {
     f"Iststrom_A{axis} (A)": (f"motor_current_a{axis}", f"axis_a{axis}")

@@ -1,10 +1,10 @@
 """Steps11b–14 demonstration after a deterministic ticket already exists."""
 import json
 
-from ....steps.step11b_oem_manuals.step11b_oem_manuals import load_oem_manuals
-from ....steps.step12_rag.step12_rag import retrieve_rag_context
-from ....steps.step13_local_llm.step13_local_llm import generate_local_llm_json
-from ....steps.step14_json_validation.step14_json_validation import validate_llm_json
+from ....steps.step11b_oem_manuals.manuals import load_oem_manuals
+from ....steps.step12_rag.retrieval import retrieve_rag_context
+from ....steps.step13_local_llm.llm import generate_local_llm_json
+from ....steps.step14_json_validation.validation import validate_llm_json
 from .operational import RESOURCES
 
 

@@ -13,7 +13,7 @@ from unittest.mock import patch
 import numpy as np
 from scipy.io import savemat
 
-from osat_edge.roadmap.post_steps.post03_external_benchmark.post03_external_benchmark import (
+from osat_edge.roadmap.post_steps.post03_external_benchmark.benchmark import (
     BenchmarkDatasetNotFound,
     BenchmarkError,
     REQUIRED_FIELDS,
@@ -21,7 +21,7 @@ from osat_edge.roadmap.post_steps.post03_external_benchmark.post03_external_benc
     write_benchmark_report,
 )
 from osat_edge.ui.cli import main
-from osat_edge.roadmap.pre_steps.pre01_common.pre01_common import DataOrigin
+from osat_edge.roadmap.pre_steps.pre01_common.contracts import DataOrigin
 
 
 def _write_mat(path: Path, *, nonfinite: bool = False, omit: str | None = None) -> None:
@@ -136,22 +136,22 @@ class ExternalBenchmarkTests(unittest.TestCase):
             with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as output:
                 output.write(dataset, arcname="mill.mat")
 
-            with patch("osat_edge.roadmap.post_steps.post03_external_benchmark.post03_external_benchmark.MAXIMUM_RECORDS", 3), self.assertRaisesRegex(
+            with patch("osat_edge.roadmap.post_steps.post03_external_benchmark.benchmark.MAXIMUM_RECORDS", 3), self.assertRaisesRegex(
                 BenchmarkError, "too many records"
             ):
                 analyze_nasa_milling(dataset)
             with patch(
-                "osat_edge.roadmap.post_steps.post03_external_benchmark.post03_external_benchmark.MAXIMUM_SIGNAL_SAMPLES", 2
+                "osat_edge.roadmap.post_steps.post03_external_benchmark.benchmark.MAXIMUM_SIGNAL_SAMPLES", 2
             ), self.assertRaisesRegex(BenchmarkError, "signal-length"):
                 analyze_nasa_milling(dataset)
-            with patch("osat_edge.roadmap.post_steps.post03_external_benchmark.post03_external_benchmark.MAXIMUM_MAT_BYTES", 1), self.assertRaisesRegex(
+            with patch("osat_edge.roadmap.post_steps.post03_external_benchmark.benchmark.MAXIMUM_MAT_BYTES", 1), self.assertRaisesRegex(
                 BenchmarkError, "member exceeds"
             ):
                 analyze_nasa_milling(archive)
 
             (root / "extra.txt").write_text("extra", encoding="utf-8")
             with patch(
-                "osat_edge.roadmap.post_steps.post03_external_benchmark.post03_external_benchmark.MAXIMUM_ARCHIVE_MEMBERS", 1
+                "osat_edge.roadmap.post_steps.post03_external_benchmark.benchmark.MAXIMUM_ARCHIVE_MEMBERS", 1
             ), self.assertRaisesRegex(BenchmarkError, "too many files"):
                 analyze_nasa_milling(root)
 
@@ -168,7 +168,7 @@ class ExternalBenchmarkTests(unittest.TestCase):
                 analyze_nasa_milling(over_nested)
 
     def test_benchmark_module_is_isolated_from_osat_inference(self) -> None:
-        source = (Path(__file__).resolve().parents[1] / "post03_external_benchmark.py").read_text(
+        source = (Path(__file__).resolve().parents[1] / "benchmark.py").read_text(
             encoding="utf-8"
         )
         for forbidden in (".pipeline", ".roadmap", ".machines", ".ui"):

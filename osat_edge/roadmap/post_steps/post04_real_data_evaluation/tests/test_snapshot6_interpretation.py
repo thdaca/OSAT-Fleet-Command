@@ -5,9 +5,13 @@ import json
 import tempfile
 import unittest
 
-from osat_edge.roadmap.post_steps.post04_real_data_evaluation.post04_real_data_evaluation import (
+from osat_edge.roadmap.post_steps.post04_real_data_evaluation.core.evidence_lifecycle import (
     CURRENT_EVIDENCE_PATH,
+)
+from osat_edge.roadmap.post_steps.post04_real_data_evaluation.evaluation import (
     evaluate_all_real_data,
+)
+from osat_edge.roadmap.post_steps.post04_real_data_evaluation.core.reporting import (
     real_data_summary,
 )
 from osat_edge.roadmap.post_steps.post04_real_data_evaluation.core.reporting import (

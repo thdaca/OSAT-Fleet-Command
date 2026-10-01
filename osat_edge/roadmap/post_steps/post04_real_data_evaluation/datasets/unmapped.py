@@ -2,8 +2,14 @@
 from __future__ import annotations
 from pathlib import Path
 from typing import Any
-from ....pre_steps.pre03_data_provenance.pre03_data_provenance import legacy_external_directory_hash as _directory_hash, sha256_file as _sha256_file
-from ..core.dataset_context import MAXIMUM_GENERIC_ARCHIVE_BYTES, RealDataEvaluationError, RealDataNotFound, _bounded_directory_files, _unverified_input
+from ....pre_steps.pre03_data_provenance.provenance import legacy_external_directory_hash as _directory_hash, sha256_file as _sha256_file
+from ..core.dataset_context import (
+    MAXIMUM_GENERIC_ARCHIVE_BYTES,
+    RealDataEvaluationError,
+    RealDataNotFound,
+    _bounded_directory_files,
+    _unverified_input,
+)
 def _inspect_unmapped(dataset_id: str, path: Path) -> dict[str, Any]:
     if not path.exists():
         raise RealDataNotFound(f"Dataset path not found: {path.name}")

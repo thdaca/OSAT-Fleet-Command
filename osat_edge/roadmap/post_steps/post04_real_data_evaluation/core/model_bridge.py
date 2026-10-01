@@ -2,9 +2,9 @@
 from __future__ import annotations
 from typing import Sequence
 import numpy as np
-from ....pre_steps.pre01_common.pre01_common import DataOrigin, EquipmentState, MachineIdentity
-from ....steps.step02_physical_features.step02_physical_features import FeatureSet
-from ....steps.step07_machine_model.step07_machine_model import ContextModel, MachineModel
+from ....pre_steps.pre01_common.contracts import DataOrigin, EquipmentState, MachineIdentity
+from ....steps.step02_physical_features.features import FeatureSet
+from ....steps.step07_machine_model.model import ContextModel, MachineModel
 from .dataset_context import RealDataEvaluationError
 def _fit_nominal_benchmark_model(
     identity: MachineIdentity,

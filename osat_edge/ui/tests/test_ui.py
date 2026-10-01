@@ -10,10 +10,12 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PyQt6.QtWidgets import QApplication
 
-from osat_edge.roadmap.pre_steps.pre01_common.pre01_common import DataOrigin, HealthState, VERSION
-from osat_edge.roadmap.pre_steps.pre02_machine_registry.pre02_machine_registry import STATIONS
-from osat_edge.roadmap.steps.step05_family_model.step05_family_model import FamilyModel
-from osat_edge.ui.dashboard import FleetCommandWindow, HEALTH_COLOR, PALETTE, TelemetryTrend
+from osat_edge.roadmap.pre_steps.pre01_common.contracts import DataOrigin, HealthState, VERSION
+from osat_edge.roadmap.pre_steps.pre02_machine_registry.registry import STATIONS
+from osat_edge.roadmap.steps.step05_family_model.model import FamilyModel
+from osat_edge.ui.dashboard import SemiGuardWindow
+from osat_edge.ui.theme import HEALTH_COLOR, PALETTE
+from osat_edge.ui.widgets import TelemetryTrend
 
 
 def _relative_luminance(color: str) -> float:
@@ -40,7 +42,7 @@ class UiTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.application = QApplication.instance() or QApplication([])
-        cls.window = FleetCommandWindow()
+        cls.window = SemiGuardWindow()
         cls.window.inference_timer.stop()
         cls.window.paint_timer.stop()
 
@@ -60,15 +62,17 @@ class UiTests(unittest.TestCase):
             [self.window.tabs.tabText(index) for index in range(self.window.tabs.count())],
         )
         self.assertIn(VERSION, self.window.windowTitle())
+        self.assertIn("OSAT SemiGuard", self.window.windowTitle())
+        self.assertEqual("Primary OSAT SemiGuard tabs", self.window.tabs.accessibleName())
         self.assertIn("RESEARCH / DEVELOPMENT", self.window.windowTitle())
         self.assertIn("DEMO TICKETS ONLY", self.window.authority_label.text())
 
     def test_ui_has_nine_named_cards_and_text_for_every_health_state(self) -> None:
-        self.assertEqual(9, len(self.window.cards))
-        card_text = " ".join(card.title_label.text() for card in self.window.cards.values())
+        self.assertEqual(9, len(self.window.fleet_screen.cards))
+        card_text = " ".join(card.title_label.text() for card in self.window.fleet_screen.cards.values())
         for station in STATIONS.values():
             self.assertIn(station.station_id, card_text)
-        card = self.window.cards["wafer_saw"]
+        card = self.window.fleet_screen.cards["wafer_saw"]
         result = self.window.pipeline.machines["wafer_saw"].last_result
         self.assertIsNotNone(result)
         for state in HealthState:
@@ -93,11 +97,11 @@ class UiTests(unittest.TestCase):
     def test_ws01_telemetry_table_exposes_every_canonical_channel(self) -> None:
         self.window._select("wafer_saw")
         rows = {
-            self.window.telemetry_table.item(row, 0).text(): tuple(
-                self.window.telemetry_table.item(row, column).text()
-                for column in range(self.window.telemetry_table.columnCount())
+            self.window.machine_screen.telemetry_table.item(row, 0).text(): tuple(
+                self.window.machine_screen.telemetry_table.item(row, column).text()
+                for column in range(self.window.machine_screen.telemetry_table.columnCount())
             )
-            for row in range(self.window.telemetry_table.rowCount())
+            for row in range(self.window.machine_screen.telemetry_table.rowCount())
         }
         self.assertEqual({item.name for item in STATIONS["wafer_saw"].channels}, set(rows))
         for spec in STATIONS["wafer_saw"].channels:
@@ -107,15 +111,15 @@ class UiTests(unittest.TestCase):
             self.assertTrue(rows[spec.name][6])
             self.assertTrue(rows[spec.name][7])
         headers = [
-            self.window.telemetry_table.horizontalHeaderItem(column).text()
-            for column in range(self.window.telemetry_table.columnCount())
+            self.window.machine_screen.telemetry_table.horizontalHeaderItem(column).text()
+            for column in range(self.window.machine_screen.telemetry_table.columnCount())
         ]
         self.assertIn("CANONICAL SOURCE ID", headers)
         self.assertIn("SAMPLE LAG", headers)
-        self.assertIn("SAMPLE LAG TO ASSESSMENT", self.window.cards["wafer_saw"].age.text())
+        self.assertIn("SAMPLE LAG TO ASSESSMENT", self.window.fleet_screen.cards["wafer_saw"].age.text())
 
     def test_model_boundary_is_transparent_without_internal_arrays(self) -> None:
-        text = self.window.model_status.toPlainText()
+        text = self.window.machine_screen.model_status.toPlainText()
         self.assertIn("EXACT-MACHINE MODEL", text)
         self.assertIn("STATUS: LOADED", text)
         self.assertIn("DATA ORIGIN", text)
@@ -125,13 +129,13 @@ class UiTests(unittest.TestCase):
 
     def test_physics_exposes_runtime_maturity_value_and_research_blocker(self) -> None:
         self.window._select("wafer_saw")
-        text = _table_text(self.window.physics_table)
+        text = _table_text(self.window.physics_screen.physics_table)
         self.assertIn("spindle.current_speed_residual", text)
         self.assertIn("RUNTIME_RESEARCH", text)
         self.assertIn("LITERATURE_SUPPORTED", text)
         self.assertIn("A", text)
         self.assertNotIn("N/A — NOT RUNTIME\nA\n", text)
-        detail = self.window.physics_detail.toPlainText()
+        detail = self.window.physics_screen.physics_detail.toPlainText()
         self.assertIn("MAJOR BLOCKER", detail)
         self.assertIn("NEXT EXPERIMENT", detail)
         self.assertIn("MEASUREMENT UNCERTAINTY SOURCES", detail)
@@ -170,21 +174,21 @@ class UiTests(unittest.TestCase):
             assessment=replace(original.assessment, subsystem_health=subsystems),
         )
         try:
-            self.window._refresh_physics()
-            text = _table_text(self.window.physics_table)
+            self.window.physics_screen.refresh()
+            text = _table_text(self.window.physics_screen.physics_table)
             self.assertNotIn("NO CURRENT EVIDENCE", text)
-            self.assertIn("HEALTH CONTRIBUTION: NOT SCORED / NOT AVAILABLE", self.window.physics_detail.toPlainText())
+            self.assertIn("HEALTH CONTRIBUTION: NOT SCORED / NOT AVAILABLE", self.window.physics_screen.physics_detail.toPlainText())
         finally:
             machine.last_result = original
-            self.window._refresh_physics()
+            self.window.physics_screen.refresh()
 
     def test_family_without_runtime_physics_keeps_rejected_catalog_visible(self) -> None:
         self.window._select("wire_bond")
-        text = _table_text(self.window.physics_table)
+        text = _table_text(self.window.physics_screen.physics_table)
         self.assertIn("wire_bond.ultrasonic_input_impedance", text)
         self.assertIn("REJECTED", text)
         self.assertIn("N/A — NOT RUNTIME", text)
-        detail = self.window.physics_detail.toPlainText()
+        detail = self.window.physics_screen.physics_detail.toPlainText()
         self.assertIn("MAJOR BLOCKER", detail)
         self.assertNotIn("NOT AVAILABLE\n\nNEXT EXPERIMENT\nNOT AVAILABLE", detail)
         self.window._select("wafer_saw")
@@ -192,20 +196,20 @@ class UiTests(unittest.TestCase):
     def test_disconnect_marks_last_known_and_excludes_cached_health_counts(self) -> None:
         self.window._toggle_link()
         try:
-            card = self.window.cards["wafer_saw"]
+            card = self.window.fleet_screen.cards["wafer_saw"]
             self.assertEqual("DISCONNECTED", card.health.text())
             self.assertIn("LAST KNOWN:", card.telemetry.text())
-            self.assertEqual("NORMAL 0", self.window.summary_labels["NORMAL"].text())
-            self.assertEqual("UNKNOWN 9", self.window.summary_labels["UNKNOWN"].text())
-            self.assertIn("LAST KNOWN ASSESSMENT", self.window.machine_status.text())
-            self.assertIn("LAST KNOWN PHYSICS EVIDENCE", self.window.physics_status.text())
-            self.assertIn("LAST KNOWN EQUIPMENT-STATE CONTEXT", self.window.model_status.toPlainText())
-            self.assertIn("LAST KNOWN PHYSICS OUTPUT", self.window.physics_detail.toPlainText())
-            self.assertIn("LAST KNOWN", self.window.trend.channel)
+            self.assertEqual("NORMAL 0", self.window.fleet_screen.summary_labels["NORMAL"].text())
+            self.assertEqual("UNKNOWN 9", self.window.fleet_screen.summary_labels["UNKNOWN"].text())
+            self.assertIn("LAST KNOWN ASSESSMENT", self.window.machine_screen.machine_status.text())
+            self.assertIn("LAST KNOWN PHYSICS EVIDENCE", self.window.physics_screen.physics_status.text())
+            self.assertIn("LAST KNOWN EQUIPMENT-STATE CONTEXT", self.window.machine_screen.model_status.toPlainText())
+            self.assertIn("LAST KNOWN PHYSICS OUTPUT", self.window.physics_screen.physics_detail.toPlainText())
+            self.assertIn("LAST KNOWN", self.window.machine_screen.trend.channel)
         finally:
             self.window._toggle_link()
         self.assertIn("CONNECTED", self.window.connection_label.text())
-        self.assertEqual("NORMAL 9", self.window.summary_labels["NORMAL"].text())
+        self.assertEqual("NORMAL 9", self.window.fleet_screen.summary_labels["NORMAL"].text())
 
     def test_disconnected_family_risk_is_labeled_last_known(self) -> None:
         machine = self.window.pipeline.machines["wafer_saw"]
@@ -228,7 +232,7 @@ class UiTests(unittest.TestCase):
         try:
             self.assertIn(
                 "LAST KNOWN RISK SCORE: 0.750",
-                self.window.model_status.toPlainText(),
+                self.window.machine_screen.model_status.toPlainText(),
             )
         finally:
             self.window._toggle_link()
@@ -237,7 +241,7 @@ class UiTests(unittest.TestCase):
             self.window._paint()
 
     def test_monitor_control_isolates_only_one_card(self) -> None:
-        card = self.window.cards["wire_bond"]
+        card = self.window.fleet_screen.cards["wire_bond"]
         card.monitor.setChecked(False)
         self.window._paint()
         self.assertFalse(self.window.pipeline.machines["wire_bond"].monitored)
@@ -247,7 +251,7 @@ class UiTests(unittest.TestCase):
         self.window._paint()
 
     def test_system_tab_states_real_runtime_security_and_authority_facts(self) -> None:
-        text = self.window.system_text.toPlainText()
+        text = self.window.system_screen.system_text.toPlainText()
         for required in (
             VERSION,
             "RUNTIME MODE: SIMULATION",
@@ -286,18 +290,18 @@ class UiTests(unittest.TestCase):
         self.window._select("wire_bond")
         self.assertEqual(
             "NO MAINTENANCE TICKETS FOR SELECTED MACHINE",
-            self.window.ticket_detail.toPlainText(),
+            self.window.maintenance_screen.ticket_detail.toPlainText(),
         )
         self.window._select("wafer_saw")
-        self.assertIn("DETERMINISTIC EVIDENCE", self.window.ticket_detail.toPlainText())
+        self.assertIn("DETERMINISTIC EVIDENCE", self.window.maintenance_screen.ticket_detail.toPlainText())
 
     def test_accessible_names_cover_primary_monitoring_controls(self) -> None:
         widgets = (
             self.window.tabs,
-            self.window.fleet_area,
-            self.window.telemetry_table,
-            self.window.physics_table,
-            self.window.ticket_table,
+            self.window.fleet_screen.fleet_area,
+            self.window.machine_screen.telemetry_table,
+            self.window.physics_screen.physics_table,
+            self.window.maintenance_screen.ticket_table,
             self.window.link_button,
             self.window.inject_button,
         )
@@ -317,14 +321,14 @@ class UiTests(unittest.TestCase):
         for _ in range(75):
             self.window.demo.tick()
         self.window._paint()
-        self.assertIn("WS-01", self.window.evidence_status.text())
-        self.assertIn("CRITICAL", self.window.evidence_status.text())
-        self.assertIn("spindle", _table_text(self.window.subsystem_table))
-        self.assertIn("spindle.current_speed_residual", _table_text(self.window.physics_table))
-        self.assertEqual(1, self.window.ticket_table.rowCount())
-        self.assertEqual("URGENT", self.window.ticket_table.item(0, 0).text())
-        self.assertIn("DETERMINISTIC EVIDENCE", self.window.ticket_detail.toPlainText())
-        self.assertIn("RETRIEVED / LLM ENRICHMENT", self.window.ticket_detail.toPlainText())
+        self.assertIn("WS-01", self.window.machine_screen.evidence_status.text())
+        self.assertIn("CRITICAL", self.window.machine_screen.evidence_status.text())
+        self.assertIn("spindle", _table_text(self.window.machine_screen.subsystem_table))
+        self.assertIn("spindle.current_speed_residual", _table_text(self.window.physics_screen.physics_table))
+        self.assertEqual(1, self.window.maintenance_screen.ticket_table.rowCount())
+        self.assertEqual("URGENT", self.window.maintenance_screen.ticket_table.item(0, 0).text())
+        self.assertIn("DETERMINISTIC EVIDENCE", self.window.maintenance_screen.ticket_detail.toPlainText())
+        self.assertIn("RETRIEVED / LLM ENRICHMENT", self.window.maintenance_screen.ticket_detail.toPlainText())
 
 
 class TrendWidgetTests(unittest.TestCase):

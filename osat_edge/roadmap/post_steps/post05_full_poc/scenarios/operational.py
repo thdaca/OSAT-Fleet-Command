@@ -7,17 +7,17 @@ import subprocess
 import sys
 
 from .....pipeline import MachinePipeline
-from ....pre_steps.pre01_common.pre01_common import EquipmentState, RuntimeMode
-from ....pre_steps.pre01_common.core.authority import require_shadow_permission
-from ....steps.step07_machine_model.core.model_io import (
+from ....pre_steps.pre01_common.contracts import EquipmentState, RuntimeMode
+from ....pre_steps.pre01_common.authority import require_shadow_permission
+from ....steps.step07_machine_model.model_io import (
     MachineModelArtifactError, canonical_bytes, load_machine_model,
 )
-from ....steps.step08_live_telemetry.step08_live_telemetry import NoNewTelemetry, TelemetryBatch, QueuedTelemetrySource
-from ....steps.step11a_maintenance_db.step11a_maintenance_db import MaintenanceRepository
-from ....steps.step11b_oem_manuals.step11b_oem_manuals import load_oem_manuals
-from ...post01_demo.post01_demo import SyntheticTelemetrySource, DEMO_START
+from ....steps.step08_live_telemetry.sources import NoNewTelemetry, TelemetryBatch, QueuedTelemetrySource
+from ....steps.step11a_maintenance_db.repository import MaintenanceRepository
+from ....steps.step11b_oem_manuals.manuals import load_oem_manuals
+from ...post01_demo.demo import SyntheticTelemetrySource, DEMO_START
 from .onboarding import IDENTITY, STATION
-from ..core.trace import decision_trace, store_identity
+from ..trace import decision_trace, store_identity
 
 RESOURCES = Path(__file__).resolve().parents[1] / "resources"
 
@@ -99,6 +99,10 @@ def run_operational(workspace, loaded, load_options):
     outcomes["process_restart_model_ticket_reload"] = "PASS" if (
         restart_report["step07_outputs_identical"] and restart_report["ticket_loaded_exactly"]
         and restart_report["ticket_count"] == 1 and restart_report["ticket_id"] == before_restart["ticket_id"]
+        and restart_report["artifact_sha256"] == loaded.artifact_sha256
+        and restart_report["health"] == critical_result.assessment.health_state.value
+        and restart_report["priority"] == before_restart["priority"]
+        and restart_report["status"] == before_restart["status"]
     ) else "FAIL"
 
     pipeline.source.generator.clear_fault()

@@ -1,4 +1,4 @@
-# POST05: full functional proof of concept, 0.2.6 Snapshot 1
+# POST05: full functional proof of concept, 0.2.6 Snapshot 2
 
 This is a system-integration proof using project-authored synthetic telemetry,
 not new ML research, REAL_OSAT validation, prospective plant validation or
@@ -33,6 +33,12 @@ under the same pinned profile must produce identical bytes and report hashes.
 The committed `resources/0.2.6-poc.json` is the deterministic qualification
 record, not a serialized operational model or a runtime database.
 
+The report separates `functional_proof` (onboarding, monitoring, DecisionTrace,
+model/ticket reload, retrieval and UNKNOWN scenarios) from
+`external_scientific_evidence` (frozen executed POST04 results and lineage).
+The headless command does not launch the UI; separate offscreen UI tests check
+the operator screens. Neither section grants real OSAT or production validation.
+
 Use `--artifacts .artifacts/poc-inspection-1` to retain one run's generated
 model, nominal lineage and SQLite files. The directory must be new and strictly
 inside `.artifacts`; repeat runs never reuse an earlier database. Without that
@@ -40,7 +46,7 @@ option an isolated temporary workspace is cleaned after each run.
 
 ## Ownership and sequence
 
-`post05_full_poc.py` only coordinates:
+`poc.py` only coordinates:
 
 1. `scenarios/onboarding.py`: PRE02 WS-01 identity, POST01's existing synthetic
    source, Step08 atomic ingestion, Step01/03 parameter fitting, Step02/03
@@ -55,7 +61,7 @@ option an isolated temporary workspace is cleaned after each run.
    deterministic ticket exists. A valid fixture is not claimed as an LLM run.
 5. `scenarios/connectivity.py`: optional fixed loopback HSMS session exercises
    the existing Step08 mapping and live invalid-batch handler.
-6. `core/trace.py` and `core/reporting.py`: read decisions after inference and
+6. `trace.py` and `reporting.py`: read decisions after inference and
    qualify them; they never influence health, scores, thresholds or tickets.
 
 The source uses nine-family canonical definitions but the operational PoC is
@@ -92,10 +98,18 @@ an unapproved source ID is rejected atomically: public store contents unchanged,
 telemetry INVALID, health UNKNOWN, and the next valid batch is still processed.
 Connectivity loss records last-known NORMAL separately from currently UNKNOWN.
 
+## MODEL + TICKET RELOAD WITH DETERMINISTIC REPLAY
+
+A fresh process loads the saved exact-machine model and existing SQLite ticket,
+then replays the same healthy and progressive-deviation inputs through
+`MachinePipeline`. The proof compares model identity, Step07 output, final
+health, ticket ID, priority and OPEN status. Step09 starts fresh; this does
+not demonstrate continuation of an arbitrary live hysteresis state.
+
 ## Minimal Step07 artifact contract
 
-`step07_machine_model/core/model_io.py` supplies `save_machine_model()` and
-`load_machine_model()`. The numerical Step07 module is byte-identical to 0.2.5.
+`step07_machine_model/model_io.py` supplies `save_machine_model()` and
+`load_machine_model()`. Step07 fitting/evaluation math is unchanged; snapshot 1 behavior tests protect it.
 There is no pickle, registry, plugin, migration, server or backward compatibility.
 
 Schema `OSAT_EXACT_MACHINE_MODEL_V1` stores software version, exact machine ID,
@@ -116,7 +130,7 @@ replacement. A hash is not a signature or protection against an attacker who
 can replace both artifact and trusted expectations; it does not certify data.
 POST05 leaves the model absent and reports UNKNOWN after a rejected load.
 
-## SHADOW and protocol scope
+## SHADOW and LOOPBACK CONNECTIVITY PROOF
 
 The shared PRE01 SHADOW contract explicitly allows ingestion, assessment,
 fault evidence and recommendations/tickets **subject to the existing ticket
@@ -128,7 +142,7 @@ The optional simulator uses secsgem codecs over local TCP with bounded reads,
 timeouts, Select.req/Select.rsp and S6F11/S6F12. Fixture CEID 101 and authored
 RPTID-to-SVID identities have no OEM significance. Only approved source IDs
 reach normalization; malformed or unmapped reports enter the existing INVALID
-handler. Fleet Command sends only Select.rsp and report receipt acknowledgments,
+handler. SemiGuard sends only Select.rsp and report receipt acknowledgments,
 not equipment-control commands. All sockets bind/connect to 127.0.0.1 and close
 after the run. No simulator logs or third-party source are bundled.
 
@@ -143,11 +157,13 @@ qualification, equipment-control capability or evidence of OEM/plant interoperab
 
 ## Frozen external evidence and release checks
 
-`resources/frozen_025_science.json` records 112 baseline release-file hashes
-obtained from the frozen 0.2.5 Snapshot 6 ZIP, whose digest is included. It
-protects numerical sources, the pipeline, canonical stations, replay, research
-assets and the historical 0.2.4/0.2.5 external records. PRE03 V2 hashes the new
-implementation file set for lineage, without claiming REAL_OSAT provenance.
+`resources/frozen_025_science.json` retains the 112 original release-file hashes
+from 0.2.5 Snapshot 6. `resources/frozen_025_sources.zip` preserves those bytes
+without making legacy source active. Snapshot 2 reorganizes current modules;
+`resources/snapshot2_implementation.json` pins their separate current identity.
+POST05 rejects historical corruption and unapproved current-source drift
+independently. Snapshot 1 behavior comparisons and POST04 science reproduction
+verify behavior; a source digest alone does not prove equivalence.
 
 POST04 experiment versions remain 0.2.5 independently of software VERSION
 0.2.6. Its verifier checks immutable historical bytes and the entire freshly

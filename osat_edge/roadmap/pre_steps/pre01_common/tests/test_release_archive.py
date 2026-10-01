@@ -27,6 +27,8 @@ class ReleaseArchiveTests(unittest.TestCase):
         (root / "osat_edge" / "roadmap" / "README.md").write_text(
             "roadmap\n", encoding="utf-8"
         )
+        (root / "docs" / "teams").mkdir(parents=True)
+        (root / "docs" / "teams" / "README.md").write_text("Team entry points\n", encoding="utf-8")
         (root / "osat_edge" / "__pycache__").mkdir()
         (root / "osat_edge" / "__pycache__" / "ignored.pyc").write_bytes(b"cache")
         (root / "osat_edge" / "runtime.sqlite-wal").write_bytes(b"runtime")
@@ -66,6 +68,7 @@ class ReleaseArchiveTests(unittest.TestCase):
             self.assertTrue(
                 (extracted_root / "osat_edge" / "roadmap" / "README.md").is_file()
             )
+            self.assertTrue((extracted_root / "docs" / "teams" / "README.md").is_file())
 
     def test_member_validation_rejects_nonportable_or_escaping_names(self) -> None:
         invalid = (

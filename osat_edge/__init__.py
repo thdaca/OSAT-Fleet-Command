@@ -1,6 +1,6 @@
-"""OSAT Fleet Command student research platform."""
+"""OSAT SemiGuard student research platform."""
 
-from .roadmap.pre_steps.pre01_common.pre01_common import (
+from .roadmap.pre_steps.pre01_common.contracts import (
     DataOrigin,
     EquipmentState,
     HealthState,
@@ -8,7 +8,7 @@ from .roadmap.pre_steps.pre01_common.pre01_common import (
     RuntimeMode,
     VERSION,
 )
-from .roadmap.pre_steps.pre02_machine_registry.pre02_machine_registry import STATIONS
+from .roadmap.pre_steps.pre02_machine_registry.registry import STATIONS
 
 __all__ = [
     "DataOrigin",

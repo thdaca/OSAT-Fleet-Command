@@ -6,21 +6,31 @@ from dataclasses import replace
 
 import numpy as np
 
-from osat_edge.roadmap.pre_steps.pre01_common.pre01_common import ChannelWindow, DataOrigin, EquipmentState, OperatingContext, TelemetrySample
-from osat_edge.roadmap.pre_steps.pre02_machine_registry.pre02_machine_registry import STATIONS
-from osat_edge.roadmap.steps.step08_live_telemetry.step08_live_telemetry import (
+from osat_edge.roadmap.pre_steps.pre01_common.contracts import (
+    ChannelWindow,
+    DataOrigin,
+    EquipmentState,
+    OperatingContext,
+    TelemetrySample,
+)
+from osat_edge.roadmap.pre_steps.pre02_machine_registry.registry import STATIONS
+from osat_edge.roadmap.steps.step08_live_telemetry.store import (
     BoundedTelemetryStore,
+    assess_telemetry,
+)
+from osat_edge.roadmap.steps.step08_live_telemetry.sources import (
     MAXIMUM_LIVE_SAMPLES_PER_BATCH,
     NoNewTelemetry,
     QueuedTelemetrySource,
     ReplayTelemetrySource,
-    MAXIMUM_SECS_VARIABLES,
-    SecsGemAdapter,
     TelemetryBatch,
     TelemetryError,
     TelemetrySecurityError,
     TelemetrySourceExhausted,
-    assess_telemetry,
+)
+from osat_edge.roadmap.steps.step08_live_telemetry.secs_gem import (
+    MAXIMUM_SECS_VARIABLES,
+    SecsGemAdapter,
 )
 from osat_edge.roadmap.pre_steps.pre01_common.tests.support import NOW, identity
 

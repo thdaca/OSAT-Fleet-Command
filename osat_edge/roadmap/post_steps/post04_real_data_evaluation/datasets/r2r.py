@@ -6,7 +6,14 @@ import time
 from typing import Any, Sequence
 import zipfile
 from xml.etree import ElementTree as ET
-from ..core.dataset_context import MAXIMUM_GENERIC_MEMBERS, MAXIMUM_GENERIC_MEMBER_BYTES, MAXIMUM_GENERIC_TOTAL_BYTES, RealDataEvaluationError, _base_report, _unverified_input
+from ..core.dataset_context import (
+    MAXIMUM_GENERIC_MEMBERS,
+    MAXIMUM_GENERIC_MEMBER_BYTES,
+    MAXIMUM_GENERIC_TOTAL_BYTES,
+    RealDataEvaluationError,
+    _base_report,
+    _unverified_input,
+)
 from ..core.source_files import _zip_members
 R2R_OFFICIAL_ARCHIVE_SHA256 = "3168a831e38c9388e73ba809661c282b560640ea269beba5d976340eb5e1ac16"
 R2R_METADATA_LABEL_FIELDS = frozenset({"Date", "Model", "Trigger", "Film kind"})

@@ -1,4 +1,5 @@
 import builtins
+from copy import deepcopy
 from contextlib import ExitStack
 import importlib.util
 import json
@@ -9,10 +10,13 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from osat_edge.roadmap.pre_steps.pre01_common.core.authority import SHADOW_FORBIDDEN, require_shadow_permission
-from osat_edge.roadmap.post_steps.post05_full_poc.post05_full_poc import run_full_poc, COMMITTED_POC_PATH
-from osat_edge.roadmap.post_steps.post05_full_poc.core.reporting import PROJECT_ROOT, frozen_lineage
-from osat_edge.roadmap.steps.step07_machine_model.core.model_io import identity_sha256
+from osat_edge.roadmap.pre_steps.pre01_common.authority import (
+    SHADOW_FORBIDDEN,
+    require_shadow_permission,
+)
+from osat_edge.roadmap.post_steps.post05_full_poc.poc import run_full_poc, COMMITTED_POC_PATH
+from osat_edge.roadmap.post_steps.post05_full_poc.lineage import PROJECT_ROOT, frozen_lineage
+from osat_edge.roadmap.steps.step07_machine_model.model_io import identity_sha256
 
 HAS_SIMULATOR = importlib.util.find_spec("secsgem") is not None
 
@@ -21,8 +25,9 @@ class FullPocTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.report = run_full_poc()
-        cls.outcomes = cls.report["scenarios"]
-        cls.trace = cls.report["decision_trace"]
+        cls.proof = cls.report["functional_proof"]
+        cls.outcomes = cls.proof["scenarios"]
+        cls.trace = cls.proof["decision_trace"]
 
     def test_one_command_runs_complete_poc_without_pyqt_initialization(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -46,8 +51,8 @@ class FullPocTests(unittest.TestCase):
         with ExitStack() as stack:
             stack.enter_context(patch("builtins.__import__", side_effect=no_research_runtime))
             for target in (
-                "osat_edge.roadmap.steps.step05_family_model.step05_family_model.fit_family_model",
-                "osat_edge.roadmap.post_steps.post04_real_data_evaluation.post04_real_data_evaluation.evaluate_all_real_data",
+                "osat_edge.roadmap.steps.step05_family_model.model.fit_family_model",
+                "osat_edge.roadmap.post_steps.post04_real_data_evaluation.evaluation.evaluate_all_real_data",
             ):
                 stack.enter_context(patch(target, side_effect=AssertionError(target)))
             self.assertEqual(self.report, run_full_poc())
@@ -60,11 +65,11 @@ class FullPocTests(unittest.TestCase):
         if HAS_SIMULATOR:
             self.assertEqual(committed, self.report)
         else:
-            current = dict(self.report)
+            current = deepcopy(self.report)
             for value in (current, committed):
                 value.pop("report_sha256")
                 value.pop("qualification")
-                value.pop("connectivity")
+                value["functional_proof"].pop("connectivity")
                 value["components"] = {k: v for k, v in value["components"].items() if k != "connectivity_simulation"}
             self.assertEqual(committed, current)
 
@@ -76,7 +81,7 @@ class FullPocTests(unittest.TestCase):
         self.assertIsNone(trace["exact_machine_model_artifact_sha256"])
 
     def test_onboarding_is_disjoint_synthetic_and_separately_accepted(self):
-        onboard = self.report["onboarding"]
+        onboard = self.proof["onboarding"]
         self.assertEqual("ACCEPTED_RESEARCH_ONLY", onboard["validation_status"])
         self.assertEqual("SYNTHETIC", onboard["origin"])
         self.assertFalse(onboard["independently_confirmed_plant_health"])
@@ -87,8 +92,8 @@ class FullPocTests(unittest.TestCase):
 
     def test_healthy_nominal_operation_and_frozen_progression(self):
         self.assertEqual("NORMAL", self.outcomes["healthy_operation"])
-        self.assertEqual(["NORMAL", "WATCH", "DEGRADED", "CRITICAL"], self.report["health_progression"])
-        self.assertEqual(["CRITICAL", "DEGRADED", "WATCH", "NORMAL"], self.report["recovery_progression"])
+        self.assertEqual(["NORMAL", "WATCH", "DEGRADED", "CRITICAL"], self.proof["health_progression"])
+        self.assertEqual(["CRITICAL", "DEGRADED", "WATCH", "NORMAL"], self.proof["recovery_progression"])
 
     def test_physics_and_step07_evidence_are_linked_to_spindle(self):
         elevated = [t for t in self.trace if t["checkpoint"] == "progressive_spindle" and t["fault_evidence"]]
@@ -98,7 +103,7 @@ class FullPocTests(unittest.TestCase):
             self.assertTrue(trace["physics"])
             self.assertTrue(all(f["relation_id"] for f in trace["physics"]))
             self.assertTrue(any(d["kind"] == "physics" and d["score"] > 0 for d in trace["step07_deviations"]))
-            self.assertEqual(self.report["onboarding"]["artifact_sha256"], trace["exact_machine_model_artifact_sha256"])
+            self.assertEqual(self.proof["onboarding"]["artifact_sha256"], trace["exact_machine_model_artifact_sha256"])
             self.assertIsNone(trace["advisory_family_risk"])
 
     def test_context_shift_has_no_spurious_fault(self):
@@ -122,8 +127,8 @@ class FullPocTests(unittest.TestCase):
         self.assertEqual({"rejected": True, "health": "UNKNOWN"}, self.outcomes["corrupted_machine_model"])
 
     def test_one_demo_ticket_created_escalated_persisted_and_not_closed(self):
-        self.assertEqual(1, len(self.report["tickets"]))
-        ticket = self.report["tickets"][0]
+        self.assertEqual(1, len(self.proof["tickets"]))
+        ticket = self.proof["tickets"][0]
         self.assertEqual("OPEN", ticket["status"])
         self.assertEqual("URGENT", ticket["priority"])
         self.assertTrue(ticket["demo_only"])
@@ -135,14 +140,14 @@ class FullPocTests(unittest.TestCase):
         self.assertEqual({ticket["ticket_id"]}, {t["ticket"]["ticket_id"] for t in actions})
 
     def test_real_process_restart_reloads_model_and_ticket(self):
-        restart = self.report["restart"]
+        restart = self.proof["restart"]
         self.assertTrue(restart["new_process"])
         self.assertTrue(restart["step07_outputs_identical"])
         self.assertTrue(restart["ticket_loaded_exactly"])
         self.assertEqual(1, restart["ticket_count"])
 
     def test_retrieval_schema_validation_and_no_llm_fallback(self):
-        result = self.report["enrichment"]
+        result = self.proof["enrichment"]
         self.assertEqual(["poc-ws01-spindle-review"], result["retrieved_source_ids"])
         for key in ("ticket_existed_before_retrieval", "invalid_authority_fields_rejected", "ticket_unchanged_by_schema_checks"):
             self.assertTrue(result[key])
@@ -151,7 +156,7 @@ class FullPocTests(unittest.TestCase):
 
     @unittest.skipUnless(HAS_SIMULATOR, "optional secsgem simulator not installed")
     def test_loopback_hsms_receives_only_approved_data_and_disconnects_safely(self):
-        result = self.report["connectivity"]
+        result = self.proof["connectivity"]
         self.assertEqual("PASS", result["status"])
         self.assertEqual("SYNTHETIC", result["DataOrigin"])
         for field in ("unmapped_signals_rejected", "malformed_values_rejected", "rejected_reports_store_unchanged",
@@ -159,7 +164,7 @@ class FullPocTests(unittest.TestCase):
             self.assertTrue(result[field])
         self.assertEqual("UNKNOWN", result["current_health_after_loss"])
         self.assertEqual("INVALID", result["telemetry_after_loss"])
-        self.assertEqual(["S6F12", "SELECT_RSP"], result["sent_by_fleet_command"])
+        self.assertEqual(["S6F12", "SELECT_RSP"], result["sent_by_host"])
         self.assertEqual(0, result["equipment_control_messages"])
         self.assertEqual(0, result["operational_ticket_count"])
 
@@ -184,9 +189,9 @@ class FullPocTests(unittest.TestCase):
 
     def test_all_frozen_science_and_external_result_bytes_are_unchanged(self):
         self.assertEqual("PASS", frozen_lineage()["status"])
-        self.assertFalse(self.report["evidence_lineage"]["external_data_used_for_operational_model"])
+        self.assertFalse(self.report["external_scientific_evidence"]["external_data_used_for_operational_model"])
         self.assertEqual("4148cccf463e8806b2748715f7bd68784941121fc0157a3cc113f47ba8a4be2f",
-                         self.report["evidence_lineage"]["external_evidence_artifact_sha256"])
+                         self.report["external_scientific_evidence"]["external_evidence_artifact_sha256"])
         from osat_edge.roadmap.post_steps.post04_real_data_evaluation.core.evidence_lifecycle import evaluator_source_sha256
         pin = json.loads((PROJECT_ROOT / "osat_edge/roadmap/post_steps/post04_real_data_evaluation/resources/0.2.6-reproducer.json").read_bytes())
         self.assertEqual(evaluator_source_sha256(), pin["evaluator_sha256"])
@@ -202,6 +207,6 @@ class FullPocTests(unittest.TestCase):
         with patch.object(lifecycle, "evaluator_source_sha256", return_value="0" * 64), \
              patch.object(lifecycle, "current_real_data_evidence_record", return_value=frozen), \
              patch.object(lifecycle, "deterministic_scientific_sha256", return_value=frozen["deterministic_comparison_report_sha256"]), \
-             patch("osat_edge.roadmap.post_steps.post04_real_data_evaluation.post04_real_data_evaluation.evaluate_all_real_data", return_value=report):
+             patch("osat_edge.roadmap.post_steps.post04_real_data_evaluation.evaluation.evaluate_all_real_data", return_value=report):
             with self.assertRaisesRegex(lifecycle.RealDataEvaluationError, "approved frozen-experiment reproducer"):
                 lifecycle.verify_committed_real_data_evidence(PROJECT_ROOT / "benchmarks/_external")

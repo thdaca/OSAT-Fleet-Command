@@ -5,7 +5,7 @@ import unittest
 
 import numpy as np
 
-from osat_edge.roadmap.steps.step01_physics_library.step01_physics_library import (
+from osat_edge.roadmap.steps.step01_physics_library.library import (
     ALL_MACHINE_FAMILIES,
     INTERCEPT,
     PHYSICS_RELATIONS,
@@ -34,7 +34,7 @@ from osat_edge.roadmap.steps.step01_physics_library.step01_physics_library impor
     residual_diagnostics,
     validate_relation_calibration,
 )
-from osat_edge.roadmap.steps.step03_physical_residuals.step03_physical_residuals import (
+from osat_edge.roadmap.steps.step03_physical_residuals.residuals import (
     calculate_physical_residuals,
     fit_relation_parameters,
 )

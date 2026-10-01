@@ -6,12 +6,12 @@ import time
 from typing import Any, Mapping, Sequence
 import zipfile
 import numpy as np
-from ....pre_steps.pre01_common.pre01_common import EquipmentState, MachineIdentity
-from ....steps.step02_physical_features.step02_physical_features import Feature, FeatureSet
-from ....steps.step07_machine_model.step07_machine_model import evaluate_machine_model_numerically
-from ....pre_steps.pre03_data_provenance.pre03_data_provenance import sha256_file as _sha256_file
+from ....pre_steps.pre01_common.contracts import EquipmentState, MachineIdentity
+from ....steps.step02_physical_features.features import Feature, FeatureSet
+from ....steps.step07_machine_model.model import evaluate_machine_model_numerically
+from ....pre_steps.pre03_data_provenance.provenance import sha256_file as _sha256_file
 from ..core.dataset_context import RealDataEvaluationError, RealDataNotFound, _base_report, _unverified_input
-from ..core.metrics import _binary_threshold_metrics, _continuous_binary_metrics, _score_distribution
+from ...metrics import _binary_threshold_metrics, _continuous_binary_metrics, _score_distribution
 from ..core.model_bridge import _fit_nominal_benchmark_model
 ST_AWFD_SOURCE_COMMIT = "54be5cc91b83615240710bda9745f51c984d10c5"
 ST_AWFD_LICENSE = "CC BY-NC-SA 4.0"

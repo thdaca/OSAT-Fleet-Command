@@ -5,8 +5,8 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from osat_edge.roadmap.pre_steps.pre01_common.pre01_common import DataOrigin
-from osat_edge.roadmap.pre_steps.pre03_data_provenance.pre03_data_provenance import (
+from osat_edge.roadmap.pre_steps.pre01_common.contracts import DataOrigin
+from osat_edge.roadmap.pre_steps.pre03_data_provenance.provenance import (
     OsatProvenanceBasis,
     ProvenanceError,
     RealOsatChannelMapping,

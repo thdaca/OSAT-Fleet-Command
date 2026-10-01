@@ -2,7 +2,7 @@
 from __future__ import annotations
 from pathlib import Path
 import zipfile
-from ....pre_steps.pre03_data_provenance.pre03_data_provenance import (
+from ....pre_steps.pre03_data_provenance.provenance import (
     legacy_external_directory_hash as _directory_hash,
     legacy_external_named_content_hash as _named_content_hash,
     sha256_file as _sha256_file,

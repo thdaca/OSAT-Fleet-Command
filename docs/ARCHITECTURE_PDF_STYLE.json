@@ -1,0 +1,28 @@
+{
+  "software_version": "0.2.6",
+  "document_edition": "4",
+  "reviewed_on": "2026-09-30",
+  "title": "OSAT SemiGuard",
+  "subtitle": "Architecture & Version History",
+  "output_name": "OSAT_SemiGuard_Architecture.pdf",
+  "page_size": "US Letter",
+  "margins_points": 48,
+  "font_family": "ReportLab bundled Bitstream Vera",
+  "code_font": "Courier-Bold, 9 points",
+  "body_font_points": 10.5,
+  "body_leading_points": 14.6,
+  "heading_font_points": 23,
+  "subheading_font_points": 12.1,
+  "footer_font_points": 8.4,
+  "colors": {
+    "ink": "#17202A",
+    "navy": "#10243A",
+    "teal": "#00594F",
+    "paper": "#FFFFFF",
+    "pale": "#EFF4F7",
+    "line": "#BAC6CF"
+  },
+  "layout": "Cover, clickable contents, sequential reader chapters with stable internal section IDs, stage catalog in numerical order, execution walkthroughs, cumulative changelog at the end.",
+  "quality": "Selectable text, embedded fonts, native vector diagrams, visible text labels, bookmarks, readable tables, full-page render inspection.",
+  "maintenance": "Preserve unaffected section text, IDs and visual style. Update current-version metadata and only affected content; append changelog entries. Reflow only when needed."
+}

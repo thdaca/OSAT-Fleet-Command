@@ -1,4 +1,4 @@
-"""Build and validate the portable OSAT Fleet Command release archive."""
+"""Build and validate the portable OSAT SemiGuard release archive."""
 
 from __future__ import annotations
 
@@ -64,7 +64,8 @@ def release_files(project_root: Path) -> tuple[Path, ...]:
         raise ReleaseArchiveError(f"Release root is missing required entries: {missing}")
 
     candidates = [*(root / name for name in REQUIRED_ROOT_FILES)]
-    candidates.extend(path for path in (root / "osat_edge").rglob("*") if path.is_file())
+    for directory in (root / "osat_edge", root / "docs"):
+        candidates.extend(path for path in directory.rglob("*") if path.is_file())
     included = []
     for path in candidates:
         relative = PurePosixPath(*path.relative_to(root).parts)
@@ -165,7 +166,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--project-root", type=Path, default=default_root)
     parser.add_argument("--output", type=Path)
     arguments = parser.parse_args(argv)
-    output = arguments.output or arguments.project_root.resolve().parent / "0.2.6 (snapshot 1).zip"
+    output = arguments.output or arguments.project_root.resolve().parent / "snapshots" / "0.2.6 (snapshot 2).zip"
     members = build_release_archive(arguments.project_root, output)
     print(
         json.dumps(

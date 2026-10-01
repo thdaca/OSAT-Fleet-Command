@@ -7,7 +7,7 @@ import unittest
 
 import numpy as np
 
-from osat_edge.roadmap.steps.step01_physics_library import step01_physics_library as physics
+from osat_edge.roadmap.steps.step01_physics_library import library as physics
 from osat_edge.roadmap.steps.step01_physics_library.core.research_tools import (
     deterministic_factorial_design,
     spindle_residual_symbolic_identity_holds,

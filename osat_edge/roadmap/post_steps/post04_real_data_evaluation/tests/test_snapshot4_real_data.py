@@ -11,24 +11,32 @@ import zipfile
 
 import numpy as np
 
-from osat_edge.roadmap.post_steps.post04_real_data_evaluation.post04_real_data_evaluation import (
+from osat_edge.roadmap.post_steps.post04_real_data_evaluation.core.evidence_lifecycle import (
     CURRENT_EVIDENCE_PATH,
-    DEFAULT_EXTERNAL_DATA_ROOT,
     HISTORICAL_EVIDENCE_SHA256,
     HISTORICAL_EVIDENCE_PATH,
-    KEYENCE_PARSER_COMMIT,
-    ST_AWFD_SPECS,
-    ST_THRESHOLD_PROBES,
-    TUHH_FEED_FILES,
-    RealDataEvaluationError,
-    _st_feature_sets_for_step,
-    _st_identity,
-    _surface_statistics,
-    _validate_st_awfd_matrix,
-    evaluate_real_dataset,
     verify_historical_real_data_artifact,
 )
-from osat_edge.roadmap.steps.step09_health_risk.step09_health_risk import (
+from osat_edge.roadmap.post_steps.post04_real_data_evaluation.core.dataset_context import (
+    DEFAULT_EXTERNAL_DATA_ROOT,
+    RealDataEvaluationError,
+)
+from osat_edge.roadmap.post_steps.post04_real_data_evaluation.datasets.tuhh_dad3350 import (
+    KEYENCE_PARSER_COMMIT,
+    TUHH_FEED_FILES,
+    _surface_statistics,
+)
+from osat_edge.roadmap.post_steps.post04_real_data_evaluation.datasets.st_awfd import (
+    ST_AWFD_SPECS,
+    ST_THRESHOLD_PROBES,
+    _st_feature_sets_for_step,
+    _st_identity,
+    _validate_st_awfd_matrix,
+)
+from osat_edge.roadmap.post_steps.post04_real_data_evaluation.evaluation import (
+    evaluate_real_dataset,
+)
+from osat_edge.roadmap.steps.step09_health_risk.health import (
     CRITICAL_ENTRY,
     DEGRADED_ENTRY,
     WATCH_ENTRY,

@@ -8,9 +8,9 @@ import time
 from typing import Any
 import zipfile
 import numpy as np
-from ....pre_steps.pre03_data_provenance.pre03_data_provenance import md5_file as _md5_file, sha256_file as _sha256_file
+from ....pre_steps.pre03_data_provenance.provenance import md5_file as _md5_file, sha256_file as _sha256_file
 from ..core.dataset_context import RealDataEvaluationError, RealDataNotFound, _base_report, _unverified_input
-from ..core.metrics import _spearman
+from ...metrics import _spearman
 TUHH_DATA_ARCHIVE_SHA256 = "8dc6cd61c837100a0e5e9b7877e6b6c7e5bbde2f70e08017d48c4f0577125dca"
 TUHH_DATA_ARCHIVE_MD5 = "e559d1736e23898b9d29e85b7f0ab3ed"
 TUHH_README_SHA256 = "fdb9112d2061afef6b3af38647ef3ec10729983f9b159a978e7a5adc5d97715f"

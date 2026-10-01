@@ -1,0 +1,14 @@
+{
+  "baseline": "0.2.6 Snapshot 1",
+  "baseline_archive_sha256": "b610003d3313e31b6aea322051efb3ba4716739dc3e702b0fcb37c144461e8aa",
+  "captured_before_refactoring": true,
+  "scope": "185 complete fleet ticks (9 machines), demo/replay payloads, PoC decisions, 27 dashboard views (9 families x healthy/fault/disconnected)",
+  "excluded_fields": "PoC snapshot, report_sha256, implementation_identity and evidence_lineage; only the changing wall clock is excluded from UI labels",
+  "behavior_sha256": {
+    "fleet_185_ticks_all_fields": "f96fed5ac28e249bb18aaf0e60d28996b2391a7df1d3691c2219c746dfcf4610",
+    "demo": "8a0e074f2a465ff8903ec9d2d27d27f1827ba7780468a8c9f4354183a7bee217",
+    "reference_replay": "dbe08d311e1f56c314983493dcaf8199b33cfa99b59762be3cd8dbed26f541a9",
+    "poc_decisions": "89ec6b680f012cbb0d6953c6a11c4f42206d652bedc03912a11cd9b64696f2e0",
+    "ui_27_machine_views": "ccec363e99fb2cbf3f9f7fe9e14869766fdb0bad31380ff2df926b11d5134aa0"
+  }
+}

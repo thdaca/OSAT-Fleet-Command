@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 import unittest
 
-from osat_edge.roadmap.pre_steps.pre01_common.pre01_common import DataOrigin
-from osat_edge.roadmap.steps.step01_physics_library import step01_physics_library as physics
+from osat_edge.roadmap.pre_steps.pre01_common.contracts import DataOrigin
+from osat_edge.roadmap.steps.step01_physics_library import library as physics
 
 
 FAMILIES = (

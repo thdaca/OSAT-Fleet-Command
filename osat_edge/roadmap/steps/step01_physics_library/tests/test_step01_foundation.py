@@ -14,7 +14,7 @@ import unittest
 
 import numpy as np
 
-from osat_edge.roadmap.steps.step01_physics_library import step01_physics_library as physics
+from osat_edge.roadmap.steps.step01_physics_library import library as physics
 
 EXPECTED_PUBLIC_API = (
     "ALL_MACHINE_FAMILIES",
@@ -251,7 +251,7 @@ def guarded_import(name, *args, **kwargs):
     return original_import(name, *args, **kwargs)
 builtins.__import__ = guarded_import
 import osat_edge.pipeline
-import osat_edge.roadmap.steps.step01_physics_library.step01_physics_library
+import osat_edge.roadmap.steps.step01_physics_library.library
 """
         completed = subprocess.run(
             [sys.executable, "-c", code],
@@ -366,7 +366,6 @@ import osat_edge.roadmap.steps.step01_physics_library.step01_physics_library
                 ("final_test", ("final_test.contact_resistance", "final_test.handler_motor_signature_consistency")),
             ),
         )
-
 
 
 if __name__ == "__main__":

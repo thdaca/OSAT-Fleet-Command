@@ -10,13 +10,17 @@ import sys
 import tempfile
 import unittest
 
-from osat_edge.roadmap.pre_steps.pre01_common.pre01_common import VERSION, utc
-from osat_edge.roadmap.post_steps.post02_reference_replay.post02_reference_replay import DEFAULT_REFERENCE_DIRECTORY
-from osat_edge.roadmap.post_steps.post04_real_data_evaluation.post04_real_data_evaluation import (
+from osat_edge.roadmap.pre_steps.pre01_common.contracts import VERSION, utc
+from osat_edge.roadmap.post_steps.post02_reference_replay.artifact import (
+    DEFAULT_REFERENCE_DIRECTORY,
+)
+from osat_edge.roadmap.post_steps.post04_real_data_evaluation.core.evidence_lifecycle import (
     COMMITTED_EVIDENCE_PATH,
+)
+from osat_edge.roadmap.post_steps.post04_real_data_evaluation.core.dataset_context import (
     DEFAULT_EXTERNAL_DATA_ROOT,
 )
-from osat_edge.roadmap.steps.step11b_oem_manuals.step11b_oem_manuals import DEFAULT_MANUALS_PATH
+from osat_edge.roadmap.steps.step11b_oem_manuals.manuals import DEFAULT_MANUALS_PATH
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[5]
@@ -27,6 +31,7 @@ REQUIRED_ROOT_ENTRIES = {
     "STUDENT_GUIDE.md",
     "requirements.txt",
     "osat_edge",
+    "docs",
 }
 OPTIONAL_LOCAL_ROOT_ENTRIES = {".artifacts", ".venv", "benchmarks"}
 PERMITTED_ROOT_METADATA = {".git"}
@@ -54,22 +59,11 @@ class SecurityPortabilityTests(unittest.TestCase):
             any("_assets" in path.name for path in package_root.rglob("*")),
             "Stage assets must live directly under their owning stage folder",
         )
-        for obsolete_root in ("config", "docs", "examples", "knowledge", "tests", "tools"):
+        for obsolete_root in ("config", "examples", "knowledge", "tests", "tools"):
             self.assertFalse(
                 (ROOT / obsolete_root).exists(),
                 f"The obsolete root {obsolete_root}/ must not be recreated",
             )
-        old = {
-            "artifacts.py", "baseline.py", "contracts.py", "data_quality.py",
-            "evaluation.py", "features.py", "health.py", "historical.py",
-            "ingestion.py", "maintenance.py", "offline.py", "physics.py",
-            "qualification.py", "rag.py", "registry.py", "risk.py", "runtime.py",
-            "simulation.py", "telemetry.py", "theme.py",
-            "common.py", "machines.py", "demo.py", "benchmark.py", "real_data.py",
-            "reference_replay.py", "ui.py",
-        }
-        present = {path.name for path in package_root.rglob("*.py")}
-        self.assertTrue(old.isdisjoint(present))
         stage_groups = {
             package_root / "roadmap" / "pre_steps": (
                 "pre01_common", "pre02_machine_registry", "pre03_data_provenance",
@@ -99,15 +93,15 @@ class SecurityPortabilityTests(unittest.TestCase):
                     if path.is_dir() and path.name != "__pycache__"
                 },
             )
-            self.assertEqual(["__init__.py"], sorted(path.name for path in parent.glob("*.py")))
+            shared = {"__init__.py", "metrics.py"} if parent.name == "post_steps" else {"__init__.py"}
+            self.assertEqual(shared, {path.name for path in parent.glob("*.py")})
             for stage in stages:
                 with self.subTest(stage=stage):
-                    self.assertTrue((parent / stage / f"{stage}.py").is_file())
                     self.assertTrue((parent / stage / "__init__.py").is_file())
-                    self.assertEqual(
-                        {"__init__.py", f"{stage}.py"},
-                        {path.name for path in (parent / stage).glob("*.py")},
-                    )
+                    self.assertTrue((parent / stage / "README.md").is_file())
+                    self.assertFalse((parent / stage / f"{stage}.py").exists())
+                    self.assertTrue(any(path.name != "__init__.py"
+                                        for path in (parent / stage).glob("*.py")))
         self.assertEqual("0.2.6", VERSION)
 
     def test_ignored_local_root_directories_are_optional(self) -> None:
@@ -161,7 +155,7 @@ class SecurityPortabilityTests(unittest.TestCase):
                 / "roadmap"
                 / "pre_steps"
                 / "pre02_machine_registry"
-                / "pre02_machine_registry.py"
+                / "registry.py"
             ],
             station_definitions,
         )

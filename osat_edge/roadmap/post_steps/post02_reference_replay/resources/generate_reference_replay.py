@@ -15,14 +15,14 @@ ROOT = Path(__file__).resolve().parents[5]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from osat_edge.roadmap.pre_steps.pre01_common.pre01_common import DataOrigin, RuntimeMode  # noqa: E402
-from osat_edge.roadmap.post_steps.post01_demo.post01_demo import (  # noqa: E402
+from osat_edge.roadmap.pre_steps.pre01_common.contracts import DataOrigin, RuntimeMode  # noqa: E402
+from osat_edge.roadmap.post_steps.post01_demo.demo import (  # noqa: E402
     _demo_identity,
-    _fit_demo_model,
+    fit_demo_model,
     _stable_center,
 )
-from osat_edge.roadmap.pre_steps.pre02_machine_registry.pre02_machine_registry import STATIONS  # noqa: E402
-from osat_edge.roadmap.steps.step01_physics_library.step01_physics_library import SPEED_HIGH  # noqa: E402
+from osat_edge.roadmap.pre_steps.pre02_machine_registry.registry import STATIONS  # noqa: E402
+from osat_edge.roadmap.steps.step01_physics_library.library import SPEED_HIGH  # noqa: E402
 
 
 OUTPUT = Path(__file__).resolve().parent
@@ -75,7 +75,7 @@ def generate(output_directory: str | Path = OUTPUT) -> None:
     output.mkdir(parents=True, exist_ok=True)
     station = STATIONS["wafer_saw"]
     identity = _demo_identity(station)
-    model = _fit_demo_model(identity, station)
+    model = fit_demo_model(identity, station)
     speed_high = model.physics_parameters["spindle.current_speed_residual"][SPEED_HIGH]
     external_ids = {
         spec.name: f"REF-{index:02d}-{spec.name.upper().replace('_', '-')}"

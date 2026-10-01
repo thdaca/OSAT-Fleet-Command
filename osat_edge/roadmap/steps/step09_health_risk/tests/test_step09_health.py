@@ -3,11 +3,22 @@ from __future__ import annotations
 import datetime as dt
 import unittest
 
-from osat_edge.roadmap.pre_steps.pre01_common.pre01_common import EquipmentState, HealthState, RuntimeMode
-from osat_edge.roadmap.pre_steps.pre02_machine_registry.pre02_machine_registry import STATIONS
-from osat_edge.roadmap.steps.step09_health_risk.step09_health_risk import HealthEngine, StateTracker
-from osat_edge.roadmap.steps.step08_live_telemetry.step08_live_telemetry import TelemetryStatus
-from osat_edge.roadmap.pre_steps.pre01_common.tests.support import NOW, good_status, identity, model_result
+from osat_edge.roadmap.pre_steps.pre01_common.contracts import (
+    EquipmentState,
+    HealthState,
+    RuntimeMode,
+)
+from osat_edge.roadmap.pre_steps.pre02_machine_registry.registry import STATIONS
+from osat_edge.roadmap.steps.step09_health_risk.health import HealthEngine, StateTracker
+from osat_edge.roadmap.steps.step08_live_telemetry.store import (
+    TelemetryStatus,
+)
+from osat_edge.roadmap.pre_steps.pre01_common.tests.support import (
+    NOW,
+    good_status,
+    identity,
+    model_result,
+)
 
 
 class HealthTests(unittest.TestCase):

@@ -5,17 +5,23 @@ from dataclasses import replace
 
 import numpy as np
 
-from osat_edge.roadmap.pre_steps.pre01_common.pre01_common import (
+from osat_edge.roadmap.pre_steps.pre01_common.contracts import (
     ChannelWindow,
     DataOrigin,
     EquipmentState,
     MachineIdentity,
 )
-from osat_edge.roadmap.pre_steps.pre02_machine_registry.pre02_machine_registry import STATIONS
-from osat_edge.roadmap.steps.step02_physical_features.step02_physical_features import Feature, FeatureSet
-from osat_edge.roadmap.steps.step04_family_data.step04_family_data import FamilyDataset, FamilySample, ObservedEvent
-from osat_edge.roadmap.steps.step07_machine_model.step07_machine_model import FeatureDeviation, MachineModelResult
-from osat_edge.roadmap.steps.step08_live_telemetry.step08_live_telemetry import TelemetryStatus
+from osat_edge.roadmap.pre_steps.pre02_machine_registry.registry import STATIONS
+from osat_edge.roadmap.steps.step02_physical_features.features import Feature, FeatureSet
+from osat_edge.roadmap.steps.step04_family_data.dataset import (
+    FamilyDataset,
+    FamilySample,
+    ObservedEvent,
+)
+from osat_edge.roadmap.steps.step07_machine_model.model import FeatureDeviation, MachineModelResult
+from osat_edge.roadmap.steps.step08_live_telemetry.store import (
+    TelemetryStatus,
+)
 
 
 NOW = dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc)

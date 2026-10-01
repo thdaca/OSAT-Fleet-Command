@@ -8,15 +8,27 @@ from unittest.mock import patch
 
 import numpy as np
 
-from osat_edge.roadmap.pre_steps.pre01_common.pre01_common import DataOrigin, EquipmentState, HealthState, OperatingContext, RuntimeMode, TelemetrySample, VERSION
-from osat_edge.roadmap.post_steps.post01_demo.post01_demo import create_demo_fleet, run_demo
-from osat_edge.roadmap.pre_steps.pre02_machine_registry.pre02_machine_registry import STATIONS
+from osat_edge.roadmap.pre_steps.pre01_common.contracts import (
+    DataOrigin,
+    EquipmentState,
+    HealthState,
+    OperatingContext,
+    RuntimeMode,
+    TelemetrySample,
+    VERSION,
+)
+from osat_edge.roadmap.post_steps.post01_demo.demo import create_demo_fleet, run_demo
+from osat_edge.roadmap.pre_steps.pre02_machine_registry.registry import STATIONS
 from osat_edge.pipeline import MachinePipeline
-from osat_edge.roadmap.steps.step01_physics_library.step01_physics_library import SPEED_HIGH, SPEED_LOW
-from osat_edge.roadmap.steps.step05_family_model.step05_family_model import FamilyModel
-from osat_edge.roadmap.steps.step11a_maintenance_db.step11a_maintenance_db import MaintenanceRepository
-from osat_edge.roadmap.steps.step15_maintenance_ticket.step15_maintenance_ticket import list_tickets
-from osat_edge.roadmap.steps.step08_live_telemetry.step08_live_telemetry import QueuedTelemetrySource, ReplayTelemetrySource, TelemetryBatch
+from osat_edge.roadmap.steps.step01_physics_library.library import SPEED_HIGH, SPEED_LOW
+from osat_edge.roadmap.steps.step05_family_model.model import FamilyModel
+from osat_edge.roadmap.steps.step11a_maintenance_db.repository import MaintenanceRepository
+from osat_edge.roadmap.steps.step15_maintenance_ticket.tickets import list_tickets
+from osat_edge.roadmap.steps.step08_live_telemetry.sources import (
+    QueuedTelemetrySource,
+    ReplayTelemetrySource,
+    TelemetryBatch,
+)
 from osat_edge.roadmap.pre_steps.pre01_common.tests.support import NOW, identity
 
 

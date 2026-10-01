@@ -4,8 +4,8 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Any, Mapping
-from ....pre_steps.pre01_common.pre01_common import DataOrigin, FROZEN_EXTERNAL_EVIDENCE_VERSION as VERSION
-from ....pre_steps.pre03_data_provenance.pre03_data_provenance import sha256_file as _sha256_file
+from ....pre_steps.pre01_common.contracts import DataOrigin, FROZEN_EXTERNAL_EVIDENCE_VERSION as VERSION
+from ....pre_steps.pre03_data_provenance.provenance import sha256_file as _sha256_file
 from .dataset_context import DATASET_ORDER, POST04_ROOT, RealDataEvaluationError
 from .reporting import deterministic_scientific_bytes, deterministic_scientific_sha256
 HISTORICAL_EVIDENCE_PATH = POST04_ROOT / "resources" / "0.2.4-real-data.json"
@@ -81,13 +81,14 @@ def snapshot4_result_sha256(result: Mapping[str, Any]) -> str:
 def evaluator_source_sha256() -> str:
     """Hash the complete organized POST04 implementation, excluding tests."""
     sources = [
-        POST04_ROOT / "post04_real_data_evaluation.py",
+        POST04_ROOT / "evaluation.py",
+        POST04_ROOT.parent / "metrics.py",
         *sorted((POST04_ROOT / "core").glob("*.py")),
         *sorted((POST04_ROOT / "datasets").glob("*.py")),
     ]
     digest = hashlib.sha256()
     for source in sources:
-        relative = source.relative_to(POST04_ROOT).as_posix().encode("utf-8")
+        relative = source.relative_to(POST04_ROOT.parent).as_posix().encode("utf-8")
         content = source.read_bytes()
         digest.update(len(relative).to_bytes(8, "big"))
         digest.update(relative)
@@ -259,7 +260,7 @@ def verify_committed_real_data_evidence(
             f"Committed real-data evidence is unavailable or invalid: {expected_path.name}"
         ) from exc
     evaluator_hash = evaluator_source_sha256()
-    from ..post04_real_data_evaluation import evaluate_all_real_data
+    from ..evaluation import evaluate_all_real_data
 
     regenerated = evaluate_all_real_data(external_root)
     report_hash = deterministic_scientific_sha256(regenerated)

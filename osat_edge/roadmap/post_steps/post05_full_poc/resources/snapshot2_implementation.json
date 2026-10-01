@@ -1,0 +1,11 @@
+{
+  "schema_version": "SNAPSHOT_IMPLEMENTATION_V1",
+  "release": "0.2.6 Snapshot 2",
+  "implementation_identity": {
+    "method": "CANONICAL_FILE_SET_SHA256_V2",
+    "file_count": 118,
+    "sha256": "20c3594c9cf5a31720a95300721fb7721a6dd51f583e4ba6f317cd4e0adf370b",
+    "meaning": "current source and input identity; not REAL_OSAT provenance or behavioral proof"
+  },
+  "verification": "Reviewed branding/report scope and restart proof checks; unchanged scientific source verified against accepted snapshot 2; fixed snapshot 1 digests remain unchanged."
+}

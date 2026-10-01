@@ -13,23 +13,33 @@ from unittest.mock import patch
 import numpy as np
 
 from osat_edge.ui.cli import main
-from osat_edge.roadmap.pre_steps.pre01_common.pre01_common import DataOrigin, EquipmentState, VERSION
-from osat_edge.roadmap.post_steps.post04_real_data_evaluation.post04_real_data_evaluation import (
+from osat_edge.roadmap.pre_steps.pre01_common.contracts import DataOrigin, EquipmentState, VERSION
+from osat_edge.roadmap.post_steps.post04_real_data_evaluation.core.evidence_lifecycle import (
     HISTORICAL_EVIDENCE_PATH,
+    current_real_data_evidence_record,
+    verify_committed_real_data_evidence,
+)
+from osat_edge.roadmap.post_steps.post04_real_data_evaluation.core.dataset_context import (
     DATASET_ORDER,
     DATASETS,
     RealDataEvaluationError,
+)
+from osat_edge.roadmap.post_steps.post04_real_data_evaluation.core.model_bridge import (
     _fit_nominal_benchmark_model,
+)
+from osat_edge.roadmap.post_steps.post04_real_data_evaluation.datasets.r2r import (
     _r2r_source_field_coverage,
-    current_real_data_evidence_record,
+)
+from osat_edge.roadmap.post_steps.post04_real_data_evaluation.evaluation import (
     evaluate_all_real_data,
     evaluate_real_dataset,
-    verify_committed_real_data_evidence,
+)
+from osat_edge.roadmap.post_steps.post04_real_data_evaluation.core.reporting import (
     write_real_data_report,
 )
-from osat_edge.roadmap.steps.step02_physical_features.step02_physical_features import Feature, FeatureSet
-from osat_edge.roadmap.steps.step06_machine_history.step06_machine_history import HealthyInterval, MachineHistory
-from osat_edge.roadmap.steps.step07_machine_model.step07_machine_model import fit_machine_model
+from osat_edge.roadmap.steps.step02_physical_features.features import Feature, FeatureSet
+from osat_edge.roadmap.steps.step06_machine_history.history import HealthyInterval, MachineHistory
+from osat_edge.roadmap.steps.step07_machine_model.model import fit_machine_model
 from osat_edge.roadmap.pre_steps.pre01_common.tests.support import identity
 
 
@@ -233,7 +243,7 @@ class RealDataEvaluationTests(unittest.TestCase):
             path = Path(directory) / "evidence.json"
             path.write_text(json.dumps(committed), encoding="utf-8")
             with patch(
-                "osat_edge.roadmap.post_steps.post04_real_data_evaluation.post04_real_data_evaluation.evaluate_all_real_data",
+                "osat_edge.roadmap.post_steps.post04_real_data_evaluation.evaluation.evaluate_all_real_data",
                 return_value=report,
             ):
                 verified = verify_committed_real_data_evidence(Path(directory), path)
@@ -287,7 +297,7 @@ class RealDataEvaluationTests(unittest.TestCase):
             path.read_text(encoding="utf-8")
             for path in sorted((root / "core").glob("*.py"))
             + sorted((root / "datasets").glob("*.py"))
-            + [root / "post04_real_data_evaluation.py"]
+            + [root / "evaluation.py"]
         )
         self.assertNotIn("step15_maintenance_ticket", source)
         self.assertNotIn("create_or_update_ticket", source)

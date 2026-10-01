@@ -2,20 +2,20 @@
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
-from ....pre_steps.pre01_common.pre01_common import DataOrigin, EquipmentState, MachineIdentity, RuntimeMode
-from ....pre_steps.pre02_machine_registry.pre02_machine_registry import STATIONS
-from ....steps.step01_physics_library.step01_physics_library import relations_for_family
-from ....steps.step02_physical_features.step02_physical_features import extract_physical_features
-from ....steps.step03_physical_residuals.step03_physical_residuals import calculate_physical_residuals, fit_relation_parameters
-from ....steps.step06_machine_history.step06_machine_history import HealthyInterval, MachineHistory
-from ....steps.step07_machine_model.step07_machine_model import fit_machine_model, evaluate_machine_model
-from ....steps.step07_machine_model.core.model_io import (
+from ....pre_steps.pre01_common.contracts import DataOrigin, EquipmentState, MachineIdentity, RuntimeMode
+from ....pre_steps.pre02_machine_registry.registry import STATIONS
+from ....steps.step01_physics_library.library import relations_for_family
+from ....steps.step02_physical_features.features import extract_physical_features
+from ....steps.step03_physical_residuals.residuals import calculate_physical_residuals, fit_relation_parameters
+from ....steps.step06_machine_history.history import HealthyInterval, MachineHistory
+from ....steps.step07_machine_model.model import fit_machine_model, evaluate_machine_model
+from ....steps.step07_machine_model.model_io import (
     VALIDATION_STATUS, canonical_bytes, identity_sha256, feature_contract, physics_identity,
     save_machine_model, load_machine_model,
 )
-from ....steps.step08_live_telemetry.step08_live_telemetry import BoundedTelemetryStore, FEATURE_WINDOW, assess_telemetry
-from ....steps.step09_health_risk.step09_health_risk import WATCH_ENTRY
-from ...post01_demo.post01_demo import SyntheticTelemetrySource, DEMO_START
+from ....steps.step08_live_telemetry.store import BoundedTelemetryStore, FEATURE_WINDOW, assess_telemetry
+from ....steps.step09_health_risk.health import WATCH_ENTRY
+from ...post01_demo.demo import SyntheticTelemetrySource, DEMO_START
 
 STATION = STATIONS["wafer_saw"]
 IDENTITY = MachineIdentity("POC-WS-01", STATION.family, STATION.station_id, STATION.name)

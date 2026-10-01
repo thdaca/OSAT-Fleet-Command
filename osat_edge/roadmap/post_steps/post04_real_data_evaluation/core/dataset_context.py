@@ -2,7 +2,7 @@
 from __future__ import annotations
 from pathlib import Path
 from typing import Any
-from ....pre_steps.pre01_common.pre01_common import DataOrigin, FROZEN_EXTERNAL_EVIDENCE_VERSION as VERSION
+from ....pre_steps.pre01_common.contracts import DataOrigin, FROZEN_EXTERNAL_EVIDENCE_VERSION as VERSION
 DATASET_ORDER = (
     "st-awfd-d1",
     "st-awfd-d2",

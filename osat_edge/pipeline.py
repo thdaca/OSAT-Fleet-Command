@@ -1,4 +1,4 @@
-"""Linear orchestrator that reads like the OSAT Fleet Command roadmap."""
+"""Linear orchestrator that reads like the OSAT SemiGuard roadmap."""
 
 from __future__ import annotations
 
@@ -7,42 +7,45 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Mapping, Sequence
 
-from .roadmap.pre_steps.pre01_common.pre01_common import (
+from .roadmap.pre_steps.pre01_common.contracts import (
+    ChannelWindow,
     DataOrigin,
     EquipmentState,
     HealthState,
     MachineIdentity,
     RuntimeMode,
 )
-from .roadmap.pre_steps.pre02_machine_registry.pre02_machine_registry import StationDefinition
-from .roadmap.steps.step02_physical_features.step02_physical_features import FeatureSet, extract_physical_features
-from .roadmap.steps.step03_physical_residuals.step03_physical_residuals import calculate_physical_residuals
-from .roadmap.steps.step05_family_model.step05_family_model import FamilyModel, score_family_model
-from .roadmap.steps.step07_machine_model.step07_machine_model import (
+from .roadmap.pre_steps.pre02_machine_registry.registry import StationDefinition
+from .roadmap.steps.step02_physical_features.features import FeatureSet, extract_physical_features
+from .roadmap.steps.step03_physical_residuals.residuals import calculate_physical_residuals
+from .roadmap.steps.step05_family_model.model import FamilyModel, score_family_model
+from .roadmap.steps.step07_machine_model.model import (
     MachineModel,
     MachineModelResult,
     evaluate_machine_model,
     validate_machine_model,
 )
-from .roadmap.steps.step08_live_telemetry.step08_live_telemetry import (
+from .roadmap.steps.step08_live_telemetry.store import (
     FEATURE_WINDOW,
     BoundedTelemetryStore,
+    TelemetryStatus,
+    assess_telemetry,
+)
+from .roadmap.steps.step08_live_telemetry.sources import (
     NoNewTelemetry,
     TelemetryError,
     TelemetrySecurityError,
     TelemetrySource,
     TelemetrySourceExhausted,
-    TelemetryStatus,
-    assess_telemetry,
 )
-from .roadmap.steps.step09_health_risk.step09_health_risk import HealthAssessment, HealthEngine
-from .roadmap.steps.step10_fault_evidence.step10_fault_evidence import FaultEvidence, build_fault_evidence
-from .roadmap.steps.step11a_maintenance_db.step11a_maintenance_db import MaintenanceRepository
-from .roadmap.steps.step11b_oem_manuals.step11b_oem_manuals import ManualChunk
-from .roadmap.steps.step12_rag.step12_rag import retrieve_rag_context
-from .roadmap.steps.step13_local_llm.step13_local_llm import generate_local_llm_json
-from .roadmap.steps.step14_json_validation.step14_json_validation import deterministic_fallback, validate_llm_json
-from .roadmap.steps.step15_maintenance_ticket.step15_maintenance_ticket import MaintenanceTicket, create_or_update_ticket
+from .roadmap.steps.step09_health_risk.health import HealthAssessment, HealthEngine
+from .roadmap.steps.step10_fault_evidence.evidence import FaultEvidence, build_fault_evidence
+from .roadmap.steps.step11a_maintenance_db.repository import MaintenanceRepository
+from .roadmap.steps.step11b_oem_manuals.manuals import ManualChunk
+from .roadmap.steps.step12_rag.retrieval import retrieve_rag_context
+from .roadmap.steps.step13_local_llm.llm import generate_local_llm_json
+from .roadmap.steps.step14_json_validation.validation import deterministic_fallback, validate_llm_json
+from .roadmap.steps.step15_maintenance_ticket.tickets import MaintenanceTicket, create_or_update_ticket
 
 
 @dataclass(frozen=True)
@@ -133,45 +136,11 @@ class MachinePipeline:
         self.store.append_batch(batch)
         return max(timestamps)
 
-    def tick(self, *, wall_now: dt.datetime | None = None) -> PipelineResult | None:
-        if not self.monitored:
-            return None
-        ingestion_issue: str | None = None
-        try:
-            source_now = self._poll()
-            now = (
-                wall_now or dt.datetime.now(dt.timezone.utc)
-                if self.source.runtime_mode is RuntimeMode.LIVE_EQUIPMENT
-                else source_now
-            )
-        except NoNewTelemetry:
-            now = wall_now or dt.datetime.now(dt.timezone.utc)
-        except TelemetrySourceExhausted:
-            return None
-        except (TelemetryError, TelemetrySecurityError) as exc:
-            if self.source.runtime_mode is not RuntimeMode.LIVE_EQUIPMENT:
-                raise
-            now = wall_now or dt.datetime.now(dt.timezone.utc)
-            ingestion_issue = f"live ingestion rejected: {exc}"
-
-        windows = self.store.windows(
-            [channel.name for channel in self.station.channels],
-            end=now,
-            duration=FEATURE_WINDOW,
-        )
-        status = assess_telemetry(self.store, now=now, windows=windows)
-        if ingestion_issue is not None:
-            status = TelemetryStatus(
-                valid=False,
-                observable=False,
-                usable_channels=status.usable_channels,
-                issues=(ingestion_issue, *status.issues),
-            )
-        context = self.store.latest_context(now)
-        equipment_state = (
-            context.equipment_state if context is not None else EquipmentState.UNKNOWN
-        )
-
+    def _analyze(
+        self, windows: Mapping[str, ChannelWindow], status: TelemetryStatus,
+        equipment_state: EquipmentState, now: dt.datetime,
+    ) -> tuple[FeatureSet | None, MachineModelResult | None, float | None]:
+        """Invalid, unobservable or uncalibrated input remains unavailable."""
         feature_set: FeatureSet | None = None
         machine_result: MachineModelResult | None = None
         family_risk: float | None = None
@@ -215,15 +184,12 @@ class MachinePipeline:
                         runtime_mode=self.source.runtime_mode,
                     )
 
-        assessment = self.health.assess(
-            status,
-            machine_result,
-            timestamp=now,
-            runtime_mode=self.source.runtime_mode,
-            equipment_state=equipment_state,
-            family_risk_score=family_risk,
-        )
-        fault_evidence = build_fault_evidence(assessment)
+        return feature_set, machine_result, family_risk
+
+    def _maintenance_ticket(
+        self, assessment: HealthAssessment, fault_evidence: FaultEvidence | None,
+    ) -> MaintenanceTicket | None:
+        """Retrieval/LLM failures cannot erase a deterministic eligible ticket."""
         ticket = None
         ticket_evidence = (
             self._ticket_evidence(fault_evidence)
@@ -255,6 +221,63 @@ class MachinePipeline:
                 ticket = create_or_update_ticket(
                     self.repository, ticket_evidence, enrichment
                 )
+        return ticket
+
+    def tick(self, *, wall_now: dt.datetime | None = None) -> PipelineResult | None:
+        if not self.monitored:
+            return None
+        ingestion_issue: str | None = None
+        try:
+            source_now = self._poll()
+            now = (
+                wall_now or dt.datetime.now(dt.timezone.utc)
+                if self.source.runtime_mode is RuntimeMode.LIVE_EQUIPMENT
+                else source_now
+            )
+        except NoNewTelemetry:
+            now = wall_now or dt.datetime.now(dt.timezone.utc)
+        except TelemetrySourceExhausted:
+            return None
+        except (TelemetryError, TelemetrySecurityError) as exc:
+            if self.source.runtime_mode is not RuntimeMode.LIVE_EQUIPMENT:
+                raise
+            now = wall_now or dt.datetime.now(dt.timezone.utc)
+            ingestion_issue = f"live ingestion rejected: {exc}"
+
+        # STEP 08: independent streams become quality-checked windows.
+        windows = self.store.windows(
+            [channel.name for channel in self.station.channels],
+            end=now,
+            duration=FEATURE_WINDOW,
+        )
+        status = assess_telemetry(self.store, now=now, windows=windows)
+        if ingestion_issue is not None:
+            status = TelemetryStatus(
+                valid=False,
+                observable=False,
+                usable_channels=status.usable_channels,
+                issues=(ingestion_issue, *status.issues),
+            )
+        context = self.store.latest_context(now)
+        equipment_state = (
+            context.equipment_state if context is not None else EquipmentState.UNKNOWN
+        )
+
+        # STEPS 02–07: feature evidence and optional model scores.
+        feature_set, machine_result, family_risk = self._analyze(windows, status, equipment_state, now)
+
+        # STEPS 09–10: deterministic state, then structured fault evidence.
+        assessment = self.health.assess(
+            status,
+            machine_result,
+            timestamp=now,
+            runtime_mode=self.source.runtime_mode,
+            equipment_state=equipment_state,
+            family_risk_score=family_risk,
+        )
+        fault_evidence = build_fault_evidence(assessment)
+        # STEPS 11–15: deterministic ticket first, then optional validated wording.
+        ticket = self._maintenance_ticket(assessment, fault_evidence)
         result = PipelineResult(
             assessment=assessment,
             fault_evidence=fault_evidence,

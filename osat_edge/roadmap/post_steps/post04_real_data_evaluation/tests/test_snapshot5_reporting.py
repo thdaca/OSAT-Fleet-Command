@@ -9,16 +9,20 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 
-from osat_edge.roadmap.post_steps.post04_real_data_evaluation.post04_real_data_evaluation import (
+from osat_edge.roadmap.post_steps.post04_real_data_evaluation.core.evidence_lifecycle import (
     CURRENT_EVIDENCE_PATH,
-    DEFAULT_EXTERNAL_DATA_ROOT,
     SNAPSHOT4_EVIDENCE_ARTIFACT_SHA256,
     SNAPSHOT4_SCIENTIFIC_PAYLOAD_SHA256,
     THIRD_PARTY_DATA_USE_PATH,
     current_real_data_evidence_record,
-    evaluate_all_real_data,
     snapshot4_result_sha256,
     snapshot4_scientific_payload_sha256,
+)
+from osat_edge.roadmap.post_steps.post04_real_data_evaluation.core.dataset_context import (
+    DEFAULT_EXTERNAL_DATA_ROOT,
+)
+from osat_edge.roadmap.post_steps.post04_real_data_evaluation.evaluation import (
+    evaluate_all_real_data,
 )
 
 
@@ -69,10 +73,10 @@ class Snapshot5ReportingTests(unittest.TestCase):
     )
     def test_live_external_reproduction_never_fits_family_or_runs_health(self) -> None:
         forbidden_calls = (
-            "osat_edge.roadmap.steps.step05_family_model.step05_family_model.fit_family_model",
-            "osat_edge.roadmap.steps.step05_family_model.step05_family_model.FamilyModel.__post_init__",
-            "osat_edge.roadmap.steps.step09_health_risk.step09_health_risk.HealthEngine.assess",
-            "osat_edge.roadmap.steps.step09_health_risk.step09_health_risk.StateTracker.update",
+            "osat_edge.roadmap.steps.step05_family_model.model.fit_family_model",
+            "osat_edge.roadmap.steps.step05_family_model.model.FamilyModel.__post_init__",
+            "osat_edge.roadmap.steps.step09_health_risk.health.HealthEngine.assess",
+            "osat_edge.roadmap.steps.step09_health_risk.health.StateTracker.update",
         )
         with ExitStack() as stack:
             for target in forbidden_calls:
@@ -167,10 +171,10 @@ class Snapshot5ReportingTests(unittest.TestCase):
 
     def test_post04_public_module_is_thin_and_dataset_owned(self) -> None:
         root = Path(__file__).resolve().parents[1]
-        public = root / "post04_real_data_evaluation.py"
+        public = root / "evaluation.py"
         self.assertLess(len(public.read_text(encoding="utf-8").splitlines()), 200)
         for relative in (
-            "core/metrics.py",
+            "../metrics.py",
             "core/evidence_lifecycle.py",
             "core/reporting.py",
             "datasets/st_awfd.py",

@@ -4,9 +4,9 @@ from pathlib import Path
 import sys
 from dataclasses import asdict
 
-from ....pre_steps.pre01_common.pre01_common import RuntimeMode
-from ....steps.step07_machine_model.core.model_io import load_machine_model
-from ....steps.step11a_maintenance_db.step11a_maintenance_db import MaintenanceRepository
+from ....pre_steps.pre01_common.contracts import RuntimeMode
+from ....steps.step07_machine_model.model_io import load_machine_model
+from ....steps.step11a_maintenance_db.repository import MaintenanceRepository
 from .onboarding import IDENTITY
 from .operational import make_pipeline, monitoring_run
 

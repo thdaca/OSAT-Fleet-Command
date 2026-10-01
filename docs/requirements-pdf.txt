@@ -1,0 +1,2 @@
+# Documentation authoring only. Never add this dependency to runtime requirements.
+reportlab==4.4.9

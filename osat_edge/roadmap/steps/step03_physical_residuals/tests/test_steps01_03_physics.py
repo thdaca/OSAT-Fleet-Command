@@ -5,11 +5,15 @@ import unittest
 
 import numpy as np
 
-from osat_edge.roadmap.pre_steps.pre01_common.pre01_common import EquipmentState
-from osat_edge.roadmap.pre_steps.pre02_machine_registry.pre02_machine_registry import STATIONS
-from osat_edge.roadmap.steps.step01_physics_library.step01_physics_library import SLOPE, relations_for_family
-from osat_edge.roadmap.steps.step02_physical_features.step02_physical_features import Feature, extract_physical_features, robust_slope
-from osat_edge.roadmap.steps.step03_physical_residuals.step03_physical_residuals import (
+from osat_edge.roadmap.pre_steps.pre01_common.contracts import EquipmentState
+from osat_edge.roadmap.pre_steps.pre02_machine_registry.registry import STATIONS
+from osat_edge.roadmap.steps.step01_physics_library.library import SLOPE, relations_for_family
+from osat_edge.roadmap.steps.step02_physical_features.features import (
+    Feature,
+    extract_physical_features,
+    robust_slope,
+)
+from osat_edge.roadmap.steps.step03_physical_residuals.residuals import (
     align_overlapping_windows,
     calculate_physical_residuals,
     fit_relation_parameters,

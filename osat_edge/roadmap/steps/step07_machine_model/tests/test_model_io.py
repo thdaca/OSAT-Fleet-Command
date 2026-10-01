@@ -8,10 +8,19 @@ import unittest
 
 import numpy as np
 
-from osat_edge.roadmap.pre_steps.pre01_common.pre01_common import DataOrigin, EquipmentState, MachineIdentity, RuntimeMode
-from osat_edge.roadmap.steps.step02_physical_features.step02_physical_features import Feature, FeatureSet
-from osat_edge.roadmap.steps.step07_machine_model.step07_machine_model import ContextModel, MachineModel, evaluate_machine_model
-from osat_edge.roadmap.steps.step07_machine_model.core.model_io import (
+from osat_edge.roadmap.pre_steps.pre01_common.contracts import (
+    DataOrigin,
+    EquipmentState,
+    MachineIdentity,
+    RuntimeMode,
+)
+from osat_edge.roadmap.steps.step02_physical_features.features import Feature, FeatureSet
+from osat_edge.roadmap.steps.step07_machine_model.model import (
+    ContextModel,
+    MachineModel,
+    evaluate_machine_model,
+)
+from osat_edge.roadmap.steps.step07_machine_model.model_io import (
     MachineModelArtifactError, VALIDATION_STATUS, canonical_bytes, feature_contract,
     identity_sha256, physics_identity, save_machine_model, load_machine_model,
 )
